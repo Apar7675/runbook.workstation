@@ -1,0 +1,1330 @@
+<Window x:Class="RunBook.Workstation.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="RunBook Workstation" Width="1440" Height="920" MinWidth="1200" MinHeight="780"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource ShellBg}"
+        PreviewKeyDown="Window_OnPreviewKeyDown" SnapsToDevicePixels="True" UseLayoutRounding="True">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </Window.Resources>
+    <Grid>
+        <Grid.Background>
+            <ImageBrush ImageSource="pack://application:,,,/Assets/Images/chatgpt_space_bg.png"
+                        Stretch="UniformToFill"
+                        AlignmentX="Center"
+                        AlignmentY="Center"/>
+        </Grid.Background>
+        <Rectangle IsHitTestVisible="False" Opacity="0.14" Fill="#0E1826"/>
+        <Border Margin="28" Style="{StaticResource ShellFrame}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="252"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Style="{StaticResource ShellSidebarSurface}">
+                    <Grid Margin="16">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="16"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="12"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="12"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="12"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Image Source="pack://application:,,,/Assets/Images/logo.png"
+                               Width="176"
+                               Height="40"
+                               Stretch="Uniform"
+                               HorizontalAlignment="Center"/>
+                        <Border Grid.Row="2" Style="{StaticResource ModuleCard}" Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="Workstation Identity" Style="{StaticResource H2}"/>
+                                <TextBlock Text="{Binding WorkstationIdentityLine}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding ConnectivityLine}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding AuthCacheStatus}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding OfflineStatus}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="4" Style="{StaticResource ModuleCard}" Padding="16"
+                                Visibility="{Binding ShowLoginPanel, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <StackPanel>
+                                <TextBlock Text="Supervisor Session" Style="{StaticResource H2}"/>
+                                <TextBlock Text="{Binding ControlSessionStatus}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                <TextBlock Text="Control Email" Style="{StaticResource Label}" Margin="0,12,0,6"/>
+                                <Border Style="{StaticResource GlowWrap}" Background="{StaticResource SurfaceDark}" Margin="0,0,0,8">
+                                    <TextBox Style="{StaticResource Box}" Background="#00000000" Text="{Binding SettingsControlEmail, UpdateSourceTrigger=PropertyChanged}"/>
+                                </Border>
+                                <TextBlock Text="Control Password" Style="{StaticResource Label}" Margin="0,2,0,6"/>
+                                <Border Style="{StaticResource GlowWrap}" Background="{StaticResource SurfaceDark}">
+                                    <PasswordBox x:Name="ControlPasswordBox"
+                                                 PasswordChanged="ControlPasswordBox_OnPasswordChanged"
+                                                 Padding="14,10"
+                                                 Foreground="{StaticResource Text}"
+                                                 Background="#00000000"
+                                                 BorderThickness="0"/>
+                                </Border>
+                                <TextBlock Text="Desktop Pairing Code" Style="{StaticResource Label}" Margin="0,12,0,6"/>
+                                <Border Style="{StaticResource GlowWrap}" Background="{StaticResource SurfaceDark}">
+                                    <TextBox Style="{StaticResource Box}"
+                                             Background="#00000000"
+                                             Text="{Binding SettingsPairingCode, UpdateSourceTrigger=PropertyChanged}"/>
+                                </Border>
+                                <TextBlock Text="Required only when enrolling, replacing, or re-enrolling this workstation with Desktop."
+                                           Style="{StaticResource Sub}"
+                                           Margin="0,6,0,0"
+                                           TextWrapping="Wrap"/>
+                                <StackPanel Margin="0,12,0,0">
+                                    <Button Content="Supervisor Sign In" Command="{Binding ConnectControlCommand}" Style="{StaticResource RB.Button.Primary}" Margin="0,0,0,10"/>
+                                    <Button Content="Clear Session" Command="{Binding DisconnectControlCommand}" Style="{StaticResource RB.Button.Ghost}" Margin="0,0,0,10"/>
+                                    <Button Content="Enroll / Refresh Registration" Command="{Binding RefreshRegistrationCommand}" Style="{StaticResource RB.Button.Ghost}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="6" Style="{StaticResource ModuleCard}" Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="Authorized Modules" Style="{StaticResource H2}"/>
+                                <TextBlock Text="{Binding SessionModulesLine}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                <ItemsControl ItemsSource="{Binding VisibleModules}" Margin="0,12,0,0" Visibility="{Binding ShowModulesShell, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Content="{Binding Title}"
+                                                    Command="{Binding DataContext.SelectModuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource RB.Button.Ghost}"
+                                                    Margin="0,0,0,10"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Grid.Row="8">
+                            <Button Content="Enroll / Refresh Registration" Command="{Binding RefreshRegistrationCommand}" Style="{StaticResource RB.Button.Ghost}" Margin="0,0,0,10"/>
+                            <Button Content="Workstation Settings" Command="{Binding OpenSettingsCommand}" Style="{StaticResource RB.Button.Ghost}" Margin="0,0,0,10"/>
+                            <Button Content="Log Out / Switch User" Command="{Binding LogoutCommand}" Style="{StaticResource RB.Button.Danger}"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <Border Grid.Column="1" Background="#12000000">
+                    <Grid Margin="22">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="12"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="12"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Border Grid.Row="0" Style="{StaticResource ModuleCard}" Padding="16,14">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="26"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="26"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Workstation" Style="{StaticResource Label}"/>
+                                    <TextBlock Text="{Binding WorkstationIdentityLine}" Foreground="{StaticResource Text}" FontSize="13" FontWeight="SemiBold"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="State" Style="{StaticResource Label}"/>
+                                    <TextBlock Text="{Binding SessionEmployeeName}" Foreground="{StaticResource Text}" FontSize="13" FontWeight="SemiBold"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Instruction" Style="{StaticResource Label}"/>
+                                    <TextBlock Text="Tap an employee and enter a 4 to 6 digit passcode to unlock workstation access."
+                                               Foreground="{StaticResource Muted2}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <ItemsControl Grid.Column="5"
+                                              ItemsSource="{Binding ConnectionStatuses}"
+                                              Margin="0,0,12,0"
+                                              VerticalAlignment="Center">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource ConnectionStatusPill}"
+                                                    Background="{Binding BackgroundColor}"
+                                                    BorderBrush="{Binding BorderColor}">
+                                                <Border.ToolTip>
+                                                    <ToolTip Style="{StaticResource StatusToolTipStyle}">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Label}"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{StaticResource Text}"/>
+                                                            <TextBlock Text="{Binding Reason}"
+                                                                       Margin="0,4,0,0"
+                                                                       MaxWidth="260"
+                                                                       TextWrapping="Wrap"
+                                                                       Foreground="{StaticResource Muted}"/>
+                                                            <TextBlock Text="{Binding DetailText}"
+                                                                       Margin="0,6,0,0"
+                                                                       FontSize="11"
+                                                                       Foreground="{StaticResource Muted2}"/>
+                                                        </StackPanel>
+                                                    </ToolTip>
+                                                </Border.ToolTip>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse Width="8" Height="8" Fill="{Binding DotColor}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <TextBlock Text="{Binding DisplayLabel}"
+                                                               Foreground="{StaticResource Text}"
+                                                               FontSize="11"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Border Grid.Column="6" Style="{StaticResource HeaderDateTimeCard}">
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding HeaderDateText}" Style="{StaticResource HeaderDateText}"/>
+                                        <TextBlock Text="{Binding HeaderTimeText}" Style="{StaticResource HeaderTimeText}"/>
+                                    </StackPanel>
+                                </Border>
+                                <Button Grid.Column="7" Content="Save Settings" Command="{Binding SaveSettingsCommand}" Style="{StaticResource RB.Button.Ghost}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                <Button Grid.Column="8" Content="Refresh Time Clock" Command="{Binding RefreshTimeClockCommand}" Style="{StaticResource RB.Button.Primary}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                        <Grid Grid.Row="2">
+                            <Grid Visibility="{Binding ShowLoginPanel, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Border Style="{StaticResource ModuleCard}" Padding="20,18,18,16">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="8"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Employee Roster" Foreground="{StaticResource Text}" FontSize="30" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding AuthCacheStatus}"
+                                                       Style="{StaticResource Sub}"
+                                                       FontSize="13"
+                                                       Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                        <ScrollViewer Grid.Row="2"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      HorizontalScrollBarVisibility="Disabled"
+                                                      CanContentScroll="False"
+                                                      Padding="0,0,6,0">
+                                            <ItemsControl ItemsSource="{Binding RosterEmployees}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal"
+                                                                   ItemWidth="170"
+                                                                   ItemHeight="140"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button Command="{Binding DataContext.OpenRosterEmployeeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                CommandParameter="{Binding}"
+                                                                Background="#00000000"
+                                                                BorderThickness="0"
+                                                                Padding="0"
+                                                                Margin="6,8"
+                                                                Cursor="Hand"
+                                                                FocusVisualStyle="{x:Null}">
+                                                            <StackPanel Width="158" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                <Border Width="68"
+                                                                        Height="68"
+                                                                        CornerRadius="34"
+                                                                        Background="{Binding AvatarBrush}"
+                                                                        BorderBrush="{Binding AccentBrush}"
+                                                                        BorderThickness="2"
+                                                                        HorizontalAlignment="Center">
+                                                                    <Border.Effect>
+                                                                        <DropShadowEffect BlurRadius="14" ShadowDepth="0" Color="#44000000"/>
+                                                                    </Border.Effect>
+                                                                    <Grid>
+                                                                        <Ellipse Margin="2">
+                                                                            <Ellipse.Fill>
+                                                                                <ImageBrush ImageSource="{Binding AvatarDisplayUrl}" Stretch="UniformToFill"/>
+                                                                            </Ellipse.Fill>
+                                                                            <Ellipse.Style>
+                                                                                <Style TargetType="Ellipse">
+                                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                    <Style.Triggers>
+                                                                                        <DataTrigger Binding="{Binding HasAvatarDisplayUrl}" Value="True">
+                                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                                        </DataTrigger>
+                                                                                    </Style.Triggers>
+                                                                                </Style>
+                                                                            </Ellipse.Style>
+                                                                        </Ellipse>
+                                                                        <TextBlock Text="{Binding Initials}"
+                                                                                   Foreground="White"
+                                                                                   FontSize="22"
+                                                                                   FontWeight="Bold"
+                                                                                   HorizontalAlignment="Center"
+                                                                                   VerticalAlignment="Center">
+                                                                            <TextBlock.Style>
+                                                                                <Style TargetType="TextBlock">
+                                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                                    <Style.Triggers>
+                                                                                        <DataTrigger Binding="{Binding HasAvatarDisplayUrl}" Value="True">
+                                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                        </DataTrigger>
+                                                                                    </Style.Triggers>
+                                                                                </Style>
+                                                                            </TextBlock.Style>
+                                                                        </TextBlock>
+                                                                    </Grid>
+                                                                </Border>
+                                                                <TextBlock Text="{Binding DisplayName}"
+                                                                           Foreground="{StaticResource Text}"
+                                                                           FontSize="13"
+                                                                           FontWeight="SemiBold"
+                                                                           TextAlignment="Center"
+                                                                           TextWrapping="Wrap"
+                                                                           Margin="0,8,0,0"
+                                                                           Width="112"
+                                                                           HorizontalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Grid>
+                                </Border>
+                                <Grid Visibility="{Binding IsPasscodeDialogOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Rectangle Fill="#8A07101A"/>
+                                    <Border MaxWidth="470"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            CornerRadius="28"
+                                            Padding="26"
+                                            Background="#F1142033"
+                                            BorderBrush="#4672A8D8"
+                                            BorderThickness="1">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="18"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="18"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="18"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <StackPanel>
+                                                <Border Width="78" Height="78" CornerRadius="39"
+                                                        Background="{Binding SelectedRosterEmployee.AvatarBrush}"
+                                                        BorderBrush="{Binding SelectedRosterEmployee.AccentBrush}"
+                                                        BorderThickness="3"
+                                                        HorizontalAlignment="Center">
+                                                    <Grid>
+                                                        <Ellipse Margin="2">
+                                                            <Ellipse.Fill>
+                                                                <ImageBrush ImageSource="{Binding SelectedRosterEmployee.AvatarDisplayUrl}" Stretch="UniformToFill"/>
+                                                            </Ellipse.Fill>
+                                                            <Ellipse.Style>
+                                                                <Style TargetType="Ellipse">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding SelectedRosterEmployee.HasAvatarDisplayUrl}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Ellipse.Style>
+                                                        </Ellipse>
+                                                        <TextBlock Text="{Binding SelectedRosterEmployee.Initials}"
+                                                                   Foreground="White"
+                                                                   FontSize="24"
+                                                                   FontWeight="Bold"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding SelectedRosterEmployee.HasAvatarDisplayUrl}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Grid>
+                                                </Border>
+                                                <TextBlock Text="{Binding PasscodeDialogTitle}" Foreground="{StaticResource Text}" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0"/>
+                                                <TextBlock Text="{Binding PasscodeDialogSubtitle}" Style="{StaticResource Sub}" FontSize="13" HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                                                <TextBlock Text="{Binding PasscodeDialogModuleSummary}" Foreground="{Binding SelectedRosterEmployee.AccentBrush}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                            </StackPanel>
+                                            <Border Grid.Row="2" CornerRadius="16" Padding="16,14" Background="#E20A1220" BorderBrush="{StaticResource BorderSoft}" BorderThickness="1">
+                                                <StackPanel>
+                                                    <TextBlock Text="Passcode" Style="{StaticResource Label}" HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                                                    <TextBlock Text="{Binding PasscodeMaskDisplay}" Foreground="{StaticResource Text}" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                                    <TextBlock Text="Enter 4 to 6 digits" Style="{StaticResource Sub}" FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <UniformGrid Grid.Row="4" Columns="3" Rows="4">
+                                                <Button Content="1" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="1" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,10"/>
+                                                <Button Content="2" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="2" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,10"/>
+                                                <Button Content="3" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="3" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,0,10"/>
+                                                <Button Content="4" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="4" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,10"/>
+                                                <Button Content="5" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="5" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,10"/>
+                                                <Button Content="6" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="6" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,0,10"/>
+                                                <Button Content="7" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="7" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,10"/>
+                                                <Button Content="8" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="8" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,10"/>
+                                                <Button Content="9" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="9" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,0,10"/>
+                                                <Button Content="Clear" Command="{Binding ClearPasscodeCommand}" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="18" Margin="0,0,10,0"/>
+                                                <Button Content="0" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="0" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,0"/>
+                                                <Button Content="Back" Command="{Binding BackspacePasscodeCommand}" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="18" Margin="0,0,0,0"/>
+                                            </UniformGrid>
+                                            <UniformGrid Grid.Row="6" Columns="2">
+                                                <Button Content="Cancel" Command="{Binding CancelPasscodeCommand}" Style="{StaticResource RB.Button.Ghost}" Height="54" FontSize="18" Margin="0,0,10,0"/>
+                                                <Button Content="Unlock" Command="{Binding LoginCommand}" Style="{StaticResource RB.Button.Primary}" Height="54" FontSize="18" Margin="10,0,0,0"/>
+                                            </UniformGrid>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                            </Grid>
+                            <Grid Visibility="{Binding ShowNoAccessAssigned, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Border Style="{StaticResource ModuleCard}" MaxWidth="760" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <StackPanel>
+                                        <TextBlock Text="No Access Assigned" Style="{StaticResource H1}"/>
+                                        <TextBlock Text="This employee signed in successfully, but no workstation modules are assigned yet. Use RunBook Desktop to enable workstation access and choose modules for this employee."
+                                                   Style="{StaticResource Sub}"
+                                                   Margin="0,8,0,0"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                            <Grid Visibility="{Binding ShowModulesShell, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Grid Visibility="{Binding IsTimeClockSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="1.02*"/>
+                                        <ColumnDefinition Width="14"/>
+                                        <ColumnDefinition Width="0.98*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid Grid.Column="0">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="10"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="10"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <Border Style="{StaticResource TimeClockHeroCard}"
+                                                Background="{Binding TimeClockHeroBackgroundBrush}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="10"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="12"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                <DockPanel HorizontalAlignment="Left">
+                                                    <Ellipse Width="10" Height="10" Fill="{Binding TimeClockHeroAccentBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="CURRENT STATUS" Style="{StaticResource TimeClockHeroEyebrow}" VerticalAlignment="Center"/>
+                                                </DockPanel>
+                                                <StackPanel Grid.Row="2">
+                                                    <TextBlock Text="{Binding TimeClockHeroTitle}" Style="{StaticResource TimeClockHeroTitle}"/>
+                                                    <TextBlock Text="{Binding TimeClockHeroStatusLabel}" Style="{StaticResource TimeClockHeroStatus}" Margin="0,5,0,0"/>
+                                                    <TextBlock Text="{Binding TimeClockHeroPrimaryLine}" Style="{StaticResource TimeClockHeroMeta}" Margin="0,10,0,0"/>
+                                                    <TextBlock Text="{Binding TimeClockHeroSecondaryLine}" Style="{StaticResource TimeClockHeroMeta}" Margin="0,6,0,0"/>
+                                                </StackPanel>
+                                                <TextBlock Grid.Row="4" Text="{Binding TimeClockHeroHelperText}" Style="{StaticResource TimeClockHeroHint}"/>
+                                            </Grid>
+                                        </Border>
+                                        <Border Grid.Row="2" Style="{StaticResource TimeClockPanelCard}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="8"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Next Action" Style="{StaticResource TimeClockSectionTitle}"/>
+                                                    <TextBlock Text="Only the actions that make sense right now are shown." Style="{StaticResource TimeClockSectionBody}" Margin="0,6,0,0"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Row="2">
+                                                    <Button Content="Clock In" Command="{Binding ClockInCommand}" Style="{StaticResource TimeClockActionPrimary}" Visibility="{Binding ShowClockInAction, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                    <Grid Visibility="{Binding ShowWorkingActions, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="10"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="10"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Button Grid.Row="0" Grid.Column="0" Content="Start Break" Command="{Binding BreakStartCommand}" Style="{StaticResource TimeClockActionSecondary}"/>
+                                                        <Button Grid.Row="0" Grid.Column="2" Content="Clock Out" Command="{Binding ClockOutCommand}" Style="{StaticResource TimeClockActionSecondary}"/>
+                                                        <Button Grid.Row="2" Grid.ColumnSpan="3" Content="Start Lunch" Command="{Binding LunchStartCommand}" Style="{StaticResource TimeClockActionSecondary}" Visibility="{Binding ShowLunchStartAction, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                    </Grid>
+                                                    <Button Content="End Break" Command="{Binding BreakEndCommand}" Style="{StaticResource TimeClockActionPrimary}" Visibility="{Binding ShowBreakEndAction, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                    <Button Content="End Lunch" Command="{Binding LunchEndCommand}" Style="{StaticResource TimeClockActionPrimary}" Visibility="{Binding ShowLunchEndAction, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                        <Border Grid.Row="4" Style="{StaticResource TimeClockPanelCard}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="8"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="10"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Request Time Off" Style="{StaticResource TimeClockSectionTitle}"/>
+                                                    <TextBlock Text="{Binding TimeOffSectionSubtitle}" Style="{StaticResource TimeClockSectionBody}" Margin="0,6,0,0"/>
+                                                </StackPanel>
+                                                <Grid Grid.Row="2">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="1.2*"/>
+                                                        <ColumnDefinition Width="14"/>
+                                                        <ColumnDefinition Width="0.8*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid Grid.Column="0">
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="10"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="10"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="12"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+                                                        <StackPanel>
+                                                            <TextBlock Text="Type" Style="{StaticResource Label}"/>
+                                                            <ComboBox SelectedValue="{Binding TimeOffType}"
+                                                                      SelectedValuePath="Tag"
+                                                                      Style="{StaticResource TimeOffComboBox}">
+                                                                <ComboBoxItem Content="Vacation" Tag="VACATION"/>
+                                                                <ComboBoxItem Content="Sick" Tag="SICK"/>
+                                                                <ComboBoxItem Content="Personal" Tag="PERSONAL"/>
+                                                                <ComboBoxItem Content="Unpaid" Tag="UNPAID"/>
+                                                            </ComboBox>
+                                                        </StackPanel>
+                                                        <Grid Grid.Row="2">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="10"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Grid.Column="0">
+                                                                <TextBlock Text="Start Date" Style="{StaticResource Label}"/>
+                                                                <DatePicker SelectedDate="{Binding TimeOffStartDateValue, Mode=TwoWay}"
+                                                                            SelectedDateFormat="Short"
+                                                                            Style="{StaticResource TimeOffDatePicker}"/>
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="2">
+                                                                <TextBlock Text="End Date" Style="{StaticResource Label}"/>
+                                                                <DatePicker SelectedDate="{Binding TimeOffEndDateValue, Mode=TwoWay}"
+                                                                            SelectedDateFormat="Short"
+                                                                            Style="{StaticResource TimeOffDatePicker}"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                        <StackPanel Grid.Row="4">
+                                                            <TextBlock Text="Reason" Style="{StaticResource Label}"/>
+                                                            <Border Style="{StaticResource FieldOuter}" Margin="0,0,0,0">
+                                                                <Border Style="{StaticResource FieldInner}">
+                                                                    <TextBox Text="{Binding TimeOffNote, UpdateSourceTrigger=PropertyChanged}"
+                                                                             Style="{StaticResource FieldBigTextBox}"/>
+                                                                </Border>
+                                                            </Border>
+                                                        </StackPanel>
+                                                        <Grid Grid.Row="6">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="10"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Button Grid.Column="0"
+                                                                    Content="Submit Time Off Request"
+                                                                    Command="{Binding SubmitTimeOffCommand}"
+                                                                    Style="{StaticResource RB.Button.Primary}"
+                                                                    Height="42"/>
+                                                            <Button Grid.Column="2"
+                                                                    Content="Sync Pending"
+                                                                    Command="{Binding SyncPendingCommand}"
+                                                                    Style="{StaticResource RB.Button.Ghost}"
+                                                                    Height="42"/>
+                                                        </Grid>
+                                                    </Grid>
+                                                    <Border Grid.Column="2"
+                                                            Style="{StaticResource TimeClockSummaryGroupCard}"
+                                                            Margin="0">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="8"/>
+                                                                <RowDefinition Height="*"/>
+                                                            </Grid.RowDefinitions>
+                                                            <StackPanel>
+                                                                <TextBlock Text="Pending Approval" Style="{StaticResource TimeClockGroupTitle}"/>
+                                                                <TextBlock Text="Submitted requests stay visible here while they wait for approval." Style="{StaticResource TimeClockSectionBody}" Margin="0,4,0,0"/>
+                                                            </StackPanel>
+                                                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                                                <StackPanel>
+                                                                    <ItemsControl ItemsSource="{Binding RecentTimeOffRequests}">
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate>
+                                                                                <Border Style="{StaticResource TimeClockActivityCard}">
+                                                                                    <Grid>
+                                                                                        <Grid.ColumnDefinitions>
+                                                                                            <ColumnDefinition Width="Auto"/>
+                                                                                            <ColumnDefinition Width="10"/>
+                                                                                            <ColumnDefinition Width="*"/>
+                                                                                        </Grid.ColumnDefinitions>
+                                                                                        <Ellipse Width="8" Height="8" Fill="#E5B05F" VerticalAlignment="Top" Margin="0,4,0,0"/>
+                                                                                        <StackPanel Grid.Column="2">
+                                                                                            <TextBlock Text="{Binding RequestType}" Foreground="{StaticResource Text}" FontSize="13" FontWeight="SemiBold"/>
+                                                                                            <TextBlock Text="{Binding StartDate, StringFormat={}{0}}" Style="{StaticResource TimeClockSectionBody}" Margin="0,4,0,0"/>
+                                                                                            <TextBlock Text="{Binding EndDate, StringFormat=Through {0}}" Style="{StaticResource TimeClockSectionBody}" Margin="0,2,0,0"/>
+                                                                                            <TextBlock Text="{Binding Status}" Style="{StaticResource Label}" Margin="0,6,0,0"/>
+                                                                                            <TextBlock Text="{Binding EmployeeNote}" Style="{StaticResource TimeClockSectionBody}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                                                        </StackPanel>
+                                                                                    </Grid>
+                                                                                </Border>
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                    <Border Style="{StaticResource TimeClockActivityCard}"
+                                                                            Visibility="{Binding ShowNoRecentTimeOffRequests, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                        <TextBlock Text="No pending approval requests yet." Style="{StaticResource TimeClockSectionBody}"/>
+                                                                    </Border>
+                                                                </StackPanel>
+                                                            </ScrollViewer>
+                                                        </Grid>
+                                                    </Border>
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                    <Grid Grid.Column="2">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="10"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <Border Style="{StaticResource TimeClockPanelCard}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="8"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Time Summary" Style="{StaticResource TimeClockSectionTitle}"/>
+                                                    <TextBlock Text="Today, this week, and your current state in one clean view." Style="{StaticResource TimeClockSectionBody}" Margin="0,6,0,0"/>
+                                                </StackPanel>
+                                                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                                    <StackPanel>
+                                                        <Border Style="{StaticResource TimeClockSummaryGroupCard}">
+                                                            <Grid>
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="8"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                </Grid.RowDefinitions>
+                                                                <TextBlock Text="Today's Summary" Style="{StaticResource TimeClockGroupTitle}"/>
+                                                                <ItemsControl Grid.Row="2" ItemsSource="{Binding TodaySummaryRows}">
+                                                                    <ItemsControl.ItemsPanel>
+                                                                        <ItemsPanelTemplate>
+                                                                            <UniformGrid Columns="2"/>
+                                                                        </ItemsPanelTemplate>
+                                                                    </ItemsControl.ItemsPanel>
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Border Style="{StaticResource TimeClockSummaryMetricTile}">
+                                                                                <StackPanel>
+                                                                                    <StackPanel Orientation="Horizontal">
+                                                                                        <Ellipse Width="8" Height="8" Fill="{Binding AccentBrush}" VerticalAlignment="Center"/>
+                                                                                        <TextBlock Text="{Binding Label}" Style="{StaticResource TimeClockMetricLabel}" Margin="8,0,0,0"/>
+                                                                                    </StackPanel>
+                                                                                    <TextBlock Text="{Binding Value}" Style="{StaticResource TimeClockMetricValue}" Margin="0,8,0,0"/>
+                                                                                </StackPanel>
+                                                                            </Border>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </Grid>
+                                                        </Border>
+                                                        <Border Style="{StaticResource TimeClockSummaryGroupCard}">
+                                                            <Grid>
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="8"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                </Grid.RowDefinitions>
+                                                                <TextBlock Text="Weekly Summary" Style="{StaticResource TimeClockGroupTitle}"/>
+                                                                <ItemsControl Grid.Row="2" ItemsSource="{Binding WeeklySummaryRows}">
+                                                                    <ItemsControl.ItemsPanel>
+                                                                        <ItemsPanelTemplate>
+                                                                            <UniformGrid Columns="2"/>
+                                                                        </ItemsPanelTemplate>
+                                                                    </ItemsControl.ItemsPanel>
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Border Style="{StaticResource TimeClockSummaryMetricTile}">
+                                                                                <StackPanel>
+                                                                                    <StackPanel Orientation="Horizontal">
+                                                                                        <Ellipse Width="8" Height="8" Fill="{Binding AccentBrush}" VerticalAlignment="Center"/>
+                                                                                        <TextBlock Text="{Binding Label}" Style="{StaticResource TimeClockMetricLabel}" Margin="8,0,0,0"/>
+                                                                                    </StackPanel>
+                                                                                    <TextBlock Text="{Binding Value}" Style="{StaticResource TimeClockMetricValue}" Margin="0,8,0,0"/>
+                                                                                </StackPanel>
+                                                                            </Border>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </Grid>
+                                                        </Border>
+                                                        <Border Style="{StaticResource TimeClockSummaryGroupCard}" Margin="0">
+                                                            <Grid>
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="8"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                </Grid.RowDefinitions>
+                                                                <TextBlock Text="Current Status" Style="{StaticResource TimeClockGroupTitle}"/>
+                                                                <ItemsControl Grid.Row="2" ItemsSource="{Binding CurrentStatusSummaryRows}">
+                                                                    <ItemsControl.ItemsPanel>
+                                                                        <ItemsPanelTemplate>
+                                                                            <UniformGrid Columns="2"/>
+                                                                        </ItemsPanelTemplate>
+                                                                    </ItemsControl.ItemsPanel>
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Border Style="{StaticResource TimeClockSummaryMetricTile}">
+                                                                                <StackPanel>
+                                                                                    <StackPanel Orientation="Horizontal">
+                                                                                        <Ellipse Width="8" Height="8" Fill="{Binding AccentBrush}" VerticalAlignment="Center"/>
+                                                                                        <TextBlock Text="{Binding Label}" Style="{StaticResource TimeClockMetricLabel}" Margin="8,0,0,0"/>
+                                                                                    </StackPanel>
+                                                                                    <TextBlock Text="{Binding Value}" Style="{StaticResource TimeClockMetricValue}" Margin="0,8,0,0"/>
+                                                                                </StackPanel>
+                                                                            </Border>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </Grid>
+                                                        </Border>
+                                                    </StackPanel>
+                                                </ScrollViewer>
+                                            </Grid>
+                                        </Border>
+                                        <Border Grid.Row="2" Style="{StaticResource TimeClockPanelCard}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="8"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding TimeClockActivityTitle}" Style="{StaticResource TimeClockSectionTitle}"/>
+                                                    <TextBlock Text="{Binding TimeClockStatus}" Style="{StaticResource TimeClockSectionBody}" Margin="0,6,0,0"/>
+                                                </StackPanel>
+                                                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                                    <StackPanel>
+                                                        <ItemsControl ItemsSource="{Binding TimeClockActivityRows}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Border Style="{StaticResource TimeClockActivityCard}">
+                                                                        <Grid>
+                                                                            <Grid.ColumnDefinitions>
+                                                                                <ColumnDefinition Width="Auto"/>
+                                                                                <ColumnDefinition Width="12"/>
+                                                                                <ColumnDefinition Width="*"/>
+                                                                                <ColumnDefinition Width="Auto"/>
+                                                                            </Grid.ColumnDefinitions>
+                                                                            <Ellipse Width="10" Height="10" Fill="{Binding AccentBrush}" VerticalAlignment="Top" Margin="0,4,0,0"/>
+                                                                            <StackPanel Grid.Column="2">
+                                                                                <TextBlock Text="{Binding Title}" Foreground="{StaticResource Text}" FontSize="14" FontWeight="SemiBold"/>
+                                                                                <TextBlock Text="{Binding DetailText}" Style="{StaticResource TimeClockSectionBody}" Margin="0,4,0,0"/>
+                                                                            </StackPanel>
+                                                                            <StackPanel Grid.Column="3" HorizontalAlignment="Right">
+                                                                                <TextBlock Text="{Binding TimeText}" Foreground="{StaticResource Text}" FontSize="12.5" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                                                                <TextBlock Text="{Binding StateText}" Style="{StaticResource Label}" HorizontalAlignment="Right" Margin="0,4,0,0"/>
+                                                                            </StackPanel>
+                                                                        </Grid>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <Border Style="{StaticResource TimeClockActivityCard}" Visibility="{Binding ShowEmptyTimeClockActivity, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                            <TextBlock Text="No recent punch activity yet." Style="{StaticResource TimeClockSectionBody}"/>
+                                                        </Border>
+                                                    </StackPanel>
+                                                </ScrollViewer>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </Grid>
+                                <Grid Visibility="{Binding IsHomeSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="14"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="14"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <Border Style="{StaticResource ModuleCard}" Padding="20">
+                                        <StackPanel>
+                                            <TextBlock Text="Workstation Home" Style="{StaticResource H1}"/>
+                                            <TextBlock Text="Desktop filters the floor modules for this employee. Use the authorized entry points below to stay in the safe workstation flow."
+                                                       Style="{StaticResource Sub}"
+                                                       Margin="0,8,0,0"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <UniformGrid Grid.Row="2" Columns="3">
+                                        <Button Visibility="{Binding HasTimeClockAccess, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                Content="Time Clock"
+                                                Command="{Binding SelectModuleKeyCommand}"
+                                                CommandParameter="timeclock"
+                                                Style="{StaticResource RB.Button.Primary}"
+                                                Margin="0,0,12,0"
+                                                Height="110"
+                                                FontSize="20"/>
+                                        <Button Visibility="{Binding HasWorkOrdersAccess, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                Content="Work Orders"
+                                                Command="{Binding SelectModuleKeyCommand}"
+                                                CommandParameter="workorders"
+                                                Style="{StaticResource RB.Button.Ghost}"
+                                                Margin="0,0,12,0"
+                                                Height="110"
+                                                FontSize="20"/>
+                                        <Button Visibility="{Binding HasDrawingsAccess, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                Content="Drawings"
+                                                Command="{Binding SelectModuleKeyCommand}"
+                                                CommandParameter="drawings"
+                                                Style="{StaticResource RB.Button.Ghost}"
+                                                Height="110"
+                                                FontSize="20"/>
+                                    </UniformGrid>
+                                    <Grid Grid.Row="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="0.92*"/>
+                                            <ColumnDefinition Width="14"/>
+                                            <ColumnDefinition Width="0.92*"/>
+                                            <ColumnDefinition Width="14"/>
+                                            <ColumnDefinition Width="0.96*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Style="{StaticResource ModuleCard}">
+                                            <StackPanel>
+                                                <TextBlock Text="Current Session" Style="{StaticResource H2}"/>
+                                                <TextBlock Text="{Binding SessionEmployeeName}" Foreground="{StaticResource Text}" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                                <TextBlock Text="{Binding SessionRole}" Style="{StaticResource Sub}" Margin="0,4,0,0"/>
+                                                <TextBlock Text="{Binding SessionModulesLine}" Style="{StaticResource Sub}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding CurrentJobTitle}" Foreground="{StaticResource Text}" FontSize="18" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                                                <TextBlock Text="{Binding CurrentJobSummary}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding CurrentJobHint}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                <Button Content="Resume Current Job"
+                                                        Command="{Binding ResumeCurrentJobCommand}"
+                                                        Style="{StaticResource RB.Button.Primary}"
+                                                        Height="44"
+                                                        Margin="0,12,0,0"
+                                                        Visibility="{Binding HasCurrentJob, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                <TextBlock Text="{Binding RecentJobTitle}" Foreground="{StaticResource Text}" FontSize="16" FontWeight="SemiBold" Margin="0,12,0,0"
+                                                           Visibility="{Binding HasRecentJob, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                <TextBlock Text="{Binding RecentJobSummary}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                           Visibility="{Binding HasRecentJob, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                <Button Content="Resume Recent Job"
+                                                        Command="{Binding ResumeRecentJobCommand}"
+                                                        Style="{StaticResource RB.Button.Ghost}"
+                                                        Height="40"
+                                                        Margin="0,10,0,0"
+                                                        Visibility="{Binding HasRecentJob, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                <TextBlock Text="{Binding ActiveWorkContextLine}" Style="{StaticResource Sub}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding SessionCountdown}" Style="{StaticResource Sub}" Margin="0,10,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Grid.Column="2" Style="{StaticResource ModuleCard}">
+                                            <StackPanel>
+                                                <TextBlock Text="Shop Awareness" Style="{StaticResource H2}"/>
+                                                <TextBlock Text="{Binding ShopSummaryLine}" Style="{StaticResource Sub}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding ShopSummaryCountsLine}" Style="{StaticResource Sub}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding ShopOperatorAwarenessLine}" Style="{StaticResource Sub}" Margin="0,12,0,0" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding ShopActiveOperatorCountLine}" Style="{StaticResource Sub}" Margin="0,6,0,10" TextWrapping="Wrap"/>
+                                                <ItemsControl ItemsSource="{Binding ShopOperators}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Style="{StaticResource SectionCard}" Margin="0,0,0,8">
+                                                                <StackPanel>
+                                                                    <TextBlock Text="{Binding OperatorName}" Foreground="{StaticResource Text}" FontSize="14" FontWeight="SemiBold"/>
+                                                                    <TextBlock Text="{Binding ContextLine}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                                    <TextBlock Text="{Binding WorkstationLine}" Style="{StaticResource Sub}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Grid.Column="4" Style="{StaticResource ModuleCard}">
+                                            <StackPanel>
+                                                <TextBlock Text="Desktop Authority" Style="{StaticResource H2}"/>
+                                                <TextBlock Text="{Binding OfflineStatus}" Style="{StaticResource Sub}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding WorkOrdersStatus}" Style="{StaticResource Sub}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding PendingSyncSummary}" Style="{StaticResource Sub}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                </Grid>
+                                <Grid Visibility="{Binding IsWorkOrdersSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="0.95*"/>
+                                        <ColumnDefinition Width="16"/>
+                                        <ColumnDefinition Width="1.05*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ModuleCard}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="12"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="12"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+                                                <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Your Workstation Jobs" Style="{StaticResource H2}"/>
+                                                    <TextBlock Text="{Binding WorkOrdersStatus}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="1" Content="Refresh" Command="{Binding RefreshWorkOrdersCommand}" Style="{StaticResource RB.Button.Ghost}" Margin="12,0,0,0"/>
+                                                </Grid>
+                                            <Border Grid.Row="2" Style="{StaticResource SectionCard}">
+                                                <StackPanel>
+                                                    <TextBlock Text="Shop Snapshot" Style="{StaticResource H2}"/>
+                                                    <TextBlock Text="{Binding ShopSummaryLine}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding ShopSummaryCountsLine}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
+                                                <StackPanel>
+                                                    <TextBlock Text="Current Job" Style="{StaticResource H2}"
+                                                               Visibility="{Binding HasCurrentJob, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                    <ItemsControl ItemsSource="{Binding WorkOrders}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Command="{Binding DataContext.SelectWorkOrderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Style="{StaticResource RB.Button.Ghost}"
+                                                                        Margin="0,0,0,10"
+                                                                        Padding="14"
+                                                                        Visibility="{Binding IsCurrentJob, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="Auto"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <StackPanel>
+                                                                            <TextBlock Text="{Binding WorkOrderNumber}" Foreground="{StaticResource Text}" FontSize="17" FontWeight="SemiBold"/>
+                                                                            <TextBlock Text="{Binding PartNumber}" Style="{StaticResource Sub}" Margin="0,4,0,0"/>
+                                                                            <TextBlock Text="{Binding PartDescription}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                                            <TextBlock Text="{Binding AssignmentLabel}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                                            <TextBlock Text="{Binding ProgressLine}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                                            <TextBlock Text="{Binding ActiveOperatorLine}" Style="{StaticResource Sub}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                                                        </StackPanel>
+                                                                        <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                                            <TextBlock Text="{Binding Status}" Foreground="{StaticResource Text}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                                                            <TextBlock Text="{Binding Revision, StringFormat=Rev {0}}" Style="{StaticResource Sub}" Margin="0,4,0,0" HorizontalAlignment="Right"/>
+                                                                            <TextBlock Text="{Binding ProgressPercent, StringFormat={}{0}%}" Style="{StaticResource Sub}" Margin="0,4,0,0" HorizontalAlignment="Right"/>
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </Button>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <TextBlock Text="Assigned Jobs" Style="{StaticResource H2}" Margin="0,8,0,8"/>
+                                                    <ItemsControl ItemsSource="{Binding AssignedWorkOrders}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Command="{Binding DataContext.SelectWorkOrderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Style="{StaticResource RB.Button.Ghost}"
+                                                                        Margin="0,0,0,10"
+                                                                        Padding="14">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="Auto"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <StackPanel>
+                                                                            <TextBlock Text="{Binding WorkOrderNumber}" Foreground="{StaticResource Text}" FontSize="17" FontWeight="SemiBold"/>
+                                                                            <TextBlock Text="{Binding PartNumber}" Style="{StaticResource Sub}" Margin="0,4,0,0"/>
+                                                                            <TextBlock Text="{Binding PartDescription}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                                            <TextBlock Text="{Binding AssignmentLabel}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                                            <TextBlock Text="{Binding ProgressLine}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                                            <TextBlock Text="{Binding ActiveOperatorLine}" Style="{StaticResource Sub}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                                                        </StackPanel>
+                                                                        <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                                            <TextBlock Text="{Binding Status}" Foreground="{StaticResource Text}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                                                            <TextBlock Text="{Binding DueDate, StringFormat=Due {0}}" Style="{StaticResource Sub}" Margin="0,4,0,0" HorizontalAlignment="Right"/>
+                                                                            <TextBlock Text="{Binding ProgressPercent, StringFormat={}{0}%}" Style="{StaticResource Sub}" Margin="0,4,0,0" HorizontalAlignment="Right"/>
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </Button>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <TextBlock Text="Available Jobs" Style="{StaticResource H2}" Margin="0,8,0,8"/>
+                                                    <ItemsControl ItemsSource="{Binding AvailableWorkOrders}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Command="{Binding DataContext.SelectWorkOrderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Style="{StaticResource RB.Button.Ghost}"
+                                                                        Margin="0,0,0,10"
+                                                                        Padding="14">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="Auto"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <StackPanel>
+                                                                            <TextBlock Text="{Binding WorkOrderNumber}" Foreground="{StaticResource Text}" FontSize="17" FontWeight="SemiBold"/>
+                                                                            <TextBlock Text="{Binding PartNumber}" Style="{StaticResource Sub}" Margin="0,4,0,0"/>
+                                                                            <TextBlock Text="{Binding PartDescription}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                                            <TextBlock Text="{Binding AssignmentLabel}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                                            <TextBlock Text="{Binding ProgressLine}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                                            <TextBlock Text="{Binding ActiveOperatorLine}" Style="{StaticResource Sub}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                                                        </StackPanel>
+                                                                        <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                                            <TextBlock Text="{Binding Status}" Foreground="{StaticResource Text}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                                                            <TextBlock Text="{Binding DueDate, StringFormat=Due {0}}" Style="{StaticResource Sub}" Margin="0,4,0,0" HorizontalAlignment="Right"/>
+                                                                            <TextBlock Text="{Binding ProgressPercent, StringFormat={}{0}%}" Style="{StaticResource Sub}" Margin="0,4,0,0" HorizontalAlignment="Right"/>
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </Button>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </ScrollViewer>
+                                        </Grid>
+                                    </Border>
+                                    <Border Grid.Column="2" Style="{StaticResource ModuleCard}">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="10"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="12"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="12"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding SelectedWorkOrderTitle}" Style="{StaticResource H1}"/>
+                                                <TextBlock Text="{Binding SelectedWorkOrderSummary}" Style="{StaticResource Sub}" Margin="0,6,0,0"/>
+                                                <TextBlock Text="{Binding SelectedWorkOrderContext}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <UniformGrid Grid.Row="2" Columns="3">
+                                                <Border Style="{StaticResource SectionCard}" Margin="0,0,10,0"><TextBlock Text="{Binding WorkOrderDetail.CustomerName, StringFormat=Customer: {0}}" Style="{StaticResource Sub}" TextWrapping="Wrap"/></Border>
+                                                <Border Style="{StaticResource SectionCard}" Margin="0,0,10,0"><TextBlock Text="{Binding WorkOrderDetail.PoNumber, StringFormat=PO: {0}}" Style="{StaticResource Sub}" TextWrapping="Wrap"/></Border>
+                                                <Border Style="{StaticResource SectionCard}"><TextBlock Text="{Binding WorkOrderDetail.SourceComponentId, StringFormat=Component: {0}}" Style="{StaticResource Sub}" TextWrapping="Wrap"/></Border>
+                                            </UniformGrid>
+                                            <Border Grid.Row="4" Style="{StaticResource SectionCard}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding SelectedWorkOrderProgressSummary}" Style="{StaticResource Sub}" TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding SelectedWorkOrderOperationsSummary}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding SelectedWorkOrderActiveOperatorsSummary}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                                    <ItemsControl ItemsSource="{Binding WorkOrderDetail.ActiveOperators}" Margin="0,10,0,0">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <TextBlock Text="{Binding DisplayLine}" Style="{StaticResource Sub}" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
+                                            <Grid Grid.Row="6">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="10"/>
+                                                    <RowDefinition Height="0.42*"/>
+                                                    <RowDefinition Height="10"/>
+                                                    <RowDefinition Height="0.26*"/>
+                                                    <RowDefinition Height="10"/>
+                                                    <RowDefinition Height="0.22*"/>
+                                                </Grid.RowDefinitions>
+                                                <TextBlock Text="Operations" Style="{StaticResource H2}"/>
+                                                <DataGrid Grid.Row="2"
+                                                          ItemsSource="{Binding WorkOrderDetail.Operations}"
+                                                          SelectedItem="{Binding SelectedOperation}"
+                                                          Style="{StaticResource PoGrid}"
+                                                          IsReadOnly="True"
+                                                          CanUserAddRows="False">
+                                                    <DataGrid.Columns>
+                                                        <DataGridTextColumn Header="Op" Binding="{Binding OperationNumber}" Width="70"/>
+                                                        <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*"/>
+                                                        <DataGridTextColumn Header="Dept" Binding="{Binding Department}" Width="120"/>
+                                                        <DataGridTextColumn Header="Cell" Binding="{Binding WorkCenter}" Width="120"/>
+                                                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="120"/>
+                                                        <DataGridTextColumn Header="Operator" Binding="{Binding OperatorName}" Width="140"/>
+                                                    </DataGrid.Columns>
+                                                </DataGrid>
+                                                <Border Grid.Row="4" Style="{StaticResource SectionCard}">
+                                                    <Grid>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="10"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="10"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="10"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding SelectedOperationTitle}" Style="{StaticResource H2}"/>
+                                                            <TextBlock Text="{Binding SelectedOperationContext}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                                            <TextBlock Text="{Binding ActiveWorkContextLine}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                                        </StackPanel>
+                                                        <TextBox Grid.Row="2"
+                                                                 Text="{Binding OperationActionNoteText, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Height="36"
+                                                                 VerticalContentAlignment="Center"/>
+                                                        <UniformGrid Grid.Row="4" Columns="4">
+                                                            <Button Content="Start" Command="{Binding StartOperationCommand}" Style="{StaticResource RB.Button.Primary}" Margin="0,0,10,0" Height="48"/>
+                                                            <Button Content="Stop" Command="{Binding StopOperationCommand}" Style="{StaticResource RB.Button.Ghost}" Margin="0,0,10,0" Height="48"/>
+                                                            <Button Content="Complete" Command="{Binding CompleteOperationCommand}" Style="{StaticResource RB.Button.Ghost}" Margin="0,0,10,0" Height="48"/>
+                                                            <Button Content="Need Help" Command="{Binding SubmitOperationHelpCommand}" Style="{StaticResource RB.Button.Danger}" Height="48"/>
+                                                        </UniformGrid>
+                                                        <Grid Grid.Row="6">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="10"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="10"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border Grid.Column="0" Style="{StaticResource SectionCard}" Padding="12">
+                                                                <StackPanel>
+                                                                    <TextBlock Text="Qty Complete" Style="{StaticResource Label}"/>
+                                                                    <TextBox Text="{Binding QuantityReportText, UpdateSourceTrigger=PropertyChanged}" Height="38" VerticalContentAlignment="Center" Margin="0,8,0,8"/>
+                                                                    <Button Content="Report Qty" Command="{Binding SubmitQuantityCommand}" Style="{StaticResource RB.Button.Primary}" Height="40"/>
+                                                                </StackPanel>
+                                                            </Border>
+                                                            <Border Grid.Column="2" Style="{StaticResource SectionCard}" Padding="12">
+                                                                <StackPanel>
+                                                                    <TextBlock Text="Scrap Qty" Style="{StaticResource Label}"/>
+                                                                    <TextBox Text="{Binding ScrapReportText, UpdateSourceTrigger=PropertyChanged}" Height="38" VerticalContentAlignment="Center" Margin="0,8,0,8"/>
+                                                                    <Button Content="Report Scrap" Command="{Binding SubmitScrapCommand}" Style="{StaticResource RB.Button.Ghost}" Height="40"/>
+                                                                </StackPanel>
+                                                            </Border>
+                                                            <Border Grid.Column="4" Style="{StaticResource SectionCard}" Padding="12">
+                                                                <StackPanel>
+                                                                    <TextBlock Text="Operator Note" Style="{StaticResource Label}"/>
+                                                                    <TextBox Text="{Binding OperationNoteText, UpdateSourceTrigger=PropertyChanged}" Height="38" VerticalContentAlignment="Center" Margin="0,8,0,8"/>
+                                                                    <Button Content="Add Note" Command="{Binding SubmitOperationNoteCommand}" Style="{StaticResource RB.Button.Ghost}" Height="40"/>
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </Grid>
+                                                    </Grid>
+                                                </Border>
+                                                <Grid Grid.Row="6">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="1.05*"/>
+                                                        <ColumnDefinition Width="12"/>
+                                                        <ColumnDefinition Width="0.95*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0" Style="{StaticResource SectionCard}">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="10"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="10"/>
+                                                                <RowDefinition Height="*"/>
+                                                            </Grid.RowDefinitions>
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <StackPanel>
+                                                                    <TextBlock Text="{Binding InspectionTitle}" Style="{StaticResource H2}"/>
+                                                                    <TextBlock Text="{Binding InspectionSubtitle}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                                                </StackPanel>
+                                                                <Button Grid.Column="1" Content="Refresh" Command="{Binding RefreshInspectionTasksCommand}" Style="{StaticResource RB.Button.Ghost}" Width="120"/>
+                                                            </Grid>
+                                                            <DataGrid Grid.Row="4"
+                                                                      ItemsSource="{Binding InspectionTasks}"
+                                                                      SelectedItem="{Binding SelectedInspectionTask}"
+                                                                      Style="{StaticResource PoGrid}"
+                                                                      IsReadOnly="True"
+                                                                      CanUserAddRows="False">
+                                                                <DataGrid.Columns>
+                                                                    <DataGridTextColumn Header="Balloon" Binding="{Binding BalloonNumber}" Width="80"/>
+                                                                    <DataGridTextColumn Header="Feature" Binding="{Binding FeatureText}" Width="*"/>
+                                                                    <DataGridTextColumn Header="Input" Binding="{Binding InputType}" Width="110"/>
+                                                                    <DataGridTextColumn Header="Actual" Binding="{Binding ActualValue}" Width="120"/>
+                                                                    <DataGridTextColumn Header="Pass/Fail" Binding="{Binding PassFail}" Width="110"/>
+                                                                </DataGrid.Columns>
+                                                            </DataGrid>
+                                                        </Grid>
+                                                    </Border>
+                                                    <Border Grid.Column="2" Style="{StaticResource SectionCard}">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="8"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="10"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="10"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="10"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                            </Grid.RowDefinitions>
+                                                            <TextBlock Text="{Binding SelectedInspectionTaskTitle}" Style="{StaticResource H2}"/>
+                                                            <TextBlock Grid.Row="2" Text="{Binding SelectedInspectionTaskSummary}" Style="{StaticResource Sub}" TextWrapping="Wrap"/>
+                                                            <TextBox Grid.Row="4"
+                                                                     Text="{Binding InspectionActualValue, UpdateSourceTrigger=PropertyChanged}"
+                                                                     Height="38"
+                                                                     VerticalContentAlignment="Center"/>
+                                                            <TextBox Grid.Row="6"
+                                                                     Text="{Binding InspectionResultNoteText, UpdateSourceTrigger=PropertyChanged}"
+                                                                     Height="38"
+                                                                     VerticalContentAlignment="Center"/>
+                                                            <Button Grid.Row="8"
+                                                                    Content="Submit Result"
+                                                                    Command="{Binding SubmitInspectionResultCommand}"
+                                                                    Style="{StaticResource RB.Button.Primary}"
+                                                                    Height="40"
+                                                                    Margin="0,10,0,0"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </Grid>
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                                <Grid Visibility="{Binding IsDrawingsSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="0.85*"/>
+                                        <ColumnDefinition Width="16"/>
+                                        <ColumnDefinition Width="1.15*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ModuleCard}">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="12"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="Work Orders With Released Drawings" Style="{StaticResource H2}"/>
+                                                <TextBlock Text="Select a released work order to browse the Desktop-authoritative drawing package." Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                                <ItemsControl ItemsSource="{Binding WorkOrders}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Button Command="{Binding DataContext.SelectWorkOrderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Style="{StaticResource RB.Button.Ghost}"
+                                                                    Margin="0,0,0,10"
+                                                                    Padding="14">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="{Binding WorkOrderNumber}" Foreground="{StaticResource Text}" FontSize="16" FontWeight="SemiBold"/>
+                                                                        <TextBlock Text="{Binding PartNumber}" Style="{StaticResource Sub}" Margin="0,4,0,0"/>
+                                                                    </StackPanel>
+                                                                    <TextBlock Grid.Column="1" Text="{Binding HasDrawings, StringFormat=Drawings {0}}" Style="{StaticResource Sub}" VerticalAlignment="Center"/>
+                                                                </Grid>
+                                                            </Button>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </ScrollViewer>
+                                        </Grid>
+                                    </Border>
+                                    <Border Grid.Column="2" Style="{StaticResource ModuleCard}">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="10"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="12"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="Released Drawings" Style="{StaticResource H1}"/>
+                                                <TextBlock Text="{Binding SelectedWorkOrderSummary}" Style="{StaticResource Sub}" Margin="0,6,0,0"/>
+                                                <TextBlock Text="{Binding SelectedWorkOrderContext}" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <Button Grid.Row="2" Content="Refresh Work Orders" Command="{Binding RefreshWorkOrdersCommand}" Style="{StaticResource RB.Button.Ghost}" Width="180"/>
+                                            <Grid Grid.Row="4">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="10"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+                                                <TextBlock Text="Drawing Package" Style="{StaticResource H2}"/>
+                                                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                                    <ItemsControl ItemsSource="{Binding DrawingReferences}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,10">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="Auto"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <StackPanel>
+                                                                            <TextBlock Text="{Binding Label}" Foreground="{StaticResource Text}" FontSize="16" FontWeight="SemiBold"/>
+                                                                            <TextBlock Text="{Binding Revision, StringFormat=Revision {0}}" Style="{StaticResource Sub}" Margin="0,4,0,0"/>
+                                                                            <TextBlock Text="{Binding ContentType}" Style="{StaticResource Sub}" Margin="0,4,0,0"/>
+                                                                        </StackPanel>
+                                                                        <Button Grid.Column="1"
+                                                                                Content="Open"
+                                                                                Command="{Binding DataContext.OpenDrawingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                CommandParameter="{Binding}"
+                                                                                Style="{StaticResource RB.Button.Primary}"
+                                                                                Width="120"
+                                                                                Margin="14,0,0,0"/>
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </ScrollViewer>
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+                        <Border Grid.Row="4" Style="{StaticResource SectionCard}">
+                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Sub}" TextWrapping="Wrap"/>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

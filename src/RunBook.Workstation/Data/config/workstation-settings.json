@@ -1,0 +1,9 @@
+{
+  "ControlBaseUrl": "http://localhost:3000",
+  "DesktopBaseUrl": "http://localhost:30111",
+  "ShopId": "9a94d131-99aa-487a-ab8d-258da038ea72",
+  "WorkstationId": "250b1390-7678-56ff-3258-0b2c811a31fb",
+  "WorkstationName": "OFFICE",
+  "ShopName": "RunBook",
+  "PairingCode": ""
+}

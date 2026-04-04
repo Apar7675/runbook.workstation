@@ -1,0 +1,279 @@
+[2026-04-03T12:29:15.7966621Z] Workstation operation failed | No connection could be made because the target machine actively refused it. (localhost:3000)
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.CreateHttp11ConnectionAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.AddHttp11ConnectionAsync(QueueItem queueItem)
+   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.WaitWithCancellationAsync(CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.RedirectHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at RunBook.Workstation.Services.ControlSessionService.PostSession(String url, Object request) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\ControlSessionService.cs:line 122
+   at RunBook.Workstation.Services.ControlSessionService.RefreshSession(String baseUrl, ControlSessionRecord current) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\ControlSessionService.cs:line 111
+   at RunBook.Workstation.Services.ControlSessionService.GetAccessToken(String baseUrl) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\ControlSessionService.cs:line 88
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.GetCurrentShopAsync(String baseUrl, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 83
+   at RunBook.Workstation.ViewModels.MainViewModel.SyncCurrentShopAsync() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 1057
+   at RunBook.Workstation.ViewModels.MainViewModel.<InitializeFromControlSessionAsync>b__275_0() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 1047
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 1193
+[2026-04-03T12:29:48.3173580Z] Workstation operation failed | No connection could be made because the target machine actively refused it. (localhost:3000)
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.CreateHttp11ConnectionAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.AddHttp11ConnectionAsync(QueueItem queueItem)
+   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.WaitWithCancellationAsync(CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.RedirectHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at RunBook.Workstation.Services.ControlSessionService.PostSession(String url, Object request) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\ControlSessionService.cs:line 122
+   at RunBook.Workstation.Services.ControlSessionService.SignIn(String baseUrl, String email, String password) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\ControlSessionService.cs:line 50
+   at RunBook.Workstation.ViewModels.MainViewModel.<ConnectControlAsync>b__249_0() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 511
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 1193
+[2026-04-03T12:34:19.5001887Z] Workstation operation failed | No connection could be made because the target machine actively refused it. (localhost:30111)
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.CreateHttp11ConnectionAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.AddHttp11ConnectionAsync(QueueItem queueItem)
+   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.WaitWithCancellationAsync(CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.RedirectHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.GetDesktopTimeclockStateAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 95
+   at RunBook.Workstation.ViewModels.MainViewModel.RefreshDesktopTimeclockStateAsync() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 700
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass242_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 400
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 1193
+[2026-04-03T12:34:37.8370901Z] Workstation operation failed | No connection could be made because the target machine actively refused it. (localhost:30111)
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.CreateHttp11ConnectionAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.AddHttp11ConnectionAsync(QueueItem queueItem)
+   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.WaitWithCancellationAsync(CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.RedirectHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.GetDesktopTimeclockStateAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 95
+   at RunBook.Workstation.ViewModels.MainViewModel.RefreshDesktopTimeclockStateAsync() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 700
+   at RunBook.Workstation.ViewModels.MainViewModel.<RefreshTimeClockAsync>b__244_0() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 426
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 1193
+[2026-04-03T13:01:19.0650423Z] Workstation operation failed | Workstation is not enrolled with Desktop yet.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.AddLocalDeviceAuthorization(HttpRequestMessage request, WorkstationSettings settings) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 176
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.GetDesktopTimeclockStateAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 112
+   at RunBook.Workstation.ViewModels.MainViewModel.RefreshDesktopTimeclockStateAsync() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 766
+   at RunBook.Workstation.ViewModels.MainViewModel.<RefreshTimeClockAsync>b__255_0() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 460
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 1475
+[2026-04-03T17:59:25.5870258Z] Workstation operation failed | Workstation request does not match the active Desktop shop.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass466_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 699
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2812
+[2026-04-03T17:59:36.7936075Z] Workstation operation failed | Workstation request does not match the active Desktop shop.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass466_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 699
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2812
+[2026-04-03T18:00:04.5981891Z] Workstation operation failed | Workstation request does not match the active Desktop shop.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass466_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 699
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2812
+[2026-04-03T18:05:29.3512256Z] Workstation operation failed | Workstation request does not match the active Desktop shop.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass466_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 699
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2812
+[2026-04-03T18:06:09.3767455Z] Workstation operation failed | Workstation request does not match the active Desktop shop.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass466_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 699
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2812
+[2026-04-03T18:38:09.1230343Z] Workstation operation failed | Workstation request does not match the active Desktop shop.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 701
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2864
+[2026-04-03T18:39:48.8369078Z] Workstation operation failed | Workstation request does not match the active Desktop shop.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 701
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2864
+[2026-04-03T18:46:12.5326482Z] Workstation operation failed | Workstation request does not match the active Desktop shop.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 701
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2864
+[2026-04-03T18:59:03.3532653Z] Workstation operation failed | Workstation request does not match the active Desktop shop.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2896
+[2026-04-03T19:00:43.5302882Z] Workstation operation failed | Workstation request does not match the active Desktop shop.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2896
+[2026-04-03T19:02:04.7259183Z] Workstation operation failed | PAIRING_REQUIRED: Enter the Desktop pairing code before enrolling this workstation.
+   at RunBook.Workstation.ViewModels.MainViewModel.EnsureRegistrationAsync() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 947
+   at RunBook.Workstation.ViewModels.MainViewModel.<RefreshRegistrationAsync>b__471_0() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 768
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2920
+[2026-04-03T19:02:08.1421522Z] Workstation operation failed | PAIRING_REQUIRED: Enter the Desktop pairing code before enrolling this workstation.
+   at RunBook.Workstation.ViewModels.MainViewModel.EnsureRegistrationAsync() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 947
+   at RunBook.Workstation.ViewModels.MainViewModel.<RefreshRegistrationAsync>b__471_0() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 768
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2920
+[2026-04-03T19:02:20.8699175Z] Workstation operation failed | Workstation request does not match the active Desktop shop.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2920
+[2026-04-03T19:06:35.2630362Z] Workstation operation failed | PAIRING_REQUIRED: Enter the Desktop pairing code before enrolling this workstation.
+   at RunBook.Workstation.ViewModels.MainViewModel.EnsureRegistrationAsync() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 947
+   at RunBook.Workstation.ViewModels.MainViewModel.<RefreshRegistrationAsync>b__471_0() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 768
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2920
+[2026-04-03T19:06:52.1389959Z] Workstation operation failed | Workstation ID is required.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2920
+[2026-04-03T19:09:53.2017200Z] Workstation operation failed | Workstation ID is required.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2960
+[2026-04-03T19:13:05.5001573Z] Workstation operation failed | Workstation ID is required.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2960
+[2026-04-03T19:14:00.2374085Z] Workstation operation failed | Workstation ID is required.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 375
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2960
+[2026-04-03T19:15:28.5092612Z] Workstation operation failed | PAIRING_REQUIRED: Enter the Desktop pairing code before enrolling this workstation.
+   at RunBook.Workstation.ViewModels.MainViewModel.EnsureRegistrationAsync() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 947
+   at RunBook.Workstation.ViewModels.MainViewModel.<RefreshRegistrationAsync>b__471_0() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 768
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2960
+[2026-04-03T19:15:38.0375992Z] Workstation operation failed | Workstation ID is required.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 390
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 119
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2960
+[2026-04-03T19:19:26.7876315Z] Workstation operation failed | PAIRING_REQUIRED: Enter the Desktop pairing code before enrolling this workstation.
+   at RunBook.Workstation.ViewModels.MainViewModel.EnsureRegistrationAsync() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 947
+   at RunBook.Workstation.ViewModels.MainViewModel.<RefreshRegistrationAsync>b__471_0() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 768
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2960
+[2026-04-03T19:19:36.8421796Z] Workstation operation failed | Workstation ID is required.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 390
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 119
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2960
+[2026-04-03T19:21:38.1969304Z] Workstation operation failed | Workstation ID is required.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 390
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 119
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2960
+[2026-04-03T19:21:47.7416490Z] Workstation operation failed | Workstation ID is required.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 390
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 119
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2960
+[2026-04-03T19:22:01.4850252Z] Workstation operation failed | Workstation ID is required.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 390
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 119
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2960
+[2026-04-03T19:22:11.6887281Z] Workstation operation failed | Workstation ID is required.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 390
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 119
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2960
+[2026-04-03T19:27:42.2534139Z] Workstation operation failed | PAIRING_REQUIRED: Enter the Desktop pairing code before enrolling this workstation.
+   at RunBook.Workstation.ViewModels.MainViewModel.EnsureRegistrationAsync() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 947
+   at RunBook.Workstation.ViewModels.MainViewModel.<RefreshRegistrationAsync>b__471_0() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 768
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2960
+[2026-04-03T19:36:07.7180411Z] Workstation operation failed | Invalid workstation passcode.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 390
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 119
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass470_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 703
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 2960
+[2026-04-03T19:53:43.4110202Z] OnStartup | Begin
+[2026-04-03T19:53:43.4121653Z] OnStartup | Creating MainWindow
+[2026-04-03T19:53:43.8352301Z] OnStartup | Showing MainWindow
+[2026-04-03T19:53:44.3169825Z] OnStartup | MainWindow shown
+[2026-04-03T19:58:37.7895082Z] Workstation operation failed | This employee does not have a workstation passcode configured.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 390
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 119
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass516_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 758
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 3311
+[2026-04-03T20:06:08.5859759Z] OnStartup | Begin
+[2026-04-03T20:06:08.5873203Z] OnStartup | Creating MainWindow
+[2026-04-03T20:06:09.0003911Z] OnStartup | Showing MainWindow
+[2026-04-03T20:06:09.4100728Z] OnStartup | MainWindow shown
+[2026-04-03T20:09:50.1662703Z] OnStartup | Begin
+[2026-04-03T20:09:50.1673467Z] OnStartup | Creating MainWindow
+[2026-04-03T20:09:50.5548063Z] OnStartup | Showing MainWindow
+[2026-04-03T20:09:50.9743133Z] OnStartup | MainWindow shown
+[2026-04-03T20:11:02.6479191Z] OnStartup | Begin
+[2026-04-03T20:11:02.6494614Z] OnStartup | Creating MainWindow
+[2026-04-03T20:11:03.0306545Z] OnStartup | Showing MainWindow
+[2026-04-03T20:11:03.4463208Z] OnStartup | MainWindow shown
+[2026-04-03T20:15:21.6313630Z] OnStartup | Begin
+[2026-04-03T20:15:21.6324179Z] OnStartup | Creating MainWindow
+[2026-04-03T20:15:22.0330970Z] OnStartup | Showing MainWindow
+[2026-04-03T20:15:22.4535864Z] OnStartup | MainWindow shown
+[2026-04-03T20:23:57.8793424Z] OnStartup | Begin
+[2026-04-03T20:23:57.8805259Z] OnStartup | Creating MainWindow
+[2026-04-03T20:23:58.2751792Z] OnStartup | Showing MainWindow
+[2026-04-03T20:23:58.6991219Z] OnStartup | MainWindow shown
+[2026-04-03T20:25:55.8459772Z] OnStartup | Begin
+[2026-04-03T20:25:55.8473136Z] OnStartup | Creating MainWindow
+[2026-04-03T20:25:56.2516359Z] OnStartup | Showing MainWindow
+[2026-04-03T20:25:56.7073343Z] OnStartup | MainWindow shown
+[2026-04-03T20:53:00.7002855Z] Workstation operation failed | Invalid workstation passcode.
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.EnsureSuccess(HttpResponseMessage response, String apiError, String fallbackMessage) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 390
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 119
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass516_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 758
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 3311
+[2026-04-03T21:05:21.0595754Z] Workstation operation failed | No connection could be made because the target machine actively refused it. (localhost:30111)
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.CreateHttp11ConnectionAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.AddHttp11ConnectionAsync(QueueItem queueItem)
+   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.WaitWithCancellationAsync(CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.RedirectHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.LoginLocalEmployeeAsync(WorkstationSettings settings, String employeeId, String employeeCode, String passcode, CancellationToken cancellationToken) in D:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 117
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass516_0.<<LoginAsync>b__0>d.MoveNext() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 758
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 3311
+[2026-04-03T21:06:23.5339508Z] Workstation operation failed | PAIRING_REQUIRED: Enter the Desktop pairing code before enrolling this workstation.
+   at RunBook.Workstation.ViewModels.MainViewModel.EnsureRegistrationAsync() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 1006
+   at RunBook.Workstation.ViewModels.MainViewModel.<RefreshRegistrationAsync>b__517_0() in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 823
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in D:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 3311
+[2026-04-03T21:08:20.5104898Z] OnStartup | Begin
+[2026-04-03T21:08:20.5115189Z] OnStartup | Creating MainWindow
+[2026-04-03T21:08:20.9033011Z] OnStartup | Showing MainWindow
+[2026-04-03T21:08:21.3376443Z] OnStartup | MainWindow shown

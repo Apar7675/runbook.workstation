@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "RunBook Workstation",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build RunBook Workstation",
+      "program": "${workspaceFolder}/src/RunBook.Workstation/bin/Debug/net8.0-windows10.0.19041.0/RunBook.Workstation.exe",
+      "cwd": "${workspaceFolder}/src/RunBook.Workstation",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    }
+  ]
+}

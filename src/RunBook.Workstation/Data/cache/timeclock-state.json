@@ -1,0 +1,70 @@
+{
+  "EmployeeId": "75",
+  "EmployeeCode": "ANGELOOW",
+  "EmployeeName": "Angelo",
+  "ShopId": "",
+  "WorkstationId": "",
+  "CurrentStatus": "OUT",
+  "StatusSinceUtc": "",
+  "LastPunchUtc": "2026-04-03T21:14:59.5478700Z",
+  "SupportsLunch": true,
+  "LastSyncUtc": "2026-04-03T21:25:30.2454658Z",
+  "LastSyncMessage": "Desktop authority available.",
+  "RecentPunches": [
+    {
+      "Id": "44",
+      "EventType": "CLOCK_OUT",
+      "ClientTs": "2026-04-03T21:14:59.5478700Z",
+      "ServerTs": "2026-04-03T21:15:01.0000000Z",
+      "Source": "Workstation",
+      "Note": "",
+      "IsPendingSync": false,
+      "SyncState": "synced"
+    },
+    {
+      "Id": "43",
+      "EventType": "BREAK_END",
+      "ClientTs": "2026-04-03T20:58:31.0301115Z",
+      "ServerTs": "2026-04-03T20:58:33.0000000Z",
+      "Source": "Workstation",
+      "Note": "",
+      "IsPendingSync": false,
+      "SyncState": "synced"
+    },
+    {
+      "Id": "42",
+      "EventType": "BREAK_START",
+      "ClientTs": "2026-04-03T20:58:26.2136694Z",
+      "ServerTs": "2026-04-03T20:58:28.0000000Z",
+      "Source": "Workstation",
+      "Note": "",
+      "IsPendingSync": false,
+      "SyncState": "synced"
+    },
+    {
+      "Id": "41",
+      "EventType": "CLOCK_IN",
+      "ClientTs": "2026-04-03T20:53:28.8774639Z",
+      "ServerTs": "2026-04-03T20:53:30.0000000Z",
+      "Source": "Workstation",
+      "Note": "",
+      "IsPendingSync": false,
+      "SyncState": "synced"
+    }
+  ],
+  "RecentTimeOffRequests": [
+    {
+      "Id": "1",
+      "RequestType": "VACATION",
+      "StartDate": "2026-04-08",
+      "EndDate": "2026-04-15",
+      "HoursRequested": null,
+      "EmployeeNote": "",
+      "ManagerNote": "",
+      "Status": "PENDING",
+      "SubmittedUtc": "2026-04-03 21:09:23",
+      "IsPendingSync": false,
+      "SyncState": "synced"
+    }
+  ]
+}

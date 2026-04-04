@@ -1,0 +1,14 @@
+[2026-03-31T00:05:56.9509669Z] Workstation operation failed | No connection could be made because the target machine actively refused it. (localhost:3000)
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.CreateHttp11ConnectionAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.AddHttp11ConnectionAsync(QueueItem queueItem)
+   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.WaitWithCancellationAsync(CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.RedirectHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at RunBook.Workstation.Services.RunBookWorkstationApiClient.RegisterAsync(WorkstationSettings settings, CancellationToken cancellationToken) in d:\RunBook.Workstation\src\RunBook.Workstation\Services\RunBookWorkstationApiClient.cs:line 37
+   at RunBook.Workstation.ViewModels.MainViewModel.EnsureRegistrationAsync() in d:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 353
+   at RunBook.Workstation.ViewModels.MainViewModel.<>c__DisplayClass140_0.<<LoginAsync>b__0>d.MoveNext() in d:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 240
+--- End of stack trace from previous location ---
+   at RunBook.Workstation.ViewModels.MainViewModel.RunBusyAsync(Func`1 action) in d:\RunBook.Workstation\src\RunBook.Workstation\ViewModels\MainViewModel.cs:line 497

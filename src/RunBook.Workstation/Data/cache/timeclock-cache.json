@@ -1,0 +1,42 @@
+[
+  {
+    "Id": "44",
+    "EventType": "CLOCK_OUT",
+    "ClientTs": "2026-04-03T21:14:59.5478700Z",
+    "ServerTs": "2026-04-03T21:15:01.0000000Z",
+    "Source": "Workstation",
+    "Note": "",
+    "IsPendingSync": false,
+    "SyncState": "synced"
+  },
+  {
+    "Id": "43",
+    "EventType": "BREAK_END",
+    "ClientTs": "2026-04-03T20:58:31.0301115Z",
+    "ServerTs": "2026-04-03T20:58:33.0000000Z",
+    "Source": "Workstation",
+    "Note": "",
+    "IsPendingSync": false,
+    "SyncState": "synced"
+  },
+  {
+    "Id": "42",
+    "EventType": "BREAK_START",
+    "ClientTs": "2026-04-03T20:58:26.2136694Z",
+    "ServerTs": "2026-04-03T20:58:28.0000000Z",
+    "Source": "Workstation",
+    "Note": "",
+    "IsPendingSync": false,
+    "SyncState": "synced"
+  },
+  {
+    "Id": "41",
+    "EventType": "CLOCK_IN",
+    "ClientTs": "2026-04-03T20:53:28.8774639Z",
+    "ServerTs": "2026-04-03T20:53:30.0000000Z",
+    "Source": "Workstation",
+    "Note": "",
+    "IsPendingSync": false,
+    "SyncState": "synced"
+  }
+]

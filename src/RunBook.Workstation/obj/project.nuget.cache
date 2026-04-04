@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "5aPN1NQ+nUM=",
+  "success": true,
+  "projectFilePath": "d:\\RunBook.Workstation\\src\\RunBook.Workstation\\RunBook.Workstation.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\aptenmfgcom\\.nuget\\packages\\microsoft.windows.sdk.net.ref\\10.0.19041.57\\microsoft.windows.sdk.net.ref.10.0.19041.57.nupkg.sha512"
+  ],
+  "logs": []
+}
