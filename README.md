@@ -1,18 +1,20 @@
-# RunBook.Workstation
+# RunBook Workstation
 
-RunBook.Workstation is the satellite shop-floor client for the RunBook ecosystem.
+RunBook Workstation is the shop-floor satellite client in the RunBook system.
 
-## Purpose
+## Role
 
-- Employee passcode login at remote workstations
-- Permission-driven module shell
-- Time Clock first, with placeholder shells for future modules
-- Workstation identity and registration tied to RunBook Control
-- Desktop-managed local workstation policy through employee access settings
+Workstation is not a company-data authority.
+It is a local station app for:
 
-## Runtime Data
+- employee passcode sign-in
+- workstation registration and trust
+- time clock
+- narrow shop-floor modules allowed by Desktop and Control policy
 
-This app keeps runtime data under:
+## What Workstation Owns Locally
+
+Workstation keeps only workstation-local runtime state under its own local runtime store:
 
 - `Data\_core`
 - `Data\_logs`
@@ -20,57 +22,62 @@ This app keeps runtime data under:
 - `Data\cache`
 - `Data\config`
 
-Key files:
+Examples:
 
-- `Data\config\workstation-settings.json`
-- `Data\cache\registration.json`
-- `Data\cache\control-session.dat`
-- `Data\cache\workstation-session.dat`
-- `Data\cache\timeclock-cache.json`
+- workstation settings
+- registration snapshot
+- control session cache
+- workstation session
+- timeclock cache
+- timeclock queue
+- employee auth cache
 
-## Required Configuration
+These are workstation runtime artifacts, not authoritative company manufacturing data.
 
-Set these values in `Data\config\workstation-settings.json` or through the first-run settings panel:
+## What Workstation Does Not Own
 
-- `ControlBaseUrl`
-- `ShopId`
-- `ShopName`
-- `WorkstationName`
+Workstation must not:
 
-Supervisor setup now signs in through Control and stores the refreshable session in encrypted local storage instead of the config file.
+- create or own a company shell
+- own the authoritative manufacturing database
+- become the source of truth for Desktop-owned files, drawings, or work-order history
 
-The workstation keeps a stable `WorkstationId` locally and uses it for registration with Control.
+## Trust / Auth Model
 
-## Backend Contracts
+Workstation trust is separate from Desktop secondary attachment trust.
 
-This app currently uses:
+Current trust path:
+
+1. Workstation keeps a stable local `WorkstationId`.
+2. Workstation registers through Desktop local pairing and/or Control registration flows.
+3. Workstation signs in employees through workstation-specific session/token flows.
+4. Control remains the remote authority for workstation billing/access outcomes.
+
+## Current API Surface
+
+Workstation currently talks to:
+
+### Desktop local APIs
+
+- `api/workstation-local/register`
+- `api/workstation-local/login`
+- `api/workstation-local/auth-package`
+- `api/workstation-local/timeclock/*`
+- workstation-local work-order / drawing / inspection endpoints where enabled
+
+### Control APIs
 
 - `POST /api/workstation/register`
 - `POST /api/workstation/login`
 - `GET /api/workstation/timeclock`
 - `POST /api/workstation/timeclock`
+- Desktop-facing workstation management routes used by Desktop sync/admin flows
 
-Desktop syncs workstation policy to Control with:
+## Architecture Boundaries
 
-- `POST /api/desktop/workstation-sync-employee`
-- `GET /api/desktop/workstations`
-
-## Employee Access Model
-
-Workstation passcode login reuses the employee PIN hash model already used in RunBook Desktop:
-
-- `mobile_pin_salt_base64`
-- `mobile_pin_hash_base64`
-
-Desktop resolves workstation access per employee with:
-
-- `workstation_access_enabled`
-- `can_timeclock`
-- `can_dashboard_view`
-- `can_jobs_module`
-- `can_inspection_entry`
-- `can_camera_view`
-- `workstation_session_timeout_minutes`
+- Desktop remains the local manufacturing authority.
+- Control remains the remote identity / entitlement / registration authority.
+- Workstation remains a trusted satellite execution client.
 
 ## Build
 
@@ -79,3 +86,4 @@ From `D:\RunBook.Workstation`:
 ```powershell
 dotnet build .\RunBook.Workstation.sln
 ```
+
