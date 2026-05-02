@@ -7,8 +7,18 @@
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/src/RunBook.Workstation/RunBook.Workstation.csproj"
+        "${workspaceFolder}/src/RunBook.Workstation/RunBook.Workstation.csproj",
+        "-c",
+        "Debug",
+        "-p:RestoreIgnoreFailedSources=true",
+        "-p:NuGetAudit=false"
       ],
+      "options": {
+        "env": {
+          "DOTNET_CLI_HOME": "${workspaceFolder}\\.dotnet_cli",
+          "NUGET_PACKAGES": "C:\\Users\\aptenmfgcom\\.nuget\\packages"
+        }
+      },
       "problemMatcher": "$msCompile",
       "group": {
         "kind": "build",

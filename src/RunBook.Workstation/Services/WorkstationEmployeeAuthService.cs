@@ -12,7 +12,7 @@ namespace RunBook.Workstation.Services
             if (cache == null || cache.Package == null || cache.Package.Employees.Count == 0)
             {
                 health.State = WorkstationAuthCacheState.Missing;
-                health.Message = "No Desktop-issued employee auth cache is available yet.";
+                health.Message = "No local employee auth cache is available yet.";
                 return health;
             }
 
@@ -22,7 +22,7 @@ namespace RunBook.Workstation.Services
             if (successUtc == DateTime.MinValue)
             {
                 health.State = WorkstationAuthCacheState.Missing;
-                health.Message = "Employee auth cache exists but has never completed a successful Desktop sync.";
+                health.Message = "Employee auth cache exists but has never completed a successful local sync.";
                 return health;
             }
 
@@ -35,19 +35,19 @@ namespace RunBook.Workstation.Services
             if (health.Age >= TimeSpan.FromHours(hardStopHours))
             {
                 health.State = WorkstationAuthCacheState.Expired;
-                health.Message = $"Cached employee auth expired after {hardStopHours} hours without Desktop refresh.";
+                health.Message = $"Cached employee auth expired after {hardStopHours} hours without local refresh.";
                 return health;
             }
 
             if (health.Age >= TimeSpan.FromHours(warningHours))
             {
                 health.State = WorkstationAuthCacheState.Stale;
-                health.Message = $"Using cached employee auth from {successUtc.ToLocalTime():g}. Desktop refresh is overdue.";
+                health.Message = $"Using cached employee auth from {successUtc.ToLocalTime():g}. Local refresh is overdue.";
                 return health;
             }
 
             health.State = WorkstationAuthCacheState.Fresh;
-            health.Message = $"Employee auth synced from Desktop at {successUtc.ToLocalTime():g}.";
+            health.Message = $"Employee auth synced from the local workstation authority at {successUtc.ToLocalTime():g}.";
             return health;
         }
     }

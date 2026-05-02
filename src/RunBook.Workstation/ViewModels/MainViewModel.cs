@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Threading;
+using System.Windows;
 
 namespace RunBook.Workstation.ViewModels
 {
@@ -23,6 +24,7 @@ namespace RunBook.Workstation.ViewModels
         private readonly DispatcherTimer _sessionTimer;
         private readonly DispatcherTimer _syncTimer;
         private static readonly TimeSpan AuthRefreshInterval = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan IdleLogoutTimeout = TimeSpan.FromSeconds(15);
 
         private WorkstationSettings _settings;
         private WorkstationSessionSnapshot? _session;
@@ -46,7 +48,7 @@ namespace RunBook.Workstation.ViewModels
         private string _passcode = "";
         private string _timeClockStatus = "No punches yet.";
         private string _offlineStatus = "Offline status unknown";
-        private string _authCacheStatus = "No Desktop employee auth cache loaded.";
+        private string _authCacheStatus = "No local employee auth cache loaded.";
         private bool _isBusy;
         private DateTime _lastAuthRefreshAttemptUtc = DateTime.MinValue;
         private string _settingsBaseUrl = "";
@@ -58,6 +60,8 @@ namespace RunBook.Workstation.ViewModels
         private string _settingsControlEmail = "";
         private string _settingsControlPassword = "";
         private string _controlSessionStatus = "Not signed in";
+        private string _headerDateText = DateTime.Now.ToString("dddd, MMMM d, yyyy");
+        private string _headerTimeText = DateTime.Now.ToString("h:mm tt");
         private string _currentShiftStatus = "CLOCKED OUT";
         private string _currentShiftDetail = "No shift loaded yet.";
         private string _pendingSyncSummary = "No pending sync items.";
@@ -67,7 +71,9 @@ namespace RunBook.Workstation.ViewModels
         private string _timeOffHoursText = "";
         private string _timeOffNote = "";
         private bool _isPasscodeDialogOpen;
+        private bool _isSupervisorDialogOpen;
         private string _workOrdersStatus = "Work orders will load when this module opens.";
+        private DateTime _lastInteractionUtc = DateTime.UtcNow;
         private const int MaxProductionQuantityValue = 1000000;
         private const int MaxWorkstationNoteLength = 1000;
         private const int MaxInspectionActualValueLength = 256;
@@ -78,19 +84,35 @@ namespace RunBook.Workstation.ViewModels
         private string _operationActionNoteText = "";
         private string _inspectionActualValue = "";
         private string _inspectionResultNoteText = "";
+        private bool _inspectionResultSubmissionAvailable;
         private int _assignedWorkOrderCount;
         private int _backupWorkOrderCount;
+        private DateTime? _lastLocalHostSuccessUtc;
+        private DateTime? _lastLocalHostFailureUtc;
+        private string _lastLocalHostFailureReason = "";
+        private DateTime? _lastLocalHostProbeCheckedUtc;
         private DateTime? _lastDesktopSuccessUtc;
         private DateTime? _lastDesktopFailureUtc;
         private string _lastDesktopFailureReason = "";
+        private DateTime? _lastDesktopProbeCheckedUtc;
+        private DateTime? _lastDesktopProbeSuccessUtc;
+        private DateTime? _lastDesktopProbeFailureUtc;
+        private string _lastDesktopProbeFailureReason = "";
+        private DateTime _lastConnectionStatusRefreshUtc = DateTime.MinValue;
+        private bool _isLocalHostProbeInFlight;
+        private bool _pendingLocalHostProbeRefresh;
+        private int _localHostProbeGeneration;
+        private bool _isControlConfirmedAvailable;
+        private bool _isBackgroundSyncRunning;
+        private bool _isPostLoginHydrationRunning;
+        private bool _serviceWriteBlocked = true;
+        private string _lastTimeClockPresentationSignature = "";
+        private DateTime _lastPassiveConnectionRefreshUtc = DateTime.MinValue;
+        private UnlockTimingTrace? _unlockTimingTrace;
 
         public MainViewModel()
         {
             _settings = WorkstationStorageService.LoadSettings();
-            _registration = WorkstationStorageService.LoadRegistration();
-            _session = WorkstationStorageService.LoadSession();
-            _timeclockSnapshot = WorkstationStorageService.LoadTimeclockState();
-            _authCache = WorkstationStorageService.LoadAuthCache();
             _settingsBaseUrl = _settings.ControlBaseUrl;
             _settingsDesktopBaseUrl = _settings.DesktopBaseUrl;
             _settingsShopId = _settings.ShopId;
@@ -98,14 +120,52 @@ namespace RunBook.Workstation.ViewModels
             _settingsWorkstationName = _settings.WorkstationName;
             _settingsPairingCode = _settings.PairingCode;
             _controlSessionStatus = ControlSessionService.GetStatusLabel();
+            _isControlConfirmedAvailable = false;
+            NormalizeDesktopBaseUrl();
+            BindToServiceAuthorityOnBoot();
+            _registration = WorkstationStorageService.LoadRegistration();
+            _session = WorkstationStorageService.LoadSession();
+            _timeclockSnapshot = WorkstationStorageService.LoadTimeclockState();
+            _authCache = WorkstationStorageService.LoadAuthCache();
 
-            LoginCommand = new RelayCommand(async () => await LoginAsync(), () => CanConfirmPasscode);
+            if (_serviceWriteBlocked)
+            {
+                _registration = null;
+                _session = null;
+                _timeclockSnapshot = null;
+                _authCache = null;
+                WorkstationStorageService.SaveRegistration(null);
+                WorkstationStorageService.SaveSession(null);
+                WorkstationStorageService.SaveTimeclockState(null);
+                WorkstationStorageService.SaveAuthCache(null);
+            }
+
+            if (_registration != null &&
+                !string.IsNullOrWhiteSpace(Settings.ShopId) &&
+                !string.Equals(_registration.ShopId, Settings.ShopId, StringComparison.OrdinalIgnoreCase))
+            {
+                _registration = null;
+                WorkstationStorageService.SaveRegistration(null);
+            }
+
+            if (_authCache?.Package != null &&
+                !string.IsNullOrWhiteSpace(Settings.ShopId) &&
+                !string.Equals(_authCache.Package.ShopId, Settings.ShopId, StringComparison.OrdinalIgnoreCase))
+            {
+                _authCache = null;
+                WorkstationStorageService.SaveAuthCache(null);
+            }
+
+            LoginCommand = new RelayCommand(async () => await SubmitPasscodeUnlockAsync(), () => CanConfirmPasscode);
             LogoutCommand = new RelayCommand(Logout, () => CurrentSession != null && !IsBusy);
             OpenSettingsCommand = new RelayCommand(() => StatusText = "Settings stay available from the left rail.", () => !IsBusy);
             SaveSettingsCommand = new RelayCommand(SaveSettings, () => !IsBusy);
             ConnectControlCommand = new RelayCommand(async () => await ConnectControlAsync(), () => !IsBusy);
             DisconnectControlCommand = new RelayCommand(DisconnectControl, () => !IsBusy);
             RefreshRegistrationCommand = new RelayCommand(async () => await RefreshRegistrationAsync(), () => !IsBusy);
+            RefreshEmployeeAuthCommand = new RelayCommand(async () => await RefreshEmployeeAuthAsync(), () => !IsBusy);
+            OpenSupervisorDialogCommand = new RelayCommand(OpenSupervisorDialog, () => !IsBusy);
+            CloseSupervisorDialogCommand = new RelayCommand(CloseSupervisorDialog, () => !IsBusy);
             RefreshTimeClockCommand = new RelayCommand(async () => await RefreshTimeClockAsync(), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             ClockInCommand = new RelayCommand(async () => await SubmitPunchAsync("clock_in", ""), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             ClockOutCommand = new RelayCommand(async () => await SubmitPunchAsync("clock_out", ""), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
@@ -132,7 +192,8 @@ namespace RunBook.Workstation.ViewModels
             SubmitOperationHelpCommand = new RelayCommand(async () => await SubmitOperationHelpAsync(), () => CurrentSession != null && HasWorkOrdersAccess && SelectedOperation != null && !IsBusy);
             RefreshInspectionTasksCommand = new RelayCommand(async () => await RefreshInspectionTasksAsync(false), () => CurrentSession != null && HasInspectionViewAccess && SelectedWorkOrder != null && !IsBusy);
             SelectInspectionTaskCommand = new RelayCommand<WorkstationInspectionTask>(SelectInspectionTask, task => task != null && !IsBusy);
-            SubmitInspectionResultCommand = new RelayCommand(async () => await SubmitInspectionResultAsync(), () => CurrentSession != null && HasInspectionEntryAccess && SelectedInspectionTask != null && SelectedWorkOrder != null && !IsBusy);
+            SubmitInspectionResultCommand = new RelayCommand(async () => await SubmitInspectionResultAsync(), () => CurrentSession != null && HasInspectionEntryAccess && _inspectionResultSubmissionAvailable && SelectedInspectionTask != null && SelectedWorkOrder != null && !IsBusy);
+            PrimaryOperatorActionCommand = new RelayCommand(ExecutePrimaryOperatorAction, () => !IsBusy && (IsLoggedIn || RosterEmployees.Count > 0));
             OpenRosterEmployeeCommand = new RelayCommand<WorkstationRosterEmployee>(OpenRosterEmployee, employee => employee != null && !IsBusy);
             AppendPasscodeDigitCommand = new RelayCommand<string>(AppendPasscodeDigit, digit => !IsBusy && IsPasscodeDialogOpen && !string.IsNullOrWhiteSpace(digit));
             BackspacePasscodeCommand = new RelayCommand(RemovePasscodeDigit, () => !IsBusy && IsPasscodeDialogOpen && _passcode.Length > 0);
@@ -146,16 +207,28 @@ namespace RunBook.Workstation.ViewModels
             _syncTimer.Tick += async (_, _) => await BackgroundSyncAsync();
             _syncTimer.Start();
 
-            NormalizeLocalShopScope();
-            LoadCachedPunches();
-            LoadCachedSnapshot();
-            LoadCachedAuthCache();
-            RestoreSessionState();
+            if (!_serviceWriteBlocked)
+            {
+                NormalizeLocalShopScope();
+                LoadCachedPunches();
+                LoadCachedSnapshot();
+                LoadCachedAuthCache();
+                RestoreSessionState();
+            }
             BuildVisibleModules();
             if (VisibleModules.Count > 0)
                 SelectedModule = VisibleModules[0];
 
-            _ = InitializeFromControlSessionAsync();
+            if (_serviceWriteBlocked)
+            {
+                OfflineStatus = "RunBook Service cannot find the active company data folder.";
+                if (string.IsNullOrWhiteSpace(StatusText) || string.Equals(StatusText, "Workstation ready.", StringComparison.Ordinal))
+                    StatusText = "RunBook Service cannot find the active company data folder.";
+            }
+            else
+            {
+                _ = InitializeFromControlSessionSafeAsync();
+            }
             RefreshConnectionStatuses();
             RefreshTimeClockPresentation();
         }
@@ -184,6 +257,9 @@ namespace RunBook.Workstation.ViewModels
         public ICommand ConnectControlCommand { get; }
         public ICommand DisconnectControlCommand { get; }
         public ICommand RefreshRegistrationCommand { get; }
+        public ICommand RefreshEmployeeAuthCommand { get; }
+        public ICommand OpenSupervisorDialogCommand { get; }
+        public ICommand CloseSupervisorDialogCommand { get; }
         public ICommand RefreshTimeClockCommand { get; }
         public ICommand ClockInCommand { get; }
         public ICommand ClockOutCommand { get; }
@@ -211,6 +287,7 @@ namespace RunBook.Workstation.ViewModels
         public ICommand RefreshInspectionTasksCommand { get; }
         public ICommand SelectInspectionTaskCommand { get; }
         public ICommand SubmitInspectionResultCommand { get; }
+        public ICommand PrimaryOperatorActionCommand { get; }
         public ICommand OpenRosterEmployeeCommand { get; }
         public ICommand AppendPasscodeDigitCommand { get; }
         public ICommand BackspacePasscodeCommand { get; }
@@ -243,7 +320,14 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(ShowModulesShell));
                 OnPropertyChanged(nameof(SessionEmployeeName));
                 OnPropertyChanged(nameof(SessionRole));
+                OnPropertyChanged(nameof(LoginHeadline));
+                OnPropertyChanged(nameof(LoginInstructionLine));
+                OnPropertyChanged(nameof(CurrentOperatorLine));
+                OnPropertyChanged(nameof(CurrentOperatorStatusLine));
+                OnPropertyChanged(nameof(PrimaryOperatorActionText));
                 OnPropertyChanged(nameof(SessionModulesLine));
+                OnPropertyChanged(nameof(ShowIdleLogoutBadge));
+                OnPropertyChanged(nameof(IdleLogoutBadgeText));
                 OnPropertyChanged(nameof(HasTimeClockAccess));
                 OnPropertyChanged(nameof(HasWorkOrdersAccess));
                 OnPropertyChanged(nameof(HasDrawingsAccess));
@@ -290,6 +374,7 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(IsHomeSelected));
                 OnPropertyChanged(nameof(IsWorkOrdersSelected));
                 OnPropertyChanged(nameof(IsDrawingsSelected));
+                OnPropertyChanged(nameof(ShowIdleLogoutBadge));
             }
         }
 
@@ -448,6 +533,20 @@ namespace RunBook.Workstation.ViewModels
             }
         }
 
+        public bool IsSupervisorDialogOpen
+        {
+            get => _isSupervisorDialogOpen;
+            private set
+            {
+                if (_isSupervisorDialogOpen == value)
+                    return;
+
+                _isSupervisorDialogOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
+
         public string StatusText { get => _statusText; private set { _statusText = value ?? ""; OnPropertyChanged(); } }
         public string SessionCountdown { get => _sessionCountdown; private set { _sessionCountdown = value ?? ""; OnPropertyChanged(); } }
         public string TimeClockStatus { get => _timeClockStatus; private set { _timeClockStatus = value ?? ""; OnPropertyChanged(); } }
@@ -466,8 +565,19 @@ namespace RunBook.Workstation.ViewModels
         public string CurrentShiftDetail { get => _currentShiftDetail; private set { _currentShiftDetail = value ?? ""; OnPropertyChanged(); } }
         public string PendingSyncSummary { get => _pendingSyncSummary; private set { _pendingSyncSummary = value ?? ""; OnPropertyChanged(); } }
         public string WorkOrdersStatus { get => _workOrdersStatus; private set { _workOrdersStatus = value ?? ""; OnPropertyChanged(); } }
-        public string HeaderDateText => DateTime.Now.ToString("dddd, MMMM d, yyyy");
-        public string HeaderTimeText => DateTime.Now.ToString("h:mm tt");
+        public string HeaderDateText => _headerDateText;
+        public string HeaderTimeText => _headerTimeText;
+        public string RefreshConnectionsButtonText => "Refresh Employee Avatars";
+        public bool HasSupervisorSession => ControlSessionService.HasSession();
+        public bool ShowSupervisorSignInFields => !HasSupervisorSession;
+        public bool ShowSupervisorEnrollmentActions => HasSupervisorSession;
+        public string SupervisorDialogTitle => HasSupervisorSession ? "Supervisor Access Ready" : "Supervisor Sign In";
+        public string SupervisorDialogSubtitle => HasSupervisorSession
+            ? "Supervisor tools are unlocked for registration, reconnects, and codes."
+            : "RunBook supervisor email and password are required before registration codes can be used.";
+        public string IdleLogoutButtonText => "Log Out / Switch User";
+        public string IdleLogoutBadgeText => CurrentSession == null ? "" : $"{GetIdleSecondsRemaining()}s";
+        public bool ShowIdleLogoutBadge => CurrentSession != null && !IsWorkOrdersSelected;
         public string TimeClockStateKey => GetShiftStateKey(CurrentShiftStatus);
         public string TimeClockHeroTitle => TimeClockStateKey switch
         {
@@ -542,6 +652,7 @@ namespace RunBook.Workstation.ViewModels
                 _currentJob = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HasCurrentJob));
+                OnPropertyChanged(nameof(CurrentOperatorStatusLine));
                 OnPropertyChanged(nameof(CurrentJobTitle));
                 OnPropertyChanged(nameof(CurrentJobSummary));
                 OnPropertyChanged(nameof(CurrentJobHint));
@@ -618,6 +729,15 @@ namespace RunBook.Workstation.ViewModels
         public bool HasRecentJob => !HasCurrentJob && RecentJob != null && RecentJob.WorkOrderId > 0;
         public bool HasShopAwareness => ShopAwareness.Summary.VisibleJobs > 0 || ShopOperators.Count > 0;
         public bool CanConfirmPasscode => !IsBusy && IsPasscodeDialogOpen && SelectedRosterEmployee != null && _passcode.Length >= 4 && _passcode.Length <= 6;
+        public string LoginHeadline => IsLoggedIn ? "Go to Work" : "Select Operator";
+        public string LoginInstructionLine => IsLoggedIn
+            ? "Your workstation session is ready. Continue into work when you are ready."
+            : "Choose your operator card below, then enter your 4 to 6 digit passcode to sign in.";
+        public string CurrentOperatorLine => IsLoggedIn ? $"Operator: {SessionEmployeeName}" : "Operator: None selected";
+        public string CurrentOperatorStatusLine => IsLoggedIn
+            ? $"Status: {(HasCurrentJob ? "Working" : "Ready")}"
+            : "Status: Waiting for operator sign-in";
+        public string PrimaryOperatorActionText => IsLoggedIn ? "Go to Work" : "Select Operator";
         public string WorkstationIdentityLine => $"{Settings.WorkstationName}  |  {Settings.WorkstationId}";
         public string ConnectivityLine
         {
@@ -625,7 +745,35 @@ namespace RunBook.Workstation.ViewModels
             {
                 var shop = string.IsNullOrWhiteSpace(Settings.ShopName) ? "Unassigned shop" : Settings.ShopName;
                 var registration = Registration == null ? "Not registered" : $"Registered: {Registration.Status}";
-                return $"{shop}  |  {registration}";
+                var localHost = BuildLocalHostEndpointLabel();
+                return $"{shop}  |  {registration}  |  {localHost}";
+            }
+        }
+        public string RosterDiagnosticLine
+        {
+            get
+            {
+                if (_authCache?.Package == null)
+                    return "No employee auth package is loaded from the local workstation authority yet.";
+
+                var total = _authCache.Package.Employees?.Count ?? 0;
+                var active = _authCache.Package.Employees?.Count(employee => employee.IsActive) ?? 0;
+                var workstationReady = _authCache.Package.Employees?.Count(employee => employee.IsActive && employee.WorkstationAccessEnabled) ?? 0;
+                var visible = RosterEmployees.Count;
+                return $"Local package: {total} employees | active {active} | workstation-ready {workstationReady} | showing {visible}.";
+            }
+        }
+        public string RosterAvatarStatusLine
+        {
+            get
+            {
+                if (RosterEmployees.Count == 0)
+                    return "";
+
+                var withPhotos = RosterEmployees.Count(employee => employee.HasAvatarDisplayUrl);
+                return withPhotos == 0
+                    ? "Desktop did not send face-photo avatars for this roster, so Workstation is showing generated avatar circles."
+                    : $"Showing face-photo avatars for {withPhotos} employee{(withPhotos == 1 ? "" : "s")}.";
             }
         }
 
@@ -633,19 +781,19 @@ namespace RunBook.Workstation.ViewModels
         public string SessionRole => CurrentSession?.Employee?.Role ?? "Signed out";
         public string SessionModulesLine => CurrentSession == null ? "No modules available" : (CurrentSession.Modules.Count == 0 ? "No access assigned" : string.Join("  |  ", CurrentSession.Modules.Select(ToModuleLabel)));
         public string CurrentJobTitle => CurrentJob == null ? "No active job" : $"{CurrentJob.WorkOrderNumber} • Op {CurrentJob.OperationNumber:000}";
-        public string CurrentJobSummary => CurrentJob == null ? "Desktop has not assigned an active job to this employee yet." : $"{CurrentJob.PartNumber} • {CurrentJob.OperationTitle}";
+        public string CurrentJobSummary => CurrentJob == null ? "Service has not assigned an active job to this employee yet." : $"{CurrentJob.PartNumber} • {CurrentJob.OperationTitle}";
         public string CurrentJobHint => CurrentJob == null ? "Select an assigned job to begin work." : $"{CurrentJob.AssignmentLabel} • {CurrentJob.OperationStatus}";
         public string RecentJobTitle => RecentJob == null ? "No recent job" : $"{RecentJob.WorkOrderNumber} • Op {RecentJob.OperationNumber:000}";
         public string RecentJobSummary => RecentJob == null ? "No recent workstation job is waiting to resume." : $"{RecentJob.PartNumber} • {RecentJob.OperationTitle}";
         public string ShopSummaryLine => !HasShopAwareness
-            ? "Desktop will surface shop awareness after workstation jobs load."
+            ? "Service will surface shop awareness after workstation jobs load."
             : $"Active jobs {ShopAwareness.Summary.ActiveJobs} | Waiting jobs {ShopAwareness.Summary.WaitingJobs} | Completed {ShopAwareness.Summary.CompletedJobs}";
         public string ShopSummaryCountsLine => !HasShopAwareness
             ? "No shop-level visibility is loaded yet."
             : $"Active operators {ShopAwareness.Summary.ActiveOperators} | Idle {ShopAwareness.Summary.IdleOperators} | Visible jobs {ShopAwareness.Summary.VisibleJobs}";
         public string ShopOperatorAwarenessLine => ShopOperators.Count == 0
             ? "No operators are currently active in this workstation view."
-            : $"Showing {ShopOperators.Count} active operator{(ShopOperators.Count == 1 ? "" : "s")} from Desktop.";
+            : $"Showing {ShopOperators.Count} active operator{(ShopOperators.Count == 1 ? "" : "s")} from Service.";
         public string ShopActiveOperatorCountLine => ShopOperators.Count == 0
             ? "No active operators"
             : ShopOperators.Count == 1
@@ -656,20 +804,20 @@ namespace RunBook.Workstation.ViewModels
         public string SelectedWorkOrderTitle => WorkOrderDetail?.WorkOrderNumber ?? "Select a work order";
         public string SelectedWorkOrderSummary => WorkOrderDetail == null
             ? "Read-only released work-order detail will appear here."
-            : $"{WorkOrderDetail.PartNumber}  •  Rev {WorkOrderDetail.Revision}  •  Qty {WorkOrderDetail.Quantity}";
+            : $"{WorkOrderDetail.PartNumber} - Rev {WorkOrderDetail.Revision} - Qty {WorkOrderDetail.Quantity}";
         public string SelectedWorkOrderContext => WorkOrderDetail == null
-            ? "Desktop remains the authority for work-order data."
-            : $"{WorkOrderDetail.ReleaseState} snapshot  •  Due {FormatFriendlyDate(WorkOrderDetail.DueDate)}  •  {WorkOrderDetail.SnapshotLoadSource}";
+            ? "Service now serves workstation work-order reads."
+            : $"{WorkOrderDetail.ReleaseState} snapshot - Due {FormatFriendlyDate(WorkOrderDetail.DueDate)} - {WorkOrderDetail.SnapshotLoadSource}";
         public string SelectedWorkOrderOperationsSummary => WorkOrderDetail == null
             ? "No operation summary loaded yet."
             : WorkOrderDetail.TotalOperations <= 0
                 ? "No released operations were found for this work order."
-                : $"In Progress: {WorkOrderDetail.OperationSummary.InProgress}  •  Completed: {WorkOrderDetail.OperationSummary.Completed}  •  Remaining: {WorkOrderDetail.OperationSummary.NotStarted}";
+                : $"In Progress: {WorkOrderDetail.OperationSummary.InProgress} - Completed: {WorkOrderDetail.OperationSummary.Completed} - Remaining: {WorkOrderDetail.OperationSummary.NotStarted}";
         public string SelectedWorkOrderProgressSummary => WorkOrderDetail == null
-            ? "Desktop computes production visibility from authoritative operation state."
+            ? "Service computes production visibility from company manufacturing state."
             : WorkOrderDetail.TotalOperations <= 0
                 ? "Progress will appear once released operations exist."
-                : $"{WorkOrderDetail.ProgressPercent}% complete  •  {WorkOrderDetail.CompletedOperations}/{WorkOrderDetail.TotalOperations} operations finished";
+                : $"{WorkOrderDetail.ProgressPercent}% complete - {WorkOrderDetail.CompletedOperations}/{WorkOrderDetail.TotalOperations} operations finished";
         public string SelectedWorkOrderActiveOperatorsSummary => WorkOrderDetail == null
             ? "Operator awareness will appear when a work order is selected."
             : WorkOrderDetail.ActiveOperators.Count == 0
@@ -680,26 +828,30 @@ namespace RunBook.Workstation.ViewModels
         public string ActiveWorkContextLine => _activeContext == null || _activeContext.WorkOrderId <= 0
             ? "No active work context selected."
             : _activeContext.OperationId <= 0
-                ? $"{_activeContext.WorkOrderNumber}  â€¢  {_activeContext.PartNumber}"
-                : $"{_activeContext.WorkOrderNumber}  â€¢  Op {_activeContext.OperationNumber:000} {_activeContext.OperationTitle}";
+                ? $"{_activeContext.WorkOrderNumber} - {_activeContext.PartNumber}"
+                : $"{_activeContext.WorkOrderNumber} - OP{_activeContext.OperationNumber:000} {_activeContext.OperationTitle}";
         public string SelectedOperationTitle => SelectedOperation == null
             ? "Select an operation"
-            : $"Op {SelectedOperation.OperationNumber:000}  â€¢  {SelectedOperation.Title}";
+            : $"OP{SelectedOperation.OperationNumber:000} - {SelectedOperation.Title}";
         public string SelectedOperationContext => SelectedOperation == null
             ? "Pick a released operation to execute from Workstation."
-            : $"{SelectedOperation.Status}  â€¢  {SelectedOperation.Department} / {SelectedOperation.WorkCenter}";
+            : $"{SelectedOperation.Status} - {SelectedOperation.Department} / {SelectedOperation.WorkCenter}";
         public string InspectionTitle => InspectionPackage == null
             ? "Inspection Tasks"
             : string.IsNullOrWhiteSpace(InspectionPackage.FeatureSetName) ? "Inspection Tasks" : InspectionPackage.FeatureSetName;
         public string InspectionSubtitle => InspectionPackage == null
             ? "Inspection entry will appear when an operation is selected."
-            : (InspectionTasks.Count == 0 ? "No inspection tasks available for the current context." : $"Loaded {InspectionTasks.Count} inspection tasks from Desktop.");
+            : (InspectionTasks.Count == 0
+                ? "No inspection tasks available for the current context."
+                : _inspectionResultSubmissionAvailable
+                    ? $"Loaded {InspectionTasks.Count} inspection tasks from RunBook Service."
+                    : $"Loaded {InspectionTasks.Count} inspection tasks from RunBook Service. Inspection result submission is not available on Workstation yet.");
         public string SelectedInspectionTaskTitle => SelectedInspectionTask == null
             ? "Select an inspection item"
             : (SelectedInspectionTask.BalloonNumber > 0 ? $"Balloon {SelectedInspectionTask.BalloonNumber}" : $"Feature {SelectedInspectionTask.FeatureId}");
         public string SelectedInspectionTaskSummary => SelectedInspectionTask == null
             ? "Measured value entry will appear here."
-            : $"{SelectedInspectionTask.FeatureText}  â€¢  {SelectedInspectionTask.InputType}";
+            : $"{SelectedInspectionTask.FeatureText} - {SelectedInspectionTask.InputType}";
         public string PasscodeDialogTitle => SelectedRosterEmployee?.DisplayName ?? "Employee Sign In";
         public string PasscodeDialogSubtitle => SelectedRosterEmployee == null ? "Select an employee to continue." : SelectedRosterEmployee.Role;
         public string PasscodeDialogModuleSummary => SelectedRosterEmployee?.AccessSummary ?? "";
@@ -708,6 +860,21 @@ namespace RunBook.Workstation.ViewModels
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public void SetControlPassword(string password) => SettingsControlPassword = password ?? "";
+
+        public void ClearSupervisorCredentials()
+        {
+            SettingsControlEmail = "";
+            SettingsControlPassword = "";
+        }
+
+        public void NotifyUserActivity()
+        {
+            if (CurrentSession == null)
+                return;
+
+            _lastInteractionUtc = DateTime.UtcNow;
+            OnPropertyChanged(nameof(IdleLogoutBadgeText));
+        }
 
         public bool HandlePasscodeKey(Key key)
         {
@@ -741,7 +908,7 @@ namespace RunBook.Workstation.ViewModels
             if (key == Key.Enter || key == Key.Return)
             {
                 if (CanConfirmPasscode)
-                    _ = LoginAsync();
+                    _ = SubmitPasscodeUnlockAsync();
                 return true;
             }
 
@@ -754,43 +921,54 @@ namespace RunBook.Workstation.ViewModels
             return false;
         }
 
+        private Task SubmitPasscodeUnlockAsync()
+        {
+            var unlockTrace = GetOrCreateUnlockTrace(SelectedRosterEmployee);
+            LogUnlockTrace(unlockTrace, "passcode_submit_click", $"passcode_digits={_passcode.Length}");
+            return LoginAsync();
+        }
+
         private async Task LoginAsync()
         {
+            var unlockTrace = GetOrCreateUnlockTrace(SelectedRosterEmployee);
+            LogUnlockTrace(unlockTrace, "login_async_entry", $"passcode_digits={_passcode.Length}");
             if (!CanConfirmPasscode || SelectedRosterEmployee == null)
             {
                 StatusText = "Enter a 4 to 6 digit passcode.";
                 return;
             }
 
+            var passcodeValidationStopwatch = Stopwatch.StartNew();
             NormalizeLocalShopScope();
-            if (!ValidateLocalAuthSettings())
+            var authSettingsValid = ValidateLocalAuthSettings();
+            LogUnlockTrace(unlockTrace, "passcode_validation_complete", $"duration_ms={passcodeValidationStopwatch.ElapsedMilliseconds};auth_settings_valid={authSettingsValid}");
+            if (!authSettingsValid)
                 return;
 
             var submittedPasscode = _passcode;
             await RunBusyAsync(async () =>
             {
-                await RefreshAuthPackageAsyncCore(false);
-                var employee = FindRosterEmployee(
-                    SelectedRosterEmployee.RemoteEmployeeId,
-                    SelectedRosterEmployee.EmployeeId,
-                    SelectedRosterEmployee.EmployeeCode);
                 var authHealth = GetAuthCacheHealth();
                 UpdateAuthCacheStatus(authHealth);
+                var employee = SelectedRosterEmployee;
 
                 if (employee == null)
                 {
-                    StatusText = "That employee is no longer present in the Desktop auth cache.";
+                    StatusText = "Select an employee and enter a 4 to 6 digit passcode.";
                     ClearPasscode();
                     return;
                 }
 
+                var loginStopwatch = Stopwatch.StartNew();
                 var login = await _api.LoginLocalEmployeeAsync(
                     Settings,
                     employee.RemoteEmployeeId,
                     employee.EmployeeId,
                     employee.EmployeeCode,
                     submittedPasscode,
-                    CancellationToken.None);
+                    CancellationToken.None,
+                    unlockTrace?.TraceId);
+                LogUnlockTrace(unlockTrace, "login_local_employee_async_complete", $"duration_ms={loginStopwatch.ElapsedMilliseconds}");
 
                 var payload = MapCapabilityPayload(login.Payload);
                 var modules = payload.Modules
@@ -798,6 +976,7 @@ namespace RunBook.Workstation.ViewModels
                     .Select(entry => entry.Key)
                     .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
                     .ToList();
+                var sessionAssignmentStopwatch = Stopwatch.StartNew();
                 var snapshot = new WorkstationSessionSnapshot
                 {
                     Token = login.Session?.Token ?? "",
@@ -825,38 +1004,61 @@ namespace RunBook.Workstation.ViewModels
                 };
 
                 CurrentSession = snapshot;
+                LogUnlockTrace(unlockTrace, "session_assignment_complete", $"duration_ms={sessionAssignmentStopwatch.ElapsedMilliseconds}");
+                NotifyUserActivity();
                 WorkstationStorageService.SaveSession(snapshot);
-                MarkDesktopRequestSuccess();
+                MarkLocalHostRequestSuccess();
                 Settings.WorkstationName = Registration?.WorkstationName ?? Settings.WorkstationName;
                 WorkstationStorageService.SaveSettings(Settings);
+                var buildModulesStopwatch = Stopwatch.StartNew();
                 BuildVisibleModules();
+                LogUnlockTrace(unlockTrace, "build_visible_modules_complete", $"duration_ms={buildModulesStopwatch.ElapsedMilliseconds};module_count={VisibleModules.Count}");
                 SelectedModule = VisibleModules.FirstOrDefault();
+                LogUnlockTrace(unlockTrace, "shell_transition_ready", $"selected_module={SelectedModule?.Key ?? ""}");
                 StatusText = $"Signed in as {SessionEmployeeName}.";
-                OfflineStatus = "Desktop employee session is active.";
+                OfflineStatus = "Local workstation session is active.";
                 _passcode = "";
                 IsPasscodeDialogOpen = false;
                 SelectedRosterEmployee = null;
                 OnPropertyChanged(nameof(PasscodeMaskDisplay));
                 UpdateSessionCountdown();
-                LoadQueue();
-                await RefreshDesktopTimeclockStateAsync();
-                await SyncPendingQueueAsync(false);
             });
 
-            if (CurrentSession != null && HasWorkOrdersAccess)
-                await RefreshWorkOrdersAsync(false);
+            if (CurrentSession != null)
+                _ = HydrateSignedInShellAsync(CurrentSession.Token);
         }
 
         private async Task RefreshRegistrationAsync()
         {
             await RunBusyAsync(async () =>
             {
-                if (ControlSessionService.HasSession())
-                    await SyncCurrentShopAsync();
+                await TrySyncCurrentShopIfConfirmedAsync();
                 await EnsureRegistrationAsync();
                 await RefreshAuthPackageAsyncCore(true);
                 await LoadRosterCoreAsync();
                 StatusText = "Workstation registration and employee auth refreshed.";
+            });
+        }
+
+        public void TraceSignedInShellVisible()
+        {
+            if (_unlockTimingTrace == null || _unlockTimingTrace.ShellVisibleLogged || CurrentSession == null || !ShowModulesShell)
+                return;
+
+            _unlockTimingTrace.ShellVisibleLogged = true;
+            LogUnlockTrace(_unlockTimingTrace, "signed_in_shell_visible", $"selected_module={SelectedModule?.Key ?? ""}");
+        }
+
+        private async Task RefreshEmployeeAuthAsync()
+        {
+            await RunBusyAsync(async () =>
+            {
+                await TrySyncCurrentShopIfConfirmedAsync();
+
+                var refreshed = await RefreshAuthPackageAsyncCore(true);
+                await LoadRosterCoreAsync();
+                if (refreshed)
+                    StatusText = "Employee auth package refreshed from the local workstation authority.";
             });
         }
 
@@ -867,13 +1069,16 @@ namespace RunBook.Workstation.ViewModels
 
             await RunBusyAsync(async () =>
             {
-                await RefreshDesktopTimeclockStateAsync();
+                await RefreshLocalTimeclockStateAsync();
                 await SyncPendingQueueAsync(false);
             });
         }
 
         private async Task SubmitPunchAsync(string eventType, string note)
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || !HasTimeClockAccess)
                 return;
 
@@ -923,6 +1128,7 @@ namespace RunBook.Workstation.ViewModels
             _backupWorkOrderCount = 0;
             SelectedRosterEmployee = null;
             _passcode = "";
+            _lastInteractionUtc = DateTime.UtcNow;
             SessionCountdown = "Signed out";
             StatusText = "Session cleared. Ready for next employee.";
             IsPasscodeDialogOpen = false;
@@ -939,6 +1145,8 @@ namespace RunBook.Workstation.ViewModels
             RefreshTimeClockPresentation();
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
             OnPropertyChanged(nameof(ActiveWorkContextLine));
+            OnPropertyChanged(nameof(IdleLogoutBadgeText));
+            OnPropertyChanged(nameof(ShowIdleLogoutBadge));
             RefreshConnectionStatuses();
         }
 
@@ -972,6 +1180,22 @@ namespace RunBook.Workstation.ViewModels
                 SelectModule(module);
         }
 
+        private void ExecutePrimaryOperatorAction()
+        {
+            if (!IsLoggedIn)
+            {
+                StatusText = "Select an operator card below to continue.";
+                return;
+            }
+
+            var targetModule = VisibleModules.FirstOrDefault(module => string.Equals(module.Key, "workorders", StringComparison.OrdinalIgnoreCase))
+                ?? VisibleModules.FirstOrDefault(module => string.Equals(module.Key, "home", StringComparison.OrdinalIgnoreCase))
+                ?? VisibleModules.FirstOrDefault();
+
+            if (targetModule != null)
+                SelectModule(targetModule);
+        }
+
         private void SaveSettings()
         {
             Settings.ControlBaseUrl = (SettingsBaseUrl ?? "").Trim();
@@ -980,6 +1204,7 @@ namespace RunBook.Workstation.ViewModels
             Settings.ShopName = (SettingsShopName ?? "").Trim();
             Settings.WorkstationName = (SettingsWorkstationName ?? "").Trim();
             Settings.PairingCode = NormalizePairingCode(SettingsPairingCode);
+            NormalizeDesktopBaseUrl();
             WorkstationStorageService.SaveSettings(Settings);
             OnPropertyChanged(nameof(ConnectivityLine));
             OnPropertyChanged(nameof(WorkstationIdentityLine));
@@ -1008,37 +1233,49 @@ namespace RunBook.Workstation.ViewModels
             await RunBusyAsync(() =>
             {
                 var session = ControlSessionService.SignIn(Settings.ControlBaseUrl, SettingsControlEmail, SettingsControlPassword);
-                SettingsControlPassword = "";
+                _isControlConfirmedAvailable = true;
+                ClearSupervisorCredentials();
                 ControlSessionStatus = ControlSessionService.GetStatusLabel();
+                OnPropertyChanged(nameof(HasSupervisorSession));
+                OnPropertyChanged(nameof(ShowSupervisorSignInFields));
+                OnPropertyChanged(nameof(ShowSupervisorEnrollmentActions));
+                OnPropertyChanged(nameof(SupervisorDialogTitle));
+                OnPropertyChanged(nameof(SupervisorDialogSubtitle));
                 return Task.CompletedTask;
             });
 
             await RunBusyAsync(async () =>
             {
-                await SyncCurrentShopAsync();
+                await TrySyncCurrentShopIfConfirmedAsync();
                 await LoadRosterCoreAsync();
                 StatusText = $"Supervisor session ready for {Settings.ShopName}.";
+                RefreshConnectionStatuses();
             });
         }
 
         private void DisconnectControl()
         {
             ControlSessionService.SignOut();
-            SettingsControlPassword = "";
+            _isControlConfirmedAvailable = false;
+            ClearSupervisorCredentials();
             ControlSessionStatus = ControlSessionService.GetStatusLabel();
+            OnPropertyChanged(nameof(HasSupervisorSession));
+            OnPropertyChanged(nameof(ShowSupervisorSignInFields));
+            OnPropertyChanged(nameof(ShowSupervisorEnrollmentActions));
+            OnPropertyChanged(nameof(SupervisorDialogTitle));
+            OnPropertyChanged(nameof(SupervisorDialogSubtitle));
+            RefreshConnectionStatuses();
             LoadCachedAuthCache();
-            StatusText = "Supervisor session cleared. Cached Desktop employee auth remains available.";
+            StatusText = "Supervisor session cleared. Cached local employee auth remains available.";
         }
 
         private async Task EnsureRegistrationAsync()
         {
             SaveSettings();
-            if (string.IsNullOrWhiteSpace(Settings.DesktopBaseUrl))
-                throw new InvalidOperationException("Desktop base URL is required before workstation enrollment.");
             if (string.IsNullOrWhiteSpace(Settings.ShopId))
-                throw new InvalidOperationException("Shop ID is required before workstation enrollment.");
+                throw new InvalidOperationException("Shop ID is required before workstation registration with RunBook Service.");
             if (string.IsNullOrWhiteSpace(Settings.PairingCode))
-                throw new InvalidOperationException("PAIRING_REQUIRED: Enter the Desktop pairing code before enrolling this workstation.");
+                throw new InvalidOperationException("PAIRING_REQUIRED: Enter the workstation pairing code before registering this workstation with RunBook Service.");
 
             var registration = await _api.RegisterAsync(Settings, CancellationToken.None);
             Registration = registration;
@@ -1055,8 +1292,8 @@ namespace RunBook.Workstation.ViewModels
                 SettingsWorkstationName = registration.WorkstationName;
             }
             WorkstationStorageService.SaveRegistration(registration);
-            Settings.PairingCode = "";
-            SettingsPairingCode = "";
+            Settings.PairingCode = NormalizePairingCode(SettingsPairingCode);
+            SettingsPairingCode = Settings.PairingCode;
             WorkstationStorageService.SaveSettings(Settings);
         }
 
@@ -1119,6 +1356,7 @@ namespace RunBook.Workstation.ViewModels
             SelectedModule = VisibleModules.FirstOrDefault();
             StatusText = $"Session restored for {SessionEmployeeName}.";
             OfflineStatus = GetAuthCacheHealth().Message;
+            NotifyUserActivity();
             UpdateSessionCountdown();
 
             if (HasTimeClockAccess)
@@ -1132,13 +1370,15 @@ namespace RunBook.Workstation.ViewModels
             if (employee == null)
                 return;
 
+            _unlockTimingTrace = UnlockTimingTrace.Start(employee);
+            LogUnlockTrace(_unlockTimingTrace, "roster_tile_click");
             SelectedRosterEmployee = employee;
             _passcode = "";
             IsPasscodeDialogOpen = true;
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
             StatusText = employee.HasWorkstationPasscode
                 ? $"Enter the passcode for {employee.DisplayName}."
-                : $"{employee.DisplayName} may need an employee auth refresh if the passcode was just configured. Enter the passcode to try Desktop validation.";
+                : $"{employee.DisplayName} may need an employee auth refresh if the passcode was just configured. Enter the passcode to try RunBook Service validation.";
         }
 
         private void AppendPasscodeDigit(string? digit)
@@ -1180,15 +1420,89 @@ namespace RunBook.Workstation.ViewModels
             StatusText = "Workstation ready.";
         }
 
+        private void OpenSupervisorDialog()
+        {
+            ClearSupervisorCredentials();
+            IsSupervisorDialogOpen = true;
+            StatusText = HasSupervisorSession
+                ? "Supervisor tools are ready."
+                : "Supervisor sign-in is required before registration codes can be used.";
+        }
+
+        private void CloseSupervisorDialog()
+        {
+            ClearSupervisorCredentials();
+            IsSupervisorDialogOpen = false;
+        }
+
         private async Task BackgroundSyncAsync()
         {
-            if (IsBusy)
+            if (IsBusy || _isBackgroundSyncRunning)
                 return;
 
-            if (_lastAuthRefreshAttemptUtc == DateTime.MinValue || DateTime.UtcNow - _lastAuthRefreshAttemptUtc >= AuthRefreshInterval)
-                await RefreshAuthPackageAsyncCore(false);
+            _isBackgroundSyncRunning = true;
+            try
+            {
+                if (_lastAuthRefreshAttemptUtc == DateTime.MinValue || DateTime.UtcNow - _lastAuthRefreshAttemptUtc >= AuthRefreshInterval)
+                    await RefreshAuthPackageAsyncCore(false);
 
-            await SyncPendingQueueAsync(false);
+                await SyncPendingQueueAsync(false);
+            }
+            catch (Exception ex)
+            {
+                DebugLogService.WriteException("BackgroundSyncAsync", ex);
+                if (IsConnectivityFailure(ex))
+                {
+                    MarkLocalHostRequestFailure(ex.Message);
+                    OfflineStatus = "RunBook.Service is unavailable right now.";
+                    return;
+                }
+
+                StatusText = GetUserFacingErrorMessage(ex);
+            }
+            finally
+            {
+                _isBackgroundSyncRunning = false;
+            }
+        }
+
+        private async Task HydrateSignedInShellAsync(string sessionToken)
+        {
+            if (_isPostLoginHydrationRunning)
+                return;
+
+            _isPostLoginHydrationRunning = true;
+            try
+            {
+                if (CurrentSession == null || !string.Equals(CurrentSession.Token, sessionToken, StringComparison.Ordinal))
+                    return;
+
+                LoadQueue();
+
+                if (HasTimeClockAccess)
+                {
+                    await RefreshLocalTimeclockStateAsync();
+                    if (CurrentSession == null || !string.Equals(CurrentSession.Token, sessionToken, StringComparison.Ordinal))
+                        return;
+
+                    await SyncPendingQueueAsync(false);
+                }
+
+                if (CurrentSession != null &&
+                    string.Equals(CurrentSession.Token, sessionToken, StringComparison.Ordinal) &&
+                    HasWorkOrdersAccess)
+                {
+                    await RefreshWorkOrdersAsync(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLogService.WriteException("HydrateSignedInShellAsync", ex);
+            }
+            finally
+            {
+                _isPostLoginHydrationRunning = false;
+            }
         }
 
         private async Task RefreshCapabilityPayloadAsync(bool allowFallback)
@@ -1199,7 +1513,7 @@ namespace RunBook.Workstation.ViewModels
             try
             {
                 var response = await _api.GetSessionMeAsync(Settings, CurrentSession, CancellationToken.None);
-                MarkDesktopRequestSuccess();
+                MarkLocalHostRequestSuccess();
                 ApplyCapabilityPayload(MapCapabilityPayload(response.Payload));
             }
             catch (Exception ex)
@@ -1292,6 +1606,11 @@ namespace RunBook.Workstation.ViewModels
             WorkstationStorageService.SaveSession(CurrentSession);
             OnPropertyChanged(nameof(SessionEmployeeName));
             OnPropertyChanged(nameof(SessionRole));
+            OnPropertyChanged(nameof(LoginHeadline));
+            OnPropertyChanged(nameof(LoginInstructionLine));
+            OnPropertyChanged(nameof(CurrentOperatorLine));
+            OnPropertyChanged(nameof(CurrentOperatorStatusLine));
+            OnPropertyChanged(nameof(PrimaryOperatorActionText));
             OnPropertyChanged(nameof(SessionModulesLine));
             OnPropertyChanged(nameof(HasTimeClockAccess));
             OnPropertyChanged(nameof(HasWorkOrdersAccess));
@@ -1355,8 +1674,8 @@ namespace RunBook.Workstation.ViewModels
                 }
 
                 WorkOrdersStatus = WorkOrders.Count == 0
-                    ? "Desktop has no assigned or backup work orders available for this employee."
-                    : $"Loaded {WorkOrders.Count} workstation jobs from Desktop. Assigned {_assignedWorkOrderCount}, backup {_backupWorkOrderCount}.";
+                    ? "Service has no assigned or backup work orders available for this employee."
+                    : $"Loaded {WorkOrders.Count} workstation jobs from Service. Assigned {_assignedWorkOrderCount}, backup {_backupWorkOrderCount}.";
                 if (manual)
                     StatusText = WorkOrdersStatus;
             });
@@ -1371,7 +1690,7 @@ namespace RunBook.Workstation.ViewModels
             {
                 SelectedWorkOrder = workOrder;
                 await LoadWorkOrderDetailAsync(workOrder.WorkOrderId, true);
-                StatusText = $"Loaded {workOrder.WorkOrderNumber} from Desktop.";
+                StatusText = $"Loaded {workOrder.WorkOrderNumber} from Service.";
             });
         }
 
@@ -1392,7 +1711,7 @@ namespace RunBook.Workstation.ViewModels
             {
                 await LoadWorkOrderDetailAsync(CurrentJob.WorkOrderId, true);
                 SelectedWorkOrder = WorkOrders.FirstOrDefault(item => item.WorkOrderId == CurrentJob.WorkOrderId) ?? SelectedWorkOrder;
-                StatusText = $"Resumed {CurrentJob.WorkOrderNumber} from Desktop.";
+                StatusText = $"Resumed {CurrentJob.WorkOrderNumber} from Service.";
             });
         }
 
@@ -1414,7 +1733,7 @@ namespace RunBook.Workstation.ViewModels
             await RunBusyAsync(async () =>
             {
                 await LoadWorkOrderDetailAsync(RecentJob.WorkOrderId, true);
-                StatusText = $"Loaded recent job {RecentJob.WorkOrderNumber} from Desktop.";
+                StatusText = $"Loaded recent job {RecentJob.WorkOrderNumber} from Service.";
             });
         }
 
@@ -1478,7 +1797,7 @@ namespace RunBook.Workstation.ViewModels
                 var response = await _api.DownloadDrawingAsync(Settings, CurrentSession, drawing.DownloadRoute, CancellationToken.None);
                 var bytes = response.GetBytes();
                 if (bytes.Length == 0)
-                    throw new InvalidOperationException("Desktop returned an empty drawing payload.");
+                    throw new InvalidOperationException("RunBook Service returned an empty drawing payload.");
 
                 var tempFolder = Path.Combine(WorkstationStorageService.TempFolder, "drawings");
                 Directory.CreateDirectory(tempFolder);
@@ -1492,6 +1811,9 @@ namespace RunBook.Workstation.ViewModels
 
         private async Task ExecuteOperationAsync(string action)
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null || !HasOperationExecutionAccess)
                 return;
 
@@ -1518,6 +1840,9 @@ namespace RunBook.Workstation.ViewModels
 
         private async Task SubmitQuantityAsync()
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null || !HasProductionQuantityAccess)
                 return;
 
@@ -1544,6 +1869,9 @@ namespace RunBook.Workstation.ViewModels
 
         private async Task SubmitScrapAsync()
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null || !HasProductionScrapAccess)
                 return;
 
@@ -1570,6 +1898,9 @@ namespace RunBook.Workstation.ViewModels
 
         private async Task SubmitOperationNoteAsync()
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null || !HasProductionNoteAccess)
                 return;
 
@@ -1596,6 +1927,9 @@ namespace RunBook.Workstation.ViewModels
 
         private async Task SubmitOperationHelpAsync()
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null || !HasWorkOrdersAccess)
                 return;
 
@@ -1650,11 +1984,13 @@ namespace RunBook.Workstation.ViewModels
             {
                 var operationId = SelectedOperation?.OperationId ?? 0;
                 var response = await _api.GetInspectionTasksAsync(Settings, CurrentSession, SelectedWorkOrder.WorkOrderId, operationId, CancellationToken.None);
+                _inspectionResultSubmissionAvailable = false;
                 InspectionPackage = MapInspectionTaskPackage(response.Inspection);
                 InspectionTasks.Clear();
                 foreach (var task in InspectionPackage?.Tasks ?? Enumerable.Empty<WorkstationInspectionTask>())
                     InspectionTasks.Add(task);
                 OnPropertyChanged(nameof(InspectionSubtitle));
+                RaiseCommandStates();
                 SelectedInspectionTask = InspectionTasks.FirstOrDefault(task => task.FeatureId == SelectedInspectionTask?.FeatureId) ?? InspectionTasks.FirstOrDefault();
                 if (SelectedInspectionTask != null)
                 {
@@ -1672,10 +2008,12 @@ namespace RunBook.Workstation.ViewModels
             }
             catch (Exception ex)
             {
+                _inspectionResultSubmissionAvailable = false;
                 InspectionPackage = null;
                 InspectionTasks.Clear();
                 SelectedInspectionTask = null;
                 OnPropertyChanged(nameof(InspectionSubtitle));
+                RaiseCommandStates();
                 InspectionActualValue = "";
                 InspectionResultNoteText = "";
                 if (manual)
@@ -1695,6 +2033,15 @@ namespace RunBook.Workstation.ViewModels
 
         private async Task SubmitInspectionResultAsync()
         {
+            if (!EnsureServiceWritable())
+                return;
+
+            if (!_inspectionResultSubmissionAvailable)
+            {
+                StatusText = "Inspection result submission is not available on Workstation yet.";
+                return;
+            }
+
             if (CurrentSession == null || SelectedWorkOrder == null || SelectedInspectionTask == null || !HasInspectionEntryAccess)
                 return;
 
@@ -2020,31 +2367,23 @@ namespace RunBook.Workstation.ViewModels
             UpdatePendingSummary();
         }
 
-        private async Task RefreshDesktopTimeclockStateAsync()
+        private async Task RefreshLocalTimeclockStateAsync()
         {
             if (CurrentSession == null || !HasTimeClockAccess)
                 return;
 
-            var response = await _api.GetDesktopTimeclockStateAsync(Settings, CurrentSession, CancellationToken.None);
-            MarkDesktopRequestSuccess();
+            var response = await _api.GetLocalTimeclockStateAsync(Settings, CurrentSession, CancellationToken.None);
+            MarkLocalHostRequestSuccess();
             var snapshot = MapSnapshot(response.Snapshot);
             ApplySnapshot(snapshot, true);
-            OfflineStatus = "Desktop connected and authoritative.";
-            StatusText = $"Loaded Desktop state for {snapshot.EmployeeName}.";
+            OfflineStatus = "RunBook.Service timeclock authority connected.";
+            StatusText = $"Loaded Service timeclock state for {snapshot.EmployeeName}.";
         }
 
         private async Task<bool> RefreshAuthPackageAsyncCore(bool manual)
         {
             NormalizeLocalShopScope();
             SaveSettings();
-            if (string.IsNullOrWhiteSpace(Settings.DesktopBaseUrl))
-            {
-                if (manual)
-                    StatusText = "Desktop base URL is required before employee auth can sync.";
-                UpdateAuthCacheStatus();
-                return false;
-            }
-
             if (string.IsNullOrWhiteSpace(Settings.ShopId))
             {
                 if (manual)
@@ -2058,19 +2397,18 @@ namespace RunBook.Workstation.ViewModels
                 !string.Equals(Registration.WorkstationId, Settings.WorkstationId, StringComparison.OrdinalIgnoreCase) ||
                 string.IsNullOrWhiteSpace(Registration.DeviceToken))
             {
-                if (manual || !string.IsNullOrWhiteSpace(Settings.PairingCode))
+                if (manual)
                 {
                     await EnsureRegistrationAsync();
                 }
                 else
                 {
-                    var message = "Desktop enrollment is required. Enter a current Desktop pairing code and refresh registration.";
+                    var message = "Workstation registration with RunBook Service is required.";
                     _authCache ??= new WorkstationEmployeeAuthCache();
                     _authCache.LastRefreshError = message;
                     WorkstationStorageService.SaveAuthCache(_authCache);
                     UpdateAuthCacheStatus();
-                    if (manual)
-                        StatusText = message;
+                    OfflineStatus = message;
                     return false;
                 }
             }
@@ -2082,7 +2420,7 @@ namespace RunBook.Workstation.ViewModels
             try
             {
                 var response = await _api.GetLocalAuthPackageAsync(Settings, CancellationToken.None);
-                MarkDesktopRequestSuccess();
+                MarkLocalHostRequestSuccess();
                 var package = MapAuthPackage(response.Package);
                 _authCache.Package = package;
                 _authCache.LastRefreshSuccessUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
@@ -2105,9 +2443,9 @@ namespace RunBook.Workstation.ViewModels
                 WorkstationStorageService.SaveAuthCache(_authCache);
                 LoadRosterFromAuthCache();
                 UpdateAuthCacheStatus();
-                OfflineStatus = "Desktop employee auth connected.";
+                OfflineStatus = "RunBook.Service local authority connected.";
                 if (manual)
-                    StatusText = $"Employee auth refreshed from Desktop for {package.Employees.Count} employees.";
+                    StatusText = $"Employee auth refreshed from the local workstation authority for {package.Employees.Count} employees.";
                 return true;
             }
             catch (Exception ex)
@@ -2124,12 +2462,15 @@ namespace RunBook.Workstation.ViewModels
                 WorkstationStorageService.SaveAuthCache(_authCache);
                 LoadRosterFromAuthCache();
                 if (IsConnectivityFailure(ex))
-                    MarkDesktopRequestFailure(ex.Message);
+                    MarkLocalHostRequestFailure(ex.Message);
                 var authHealth = GetAuthCacheHealth();
                 UpdateAuthCacheStatus(authHealth);
-                OfflineStatus = authHealth.AllowsOfflineLogin
-                    ? "Desktop unavailable. Using cached employee auth."
-                    : "Desktop employee auth unavailable.";
+                OfflineStatus = IsConnectivityFailure(ex)
+                    ? (authHealth.AllowsOfflineLogin
+                        ? "Employee auth cache is stale. Using cached employee auth."
+                        : "Employee auth cache is not available yet."
+                    )
+                    : GetServiceFailureStatus("/api/workstation-local/auth-package", ex.Message, "Employee auth cache is not available yet.");
                 if (manual)
                     StatusText = authHealth.AllowsOfflineLogin ? authHealth.Message : ex.Message;
                 return false;
@@ -2142,7 +2483,9 @@ namespace RunBook.Workstation.ViewModels
                 return;
 
             var pendingItems = PendingSyncItems
-                .Where(item => string.Equals(item.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase))
+                .Where(item =>
+                    string.Equals(item.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase) ||
+                    (manual && string.Equals(item.SyncStatus, "failed", StringComparison.OrdinalIgnoreCase)))
                 .OrderBy(item => ParseUtc(item.EffectiveUtc))
                 .ThenBy(item => ParseUtc(item.CreatedLocalUtc))
                 .ThenBy(item => item.QueueId, StringComparer.Ordinal)
@@ -2155,57 +2498,86 @@ namespace RunBook.Workstation.ViewModels
                 return;
             }
 
+            foreach (var item in pendingItems.Where(item => string.Equals(item.SyncStatus, "failed", StringComparison.OrdinalIgnoreCase)))
+                item.SyncStatus = "pending";
+
+            RunBookWorkstationApiClient.DesktopSyncResponse? localSnapshotResponse = null;
+            var localError = "";
+
             try
             {
-                var response = await _api.SyncDesktopTimeclockAsync(Settings, CurrentSession, pendingItems, CancellationToken.None);
-                foreach (var result in response.Results)
-                {
-                    var item = PendingSyncItems.FirstOrDefault(entry => string.Equals(entry.QueueId, result.QueueId, StringComparison.Ordinal));
-                    if (item == null)
-                        continue;
-
-                    item.RemoteReceiptId = result.RemoteReceiptId ?? "";
-                    item.LastError = result.Message ?? "";
-                    if (string.Equals(result.Outcome, "accepted", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(result.Outcome, "already_processed", StringComparison.OrdinalIgnoreCase))
-                    {
-                        item.SyncStatus = "synced";
-                    }
-                    else if (string.Equals(result.Outcome, "rejected", StringComparison.OrdinalIgnoreCase))
-                    {
-                        item.SyncStatus = "failed";
-                    }
-                    else
-                    {
-                        item.SyncStatus = "pending";
-                        item.RetryCount++;
-                    }
-                }
-
-                SaveQueue();
-                MarkDesktopRequestSuccess();
-                var snapshot = MapSnapshot(response.Snapshot);
-                ApplySnapshot(snapshot, true);
-                RemoveSyncedQueueItems();
-                OfflineStatus = "Desktop connected and sync complete.";
-                TimeClockStatus = HasPendingSyncItems ? "Some items still need attention." : "Desktop is fully synced.";
-                StatusText = HasPendingSyncItems ? "Some workstation items were rejected and need review." : "Workstation items synced to Desktop.";
+                var response = await _api.SyncLocalTimeclockAsync(Settings, CurrentSession, pendingItems, CancellationToken.None);
+                ApplySyncResults(response.Results);
+                localSnapshotResponse = response;
+                MarkLocalHostRequestSuccess();
             }
             catch (Exception ex)
             {
+                localError = ex.Message;
                 foreach (var item in pendingItems)
                 {
                     item.RetryCount++;
                     item.LastError = ex.Message;
                 }
 
-                SaveQueue();
-                RebuildLocalProjection();
                 if (IsConnectivityFailure(ex))
-                    MarkDesktopRequestFailure(ex.Message);
-                OfflineStatus = "Desktop unavailable. Pending items will sync later.";
-                if (manual)
-                    StatusText = ex.Message;
+                    MarkLocalHostRequestFailure(ex.Message);
+            }
+
+            SaveQueue();
+            if (localSnapshotResponse?.Snapshot != null)
+            {
+                var snapshot = MapSnapshot(localSnapshotResponse.Snapshot);
+                ApplySnapshot(snapshot, true);
+            }
+            else
+            {
+                RebuildLocalProjection();
+            }
+
+            RemoveSyncedQueueItems();
+
+            if (localError.Length == 0)
+            {
+                OfflineStatus = "RunBook.Service connected and workstation sync complete.";
+                TimeClockStatus = HasPendingSyncItems ? "Some items still need attention." : "RunBook.Service workstation sync is fully caught up.";
+                StatusText = HasPendingSyncItems
+                    ? "Some workstation items were rejected and need review."
+                    : "Workstation sync items sent to RunBook.Service.";
+                return;
+            }
+
+            OfflineStatus = IsConnectivityFailureMessage(localError)
+                ? "RunBook.Service unavailable. Workstation sync items will sync later."
+                : GetServiceFailureStatus("/api/workstation-local/timeclock/sync", localError, "Service endpoint failed: /api/workstation-local/timeclock/sync");
+            if (manual)
+                StatusText = localError;
+        }
+
+        private void ApplySyncResults(IEnumerable<RunBookWorkstationApiClient.DesktopSyncItemResult> results)
+        {
+            foreach (var result in results)
+            {
+                var item = PendingSyncItems.FirstOrDefault(entry => string.Equals(entry.QueueId, result.QueueId, StringComparison.Ordinal));
+                if (item == null)
+                    continue;
+
+                item.RemoteReceiptId = result.RemoteReceiptId ?? "";
+                item.LastError = result.Message ?? "";
+                if (string.Equals(result.Outcome, "accepted", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(result.Outcome, "already_processed", StringComparison.OrdinalIgnoreCase))
+                {
+                    item.SyncStatus = "synced";
+                }
+                else if (string.Equals(result.Outcome, "rejected", StringComparison.OrdinalIgnoreCase))
+                {
+                    item.SyncStatus = "failed";
+                }
+                else
+                {
+                    item.SyncStatus = "pending";
+                    item.RetryCount++;
+                }
             }
         }
 
@@ -2247,11 +2619,14 @@ namespace RunBook.Workstation.ViewModels
             PendingSyncItems.Add(item);
             SaveQueue();
             RebuildLocalProjection();
-            TimeClockStatus = $"{ToEventLabel(eventType)} pending Desktop sync.";
+            TimeClockStatus = $"{ToEventLabel(eventType)} pending local sync.";
         }
 
         private async Task SubmitTimeOffAsync()
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || !HasTimeClockAccess)
                 return;
 
@@ -2336,11 +2711,14 @@ namespace RunBook.Workstation.ViewModels
         private void RebuildLocalProjection()
         {
             var basePunches = (_timeclockSnapshot?.RecentPunches ?? new List<WorkstationPunchRecord>())
+                .Where(punch => !string.Equals(punch.Source, "workstation-pending", StringComparison.OrdinalIgnoreCase))
                 .Select(ClonePunch)
                 .ToList();
-            foreach (var item in PendingSyncItems.Where(entry => string.Equals(entry.ItemType, "punch", StringComparison.OrdinalIgnoreCase)))
-            {
-                basePunches.Add(new WorkstationPunchRecord
+
+            var pendingPunches = PendingSyncItems.Where(entry =>
+                string.Equals(entry.ItemType, "punch", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(entry.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase))
+                .Select(item => new WorkstationPunchRecord
                 {
                     Id = item.ClientEventId,
                     EventType = item.ActionType.ToUpperInvariant(),
@@ -2350,10 +2728,14 @@ namespace RunBook.Workstation.ViewModels
                     Note = item.Note,
                     IsPendingSync = true,
                     SyncState = item.SyncStatus
-                });
-            }
+                })
+                .ToList();
 
-            var orderedPunches = basePunches
+            var displayPunches = basePunches
+                .Concat(pendingPunches)
+                .ToList();
+
+            var orderedPunches = displayPunches
                 .OrderByDescending(entry => ParseUtc(entry.ClientTs))
                 .ThenByDescending(entry => entry.Id, StringComparer.Ordinal)
                 .Take(20)
@@ -2364,9 +2746,12 @@ namespace RunBook.Workstation.ViewModels
                 RecentPunches.Add(punch);
 
             var requests = (_timeclockSnapshot?.RecentTimeOffRequests ?? new List<WorkstationTimeOffRequestRecord>())
+                .Where(request => !request.IsPendingSync)
                 .Select(CloneRequest)
                 .ToList();
-            foreach (var item in PendingSyncItems.Where(entry => string.Equals(entry.ItemType, "time_off_request", StringComparison.OrdinalIgnoreCase)))
+            foreach (var item in PendingSyncItems.Where(entry =>
+                string.Equals(entry.ItemType, "time_off_request", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(entry.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase)))
             {
                 requests.Insert(0, new WorkstationTimeOffRequestRecord
                 {
@@ -2396,8 +2781,6 @@ namespace RunBook.Workstation.ViewModels
                 _timeclockSnapshot.CurrentStatus = derived.Status;
                 _timeclockSnapshot.StatusSinceUtc = derived.SinceUtc;
                 _timeclockSnapshot.LastPunchUtc = derived.LastPunchUtc;
-                _timeclockSnapshot.RecentPunches = RecentPunches.Select(ClonePunch).ToList();
-                _timeclockSnapshot.RecentTimeOffRequests = RecentTimeOffRequests.Select(CloneRequest).ToList();
                 WorkstationStorageService.SaveTimeclockState(_timeclockSnapshot);
             }
             OnPropertyChanged(nameof(RecentTimeOffRequests));
@@ -2419,22 +2802,33 @@ namespace RunBook.Workstation.ViewModels
 
         private void UpdateSessionCountdown()
         {
-            OnPropertyChanged(nameof(HeaderDateText));
-            OnPropertyChanged(nameof(HeaderTimeText));
-            if (_timeclockSnapshot != null)
-                RefreshTimeClockPresentation();
+            UpdateHeaderClock();
+            OnPropertyChanged(nameof(IdleLogoutBadgeText));
+            MaybeRefreshPassiveConnectionStatuses();
 
             if (CurrentSession == null)
             {
                 SessionCountdown = "Signed out";
-                RefreshConnectionStatuses();
                 return;
             }
 
             if (!DateTime.TryParse(CurrentSession.ExpiresAtUtc, null, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var expiresUtc))
             {
                 SessionCountdown = "Session timing unavailable";
-                RefreshConnectionStatuses();
+                return;
+            }
+
+            if (IsWorkOrdersSelected)
+            {
+                SessionCountdown = "";
+                return;
+            }
+
+            var idleRemaining = IdleLogoutTimeout - (DateTime.UtcNow - _lastInteractionUtc);
+            if (idleRemaining <= TimeSpan.Zero)
+            {
+                Logout();
+                StatusText = "Signed out after 15 seconds with no mouse or typing activity.";
                 return;
             }
 
@@ -2448,11 +2842,42 @@ namespace RunBook.Workstation.ViewModels
 
             SessionCountdown = $"Session ends in {remaining:mm\\:ss}";
             OnPropertyChanged(nameof(TimeClockHeroSecondaryLine));
-            RefreshConnectionStatuses();
+        }
+
+        private void UpdateHeaderClock()
+        {
+            var now = DateTime.Now;
+            var dateText = now.ToString("dddd, MMMM d, yyyy");
+            var timeText = now.ToString("h:mm tt");
+
+            if (!string.Equals(_headerDateText, dateText, StringComparison.Ordinal))
+            {
+                _headerDateText = dateText;
+                OnPropertyChanged(nameof(HeaderDateText));
+            }
+
+            if (!string.Equals(_headerTimeText, timeText, StringComparison.Ordinal))
+            {
+                _headerTimeText = timeText;
+                OnPropertyChanged(nameof(HeaderTimeText));
+            }
+        }
+
+        private int GetIdleSecondsRemaining()
+        {
+            if (CurrentSession == null)
+                return (int)IdleLogoutTimeout.TotalSeconds;
+
+            var remaining = IdleLogoutTimeout - (DateTime.UtcNow - _lastInteractionUtc);
+            return Math.Max(0, (int)Math.Ceiling(remaining.TotalSeconds));
         }
 
         private void RefreshTimeClockPresentation()
         {
+            var signature = BuildTimeClockPresentationSignature();
+            if (string.Equals(_lastTimeClockPresentationSignature, signature, StringComparison.Ordinal))
+                return;
+
             TodaySummaryRows.Clear();
             foreach (var row in BuildTodaySummaryRows())
                 TodaySummaryRows.Add(row);
@@ -2488,6 +2913,39 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(HasTimeClockActivity));
             OnPropertyChanged(nameof(ShowEmptyTimeClockActivity));
             OnPropertyChanged(nameof(TimeOffSectionSubtitle));
+            _lastTimeClockPresentationSignature = signature;
+        }
+
+        private string BuildTimeClockPresentationSignature()
+        {
+            return string.Join("|",
+                _timeclockSnapshot?.CurrentStatus ?? "",
+                _timeclockSnapshot?.StatusSinceUtc ?? "",
+                _timeclockSnapshot?.LastPunchUtc ?? "",
+                _timeclockSnapshot?.LastSyncUtc ?? "",
+                _timeclockSnapshot?.LastSyncMessage ?? "",
+                _timeclockSnapshot?.SupportsLunch == true ? "1" : "0",
+                RecentPunches.Count.ToString(CultureInfo.InvariantCulture),
+                RecentPunches.LastOrDefault()?.Id ?? "",
+                RecentPunches.LastOrDefault()?.SyncState ?? "",
+                RecentTimeOffRequests.Count.ToString(CultureInfo.InvariantCulture),
+                RecentTimeOffRequests.LastOrDefault()?.Id ?? "",
+                RecentTimeOffRequests.LastOrDefault()?.SyncState ?? "",
+                PendingSyncItems.Count.ToString(CultureInfo.InvariantCulture),
+                PendingSyncItems.Count(item => string.Equals(item.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase)).ToString(CultureInfo.InvariantCulture),
+                PendingSyncItems.Count(item => string.Equals(item.SyncStatus, "failed", StringComparison.OrdinalIgnoreCase)).ToString(CultureInfo.InvariantCulture),
+                CurrentShiftStatus ?? "",
+                CurrentShiftDetail ?? "");
+        }
+
+        private void MaybeRefreshPassiveConnectionStatuses()
+        {
+            var now = DateTime.UtcNow;
+            if (now - _lastPassiveConnectionRefreshUtc < TimeSpan.FromSeconds(5))
+                return;
+
+            _lastPassiveConnectionRefreshUtc = now;
+            RefreshConnectionStatuses(false);
         }
 
         private IEnumerable<WorkstationTimeClockSummaryRow> BuildTimeClockSummaryRows()
@@ -2914,7 +3372,9 @@ namespace RunBook.Workstation.ViewModels
 
             if (_authCache?.Package == null || _authCache.Package.Employees.Count == 0)
             {
-                StatusText = "No Desktop-issued employee auth cache is available yet.";
+                StatusText = string.IsNullOrWhiteSpace(_authCache?.LastRefreshError)
+                    ? "Employee auth cache is not available yet."
+                    : _authCache.LastRefreshError;
                 return false;
             }
 
@@ -2962,9 +3422,120 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(WorkstationIdentityLine));
         }
 
+        private void BindToServiceAuthorityOnBoot()
+        {
+            try
+            {
+                var health = _api.GetLocalHealthAsync(Settings, CancellationToken.None).GetAwaiter().GetResult();
+                if (!ApplyServiceAuthorityHealth(health, "boot"))
+                {
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                BlockServiceAuthority("boot", "unavailable", ex.Message, "", "");
+                DebugLogService.Write($"Workstation boot could not bind shop from Service health | {ex.Message}");
+            }
+        }
+
+        private bool ApplyServiceAuthorityHealth(RunBookWorkstationApiClient.LocalHealthResponse health, string source)
+        {
+            if (health == null)
+                return false;
+
+            var expectedFolder = string.IsNullOrWhiteSpace(health.SafeCompanyName)
+                ? (health.CompanyDataFolderName ?? "").Trim()
+                : $"{health.SafeCompanyName.Trim().ToUpperInvariant()}_DATA";
+            var actualFolder = string.IsNullOrWhiteSpace(health.ActiveCompanyDataRoot)
+                ? ""
+                : (Path.GetFileName(health.ActiveCompanyDataRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) ?? "").Trim();
+            var hasRootMismatch = expectedFolder.Length > 0 &&
+                                  actualFolder.Length > 0 &&
+                                  !string.Equals(expectedFolder, actualFolder, StringComparison.OrdinalIgnoreCase);
+
+            if (!health.Ok ||
+                string.Equals(health.Status, "company_data_missing", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(health.Status, "no_company_context", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(health.Status, "invalid_context", StringComparison.OrdinalIgnoreCase) ||
+                hasRootMismatch ||
+                string.IsNullOrWhiteSpace(health.ShopId) ||
+                string.IsNullOrWhiteSpace(health.CompanyName))
+            {
+                var blockedMessage = string.Equals(health.Status, "company_data_missing", StringComparison.OrdinalIgnoreCase)
+                    ? "Active company data folder is missing."
+                    : hasRootMismatch
+                        ? "Service company context/root mismatch was detected."
+                        : string.IsNullOrWhiteSpace(health.ErrorMessage)
+                            ? "Service has no valid company context. Select a shop in Desktop and restart Service."
+                            : health.ErrorMessage;
+                BlockServiceAuthority(source, hasRootMismatch ? "context_root_mismatch" : health.Status, blockedMessage, health.ActiveCompanyDataRoot, health.MissingFolderName);
+                return false;
+            }
+
+            var previousShopId = (Settings.ShopId ?? "").Trim();
+            if (previousShopId.Length > 0 &&
+                !string.Equals(previousShopId, health.ShopId, StringComparison.OrdinalIgnoreCase))
+            {
+                WorkstationStorageService.ClearShopScopedCache(previousShopId);
+                DebugLogService.Write($"Workstation discarded stale cached shop scope | source={source} | old_shop_id={previousShopId} | new_shop_id={health.ShopId}");
+            }
+
+            Settings.ShopId = health.ShopId;
+            Settings.ShopName = string.IsNullOrWhiteSpace(health.CompanyName) ? Settings.ShopName : health.CompanyName;
+            SettingsShopId = Settings.ShopId;
+            SettingsShopName = Settings.ShopName;
+            WorkstationStorageService.SaveSettings(Settings);
+            WorkstationStorageService.ClearAllOtherShopScopedCaches(Settings.ShopId, health.SafeCompanyName);
+            _serviceWriteBlocked = false;
+            OfflineStatus = "RunBook.Service local authority connected.";
+
+            DebugLogService.Write(
+                $"StartupCompanyContext | app=RunBook.Workstation | source={source} | selected_shop_id={health.ShopId} | company_name={health.CompanyName} | safe_company_name={health.SafeCompanyName} | company_data_folder_name={health.CompanyDataFolderName} | resolved_data_root={health.ActiveCompanyDataRoot} | context_file_path=service-health | context_loaded_timestamp={health.ContextLoadedUtc} | context_source={health.ContextSource} | status={health.Status}");
+            return true;
+        }
+
+        private void BlockServiceAuthority(string source, string status, string message, string root, string missingFolder)
+        {
+            _serviceWriteBlocked = true;
+            OfflineStatus = "RunBook Service cannot find the active company data folder.";
+            StatusText = string.Equals(status, "company_data_missing", StringComparison.OrdinalIgnoreCase)
+                ? "RunBook Service cannot find the active company data folder."
+                : string.Equals(status, "unavailable", StringComparison.OrdinalIgnoreCase)
+                    ? "RunBook Service is unavailable."
+                    : string.IsNullOrWhiteSpace(message)
+                        ? "Service has no valid company context. Select a shop in Desktop and restart Service."
+                        : message;
+
+            _registration = null;
+            _authCache = null;
+            CurrentSession = null;
+            _timeclockSnapshot = null;
+            WorkstationStorageService.SaveRegistration(null);
+            WorkstationStorageService.SaveAuthCache(null);
+            WorkstationStorageService.SaveSession(null);
+            WorkstationStorageService.SaveTimeclockState(null);
+            if (CurrentSession != null)
+                Logout();
+            else
+                RaiseCommandStates();
+
+            DebugLogService.Write($"Workstation service authority blocked | source={source} | status={status} | error={message} | folder={missingFolder} | root={root}");
+        }
+
+        private bool EnsureServiceWritable()
+        {
+            if (!_serviceWriteBlocked)
+                return true;
+
+            OfflineStatus = "RunBook Service cannot find the active company data folder.";
+            StatusText = "RunBook Service cannot find the active company data folder.";
+            return false;
+        }
+
         private void HandleTrustFailure(string message)
         {
-            MarkDesktopRequestSuccess();
+            MarkLocalHostRequestSuccess();
             Registration = null;
             WorkstationStorageService.SaveRegistration(null);
             _authCache = null;
@@ -2972,11 +3543,11 @@ namespace RunBook.Workstation.ViewModels
             RosterEmployees.Clear();
             if (CurrentSession != null)
                 Logout();
-            OfflineStatus = "Desktop enrollment is no longer valid for this workstation.";
+            OfflineStatus = "Workstation enrollment is no longer valid for this Service-linked local host.";
             UpdateAuthCacheStatus(new WorkstationAuthCacheHealth
             {
                 State = WorkstationAuthCacheState.Expired,
-                Message = "Desktop workstation trust was revoked or replaced. Re-enroll with a new pairing code."
+                Message = "Local workstation trust was revoked or replaced. Re-enroll with a new pairing code."
             });
             StatusText = message;
         }
@@ -3006,20 +3577,55 @@ namespace RunBook.Workstation.ViewModels
         private static string NormalizePairingCode(string value)
             => new string((value ?? "").Where(char.IsLetterOrDigit).ToArray()).Trim();
 
+        private void NormalizeDesktopBaseUrl()
+        {
+            var current = (Settings.DesktopBaseUrl ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(current))
+                return;
+
+            if (!Uri.TryCreate(current, UriKind.Absolute, out var uri))
+                return;
+
+            if (!IsLoopbackHost(uri.Host))
+                return;
+
+            var workstationHost = (Settings.WorkstationName ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(workstationHost) || IsLoopbackHost(workstationHost))
+                return;
+
+            var builder = new UriBuilder(uri)
+            {
+                Host = workstationHost
+            };
+
+            Settings.DesktopBaseUrl = builder.Uri.ToString().TrimEnd('/');
+            SettingsDesktopBaseUrl = Settings.DesktopBaseUrl;
+        }
+
+        private static bool IsLoopbackHost(string host)
+        {
+            var normalized = (host ?? "").Trim();
+            return normalized.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("::1", StringComparison.OrdinalIgnoreCase);
+        }
+
         private async Task InitializeFromControlSessionAsync()
         {
-            if (ControlSessionService.HasSession())
+            ControlSessionStatus = ControlSessionService.GetStatusLabel();
+            OnPropertyChanged(nameof(HasSupervisorSession));
+            OnPropertyChanged(nameof(ShowSupervisorSignInFields));
+            OnPropertyChanged(nameof(ShowSupervisorEnrollmentActions));
+            OnPropertyChanged(nameof(SupervisorDialogTitle));
+            OnPropertyChanged(nameof(SupervisorDialogSubtitle));
+            RefreshConnectionStatuses();
+            _isControlConfirmedAvailable = false;
+            await RunBusyAsync(async () =>
             {
-                await RunBusyAsync(async () =>
-                {
-                    await SyncCurrentShopAsync();
-                    await RefreshAuthPackageAsyncCore(false);
+                await RefreshAuthPackageAsyncCore(false);
+                if (ControlSessionService.HasSession())
                     await LoadRosterCoreAsync();
-                });
-                return;
-            }
-
-            await RefreshAuthPackageAsyncCore(false);
+            });
         }
 
         private async Task SyncCurrentShopAsync()
@@ -3028,33 +3634,37 @@ namespace RunBook.Workstation.ViewModels
                 return;
 
             var currentShop = await _api.GetCurrentShopAsync(Settings.ControlBaseUrl, CancellationToken.None);
-            var desktopShopId = GetTrustedDesktopShopId();
+            var serviceShopId = (Settings.ShopId ?? "").Trim();
             if (!currentShop.Found || string.IsNullOrWhiteSpace(currentShop.ShopId))
             {
-                if (!string.IsNullOrWhiteSpace(desktopShopId))
-                    return;
-
-                Settings.ShopId = "";
-                Settings.ShopName = "Unassigned shop";
-                SettingsShopId = "";
-                SettingsShopName = Settings.ShopName;
-                WorkstationStorageService.SaveSettings(Settings);
-                OnPropertyChanged(nameof(ConnectivityLine));
+                DebugLogService.Write("Workstation Control shop sync ignored | Control reported no active shop. Service remains the local shop authority.");
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(desktopShopId) &&
-                !string.Equals(currentShop.ShopId, desktopShopId, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(serviceShopId) &&
+                !string.Equals(currentShop.ShopId, serviceShopId, StringComparison.OrdinalIgnoreCase))
             {
+                DebugLogService.Write($"Workstation Control shop sync ignored | service_shop_id={serviceShopId} | control_shop_id={currentShop.ShopId}");
                 return;
             }
 
-            Settings.ShopId = currentShop.ShopId;
-            Settings.ShopName = string.IsNullOrWhiteSpace(currentShop.ShopName) ? Settings.ShopName : currentShop.ShopName;
-            SettingsShopId = Settings.ShopId;
-            SettingsShopName = Settings.ShopName;
-            WorkstationStorageService.SaveSettings(Settings);
-            OnPropertyChanged(nameof(ConnectivityLine));
+            DebugLogService.Write($"Workstation Control shop reported informational match | shop_id={currentShop.ShopId} | shop_name={currentShop.ShopName}");
+        }
+
+        private async Task TrySyncCurrentShopIfConfirmedAsync()
+        {
+            if (!_isControlConfirmedAvailable || !ControlSessionService.HasSession() || string.IsNullOrWhiteSpace(Settings.ControlBaseUrl))
+                return;
+
+            try
+            {
+                await SyncCurrentShopAsync();
+            }
+            catch (Exception ex)
+            {
+                _isControlConfirmedAvailable = false;
+                DebugLogService.Write($"Optional Control sync skipped | {ex.Message}");
+            }
         }
 
         private string GetTrustedDesktopShopId()
@@ -3085,23 +3695,48 @@ namespace RunBook.Workstation.ViewModels
         private Task LoadRosterCoreAsync()
         {
             LoadRosterFromAuthCache();
+            OnPropertyChanged(nameof(RosterDiagnosticLine));
+            OnPropertyChanged(nameof(RosterAvatarStatusLine));
             if (RosterEmployees.Count == 0)
-                StatusText = "No workstation-ready employees found in the Desktop auth cache.";
+            {
+                StatusText = _authCache?.Package == null
+                    ? (string.IsNullOrWhiteSpace(_authCache?.LastRefreshError)
+                        ? "Employee auth cache is not available yet."
+                        : _authCache.LastRefreshError)
+                    : "RunBook Service auth is loaded, but no workstation-ready employees are available to show.";
+            }
             return Task.CompletedTask;
         }
 
         private bool CanLoadRoster()
         {
-            return !string.IsNullOrWhiteSpace(Settings.ShopId)
-                && _authCache?.Package != null
-                && string.Equals(_authCache.Package.ShopId, Settings.ShopId, StringComparison.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(Settings.ShopId))
+            {
+                return false;
+            }
+
+            if (_authCache?.Package == null)
+            {
+                return false;
+            }
+
+            if (!string.Equals(_authCache.Package.ShopId, Settings.ShopId, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private void LoadRosterFromAuthCache()
         {
             RosterEmployees.Clear();
             if (!CanLoadRoster())
+            {
+                OnPropertyChanged(nameof(RosterDiagnosticLine));
+                OnPropertyChanged(nameof(RosterAvatarStatusLine));
                 return;
+            }
 
             var employees = _authCache!.Package.Employees
                 .Where(employee => employee.IsActive)
@@ -3111,7 +3746,66 @@ namespace RunBook.Workstation.ViewModels
                 .ToList();
 
             foreach (var employee in employees)
+            {
+                employee.AvatarDisplayUrl = ResolveRosterAvatarDisplayUrl(employee.AvatarDisplayUrl);
+            }
+
+            foreach (var employee in employees)
                 RosterEmployees.Add(employee);
+
+            foreach (var employee in employees.Take(3))
+            {
+                var imageSourceResolves = DoesAvatarImageSourceResolve(employee.AvatarDisplayUrl);
+                DebugLogService.Write(
+                    $"RosterAvatarTrace | DisplayName={employee.DisplayName} | HasAvatarDisplayUrl={employee.HasAvatarDisplayUrl} | AvatarDisplayUrl={employee.AvatarDisplayUrl} | ImageSourceResolves={imageSourceResolves} | FallbackInitialsActive={!employee.HasAvatarDisplayUrl}");
+            }
+
+            OnPropertyChanged(nameof(RosterDiagnosticLine));
+            OnPropertyChanged(nameof(RosterAvatarStatusLine));
+        }
+
+        private static string ResolveRosterAvatarDisplayUrl(string avatarDisplayUrl)
+        {
+            if (string.IsNullOrWhiteSpace(avatarDisplayUrl))
+                return "";
+
+            try
+            {
+                var resolvedPath = AvatarImageCacheService.ResolveDisplayPathAsync(avatarDisplayUrl).GetAwaiter().GetResult();
+                return string.IsNullOrWhiteSpace(resolvedPath) ? avatarDisplayUrl : resolvedPath;
+            }
+            catch
+            {
+                return avatarDisplayUrl;
+            }
+        }
+
+        private static bool DoesAvatarImageSourceResolve(string avatarDisplayUrl)
+        {
+            if (string.IsNullOrWhiteSpace(avatarDisplayUrl))
+                return false;
+
+            if (avatarDisplayUrl.StartsWith("pack://", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    return Application.GetResourceStream(new Uri(avatarDisplayUrl, UriKind.Absolute)) != null;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+
+            if (Uri.TryCreate(avatarDisplayUrl, UriKind.Absolute, out var absoluteUri))
+            {
+                if (absoluteUri.IsFile)
+                    return File.Exists(absoluteUri.LocalPath);
+
+                return absoluteUri.Scheme == Uri.UriSchemeHttp || absoluteUri.Scheme == Uri.UriSchemeHttps;
+            }
+
+            return File.Exists(avatarDisplayUrl);
         }
 
         private WorkstationRosterEmployee? FindRosterEmployee(string remoteEmployeeId, string employeeId, string employeeCode)
@@ -3545,9 +4239,9 @@ namespace RunBook.Workstation.ViewModels
                 }
 
                 StatusText = GetUserFacingErrorMessage(ex);
-                if (IsConnectivityFailure(ex))
+                if (ShouldAttributeToLocalHostFailure(ex))
                 {
-                    MarkDesktopRequestFailure(ex.Message);
+                    MarkLocalHostRequestFailure(ex.Message);
                     OfflineStatus = "Unable to reach RunBook service.";
                 }
             }
@@ -3557,6 +4251,20 @@ namespace RunBook.Workstation.ViewModels
             }
         }
 
+        private bool ShouldAttributeToLocalHostFailure(Exception ex)
+        {
+            if (!IsConnectivityFailure(ex))
+                return false;
+
+            var message = ex.Message ?? "";
+            if (message.IndexOf("30112", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("RunBook.Service", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("workstation-local", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("local workstation authority", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+
+            return false;
+        }
         private static bool IsConnectivityFailure(Exception ex)
         {
             if (ex is TimeoutException)
@@ -3582,7 +4290,8 @@ namespace RunBook.Workstation.ViewModels
 
                 return message switch
                 {
-                    "Workstation request does not match the active Desktop shop." => "This workstation is pointed at a different Desktop shop. Refresh registration and employee auth, then try again.",
+                    "Workstation request does not match the active Desktop shop." => "This workstation is pointed at a different Service-selected local shop. Refresh registration and employee auth, then try again.",
+                    "Workstation request does not match the active shop." => "This workstation is pointed at a different local shop. Refresh registration and employee auth, then try again.",
                     "Work order is not available to Workstation." => "This job is no longer available on this workstation.",
                     "Work order is visible on Workstation but is not currently executable by this employee." => "This job is visible here, but you cannot work it right now.",
                     "This work order is not currently executable by this employee." => "This job is not currently executable for you.",
@@ -3596,43 +4305,226 @@ namespace RunBook.Workstation.ViewModels
               };
         }
 
+        private static bool IsConnectivityFailureMessage(string? message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return false;
+
+            return message.IndexOf("actively refused", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   message.IndexOf("timed out", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   message.IndexOf("No connection could be made", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   message.IndexOf("Unable to connect", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   message.IndexOf("connection", StringComparison.OrdinalIgnoreCase) >= 0 && message.IndexOf("30112", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static string GetServiceFailureStatus(string endpoint, string? message, string fallback)
+        {
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                if (message.IndexOf("Workstation registration with RunBook Service is required.", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return "Workstation registration is required.";
+
+                if (message.IndexOf("endpoint not implemented on Service", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return $"Service endpoint failed: {endpoint} (endpoint not implemented on Service)";
+
+                if (message.IndexOf("auth cache", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return "Employee auth cache is not available yet.";
+            }
+
+            return fallback;
+        }
+
         private void HandleEmployeeSessionFailure(string message)
         {
             var userMessage = GetUserFacingErrorMessage(new InvalidOperationException(message));
-            MarkDesktopRequestSuccess();
+            MarkLocalHostRequestSuccess();
             Logout();
-            OfflineStatus = "Desktop connected, but the workstation sign-in is no longer valid.";
+            OfflineStatus = "RunBook.Service is reachable, but the workstation sign-in is no longer valid.";
             StatusText = userMessage;
+        }
+
+        private void MarkLocalHostRequestSuccess()
+        {
+            _lastLocalHostSuccessUtc = DateTime.UtcNow;
+            _lastLocalHostFailureUtc = null;
+            _lastLocalHostFailureReason = "";
+            UpdateConnectionStatuses();
+        }
+
+        private void MarkLocalHostRequestFailure(string? reason)
+        {
+            _lastLocalHostFailureUtc = DateTime.UtcNow;
+            _lastLocalHostFailureReason = reason ?? "";
+            UpdateConnectionStatuses();
         }
 
         private void MarkDesktopRequestSuccess()
         {
             _lastDesktopSuccessUtc = DateTime.UtcNow;
             _lastDesktopFailureReason = "";
-            RefreshConnectionStatuses();
+            UpdateConnectionStatuses();
         }
 
         private void MarkDesktopRequestFailure(string? reason)
         {
             _lastDesktopFailureUtc = DateTime.UtcNow;
             _lastDesktopFailureReason = reason ?? "";
-            RefreshConnectionStatuses();
+            UpdateConnectionStatuses();
         }
 
-        private void RefreshConnectionStatuses()
+        private void RefreshConnectionStatuses(bool force = true)
+        {
+            var nowUtc = DateTime.UtcNow;
+            if (!force && nowUtc - _lastConnectionStatusRefreshUtc < TimeSpan.FromSeconds(5))
+            {
+                UpdateConnectionStatuses();
+                return;
+            }
+
+            RefreshLocalHostProbe(nowUtc, force);
+
+            if (!RegistrationMissingDesktopProbePrerequisites() &&
+                (!_lastDesktopProbeCheckedUtc.HasValue || force || nowUtc - _lastDesktopProbeCheckedUtc.Value >= TimeSpan.FromSeconds(2)))
+            {
+                var desktopProbe = _connectionStatusService.ProbeDesktop(Settings, Registration);
+                _lastDesktopProbeCheckedUtc = desktopProbe.CheckedUtc;
+
+                if (desktopProbe.Attempted)
+                {
+                    if (desktopProbe.Succeeded)
+                    {
+                        _lastDesktopProbeSuccessUtc = desktopProbe.CheckedUtc;
+                        _lastDesktopProbeFailureReason = "";
+                    }
+                    else
+                    {
+                        _lastDesktopProbeFailureUtc = desktopProbe.CheckedUtc;
+                        _lastDesktopProbeFailureReason = desktopProbe.FailureReason;
+                    }
+                }
+            }
+
+            UpdateConnectionStatuses();
+            _lastConnectionStatusRefreshUtc = DateTime.UtcNow;
+        }
+
+        private void UpdateConnectionStatuses()
         {
             var statuses = _connectionStatusService.BuildStatuses(
                 Settings,
                 Registration,
                 CurrentSession,
-                _lastDesktopSuccessUtc,
-                _lastDesktopFailureUtc,
-                _lastDesktopFailureReason);
+                _lastLocalHostProbeCheckedUtc,
+                _lastLocalHostSuccessUtc,
+                _lastLocalHostFailureUtc,
+                _lastLocalHostFailureReason,
+                _lastDesktopProbeCheckedUtc,
+                _lastDesktopProbeSuccessUtc,
+                _lastDesktopProbeFailureUtc,
+                _lastDesktopProbeFailureReason);
 
             ConnectionStatuses.Clear();
             foreach (var status in statuses)
                 ConnectionStatuses.Add(status);
         }
+
+        private bool RegistrationMissingDesktopProbePrerequisites()
+        {
+            return string.IsNullOrWhiteSpace(Settings.DesktopBaseUrl) ||
+                   Registration == null ||
+                   !Registration.IsActive ||
+                   string.IsNullOrWhiteSpace(Registration.DeviceToken);
+        }
+
+        private bool LocalHostProbeMissingPrerequisites()
+            => false;
+
+        private void RefreshLocalHostProbe(DateTime nowUtc, bool force)
+        {
+            if (LocalHostProbeMissingPrerequisites())
+            {
+                _pendingLocalHostProbeRefresh = false;
+                return;
+            }
+
+            var probeDue = !_lastLocalHostProbeCheckedUtc.HasValue ||
+                           force ||
+                           nowUtc - _lastLocalHostProbeCheckedUtc.Value >= TimeSpan.FromSeconds(2);
+            if (!probeDue)
+                return;
+
+            if (_isLocalHostProbeInFlight)
+            {
+                _pendingLocalHostProbeRefresh = true;
+                return;
+            }
+
+            StartLocalHostProbe();
+        }
+
+        private void StartLocalHostProbe()
+        {
+            _isLocalHostProbeInFlight = true;
+            _pendingLocalHostProbeRefresh = false;
+            var probeGeneration = ++_localHostProbeGeneration;
+            var settings = new WorkstationSettings
+            {
+                DesktopBaseUrl = Settings.DesktopBaseUrl
+            };
+
+            _ = RunLocalHostProbeAsync(settings, probeGeneration);
+        }
+
+        private async Task RunLocalHostProbeAsync(WorkstationSettings settings, int probeGeneration)
+        {
+            var localHostProbe = await _connectionStatusService.ProbeLocalHostAsync(settings).ConfigureAwait(false);
+            RunBookWorkstationApiClient.LocalHealthResponse? health = null;
+            if (localHostProbe.Attempted && localHostProbe.Succeeded)
+            {
+                try
+                {
+                    health = await _api.GetLocalHealthAsync(settings, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch
+                {
+                }
+            }
+
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                if (probeGeneration != _localHostProbeGeneration)
+                    return;
+
+                _isLocalHostProbeInFlight = false;
+                _lastLocalHostProbeCheckedUtc = localHostProbe.CheckedUtc;
+
+                if (localHostProbe.Attempted)
+                {
+                    if (localHostProbe.Succeeded)
+                    {
+                        _lastLocalHostSuccessUtc = localHostProbe.CheckedUtc;
+                        _lastLocalHostFailureUtc = null;
+                        _lastLocalHostFailureReason = "";
+                        if (health != null)
+                            ApplyServiceAuthorityHealth(health, "probe");
+                    }
+                    else
+                    {
+                        _lastLocalHostFailureUtc = localHostProbe.CheckedUtc;
+                        _lastLocalHostFailureReason = localHostProbe.FailureReason;
+                        BlockServiceAuthority("probe", "unavailable", localHostProbe.FailureReason ?? "RunBook Service is unavailable.", "", "");
+                    }
+                }
+
+                UpdateConnectionStatuses();
+
+                if (_pendingLocalHostProbeRefresh)
+                    StartLocalHostProbe();
+            });
+        }
+
+        private string BuildLocalHostEndpointLabel()
+            => "http://localhost:30112";
 
         private static WorkstationTimeclockSnapshot MapSnapshot(RunBookWorkstationApiClient.DesktopTimeclockSnapshot? snapshot)
         {
@@ -3874,6 +4766,28 @@ namespace RunBook.Workstation.ViewModels
             _ => key
         };
 
+        private async Task InitializeFromControlSessionSafeAsync()
+        {
+            try
+            {
+                await InitializeFromControlSessionAsync();
+            }
+            catch (Exception ex)
+            {
+                DebugLogService.WriteException("InitializeFromControlSessionSafeAsync", ex);
+                if (IsConnectivityFailure(ex))
+                {
+                    MarkLocalHostRequestFailure(ex.Message);
+                    OfflineStatus = "RunBook.Service is unavailable right now.";
+                    StatusText = "RunBook could not reach the local workstation authority.";
+                    UpdateAuthCacheStatus();
+                    return;
+                }
+
+                StatusText = GetUserFacingErrorMessage(ex);
+            }
+        }
+
         private void RaiseCommandStates()
         {
             if (LoginCommand is RelayCommand login) login.RaiseCanExecuteChanged();
@@ -3882,6 +4796,9 @@ namespace RunBook.Workstation.ViewModels
             if (ConnectControlCommand is RelayCommand connect) connect.RaiseCanExecuteChanged();
             if (DisconnectControlCommand is RelayCommand disconnect) disconnect.RaiseCanExecuteChanged();
             if (RefreshRegistrationCommand is RelayCommand refresh) refresh.RaiseCanExecuteChanged();
+            if (RefreshEmployeeAuthCommand is RelayCommand refreshEmployeeAuth) refreshEmployeeAuth.RaiseCanExecuteChanged();
+            if (OpenSupervisorDialogCommand is RelayCommand openSupervisor) openSupervisor.RaiseCanExecuteChanged();
+            if (CloseSupervisorDialogCommand is RelayCommand closeSupervisor) closeSupervisor.RaiseCanExecuteChanged();
             if (RefreshTimeClockCommand is RelayCommand refreshClock) refreshClock.RaiseCanExecuteChanged();
             if (ClockInCommand is RelayCommand clockIn) clockIn.RaiseCanExecuteChanged();
             if (ClockOutCommand is RelayCommand clockOut) clockOut.RaiseCanExecuteChanged();
@@ -3908,6 +4825,7 @@ namespace RunBook.Workstation.ViewModels
             if (RefreshInspectionTasksCommand is RelayCommand refreshInspection) refreshInspection.RaiseCanExecuteChanged();
             if (SelectInspectionTaskCommand is RelayCommand<WorkstationInspectionTask> selectInspection) selectInspection.RaiseCanExecuteChanged();
             if (SubmitInspectionResultCommand is RelayCommand submitInspection) submitInspection.RaiseCanExecuteChanged();
+            if (PrimaryOperatorActionCommand is RelayCommand primaryOperatorAction) primaryOperatorAction.RaiseCanExecuteChanged();
             if (OpenRosterEmployeeCommand is RelayCommand<WorkstationRosterEmployee> openRoster) openRoster.RaiseCanExecuteChanged();
             if (AppendPasscodeDigitCommand is RelayCommand<string> append) append.RaiseCanExecuteChanged();
             if (BackspacePasscodeCommand is RelayCommand backspace) backspace.RaiseCanExecuteChanged();
@@ -3915,7 +4833,52 @@ namespace RunBook.Workstation.ViewModels
             if (CancelPasscodeCommand is RelayCommand cancel) cancel.RaiseCanExecuteChanged();
         }
 
+        private UnlockTimingTrace? GetOrCreateUnlockTrace(WorkstationRosterEmployee? employee)
+        {
+            if (_unlockTimingTrace != null && !_unlockTimingTrace.ShellVisibleLogged)
+                return _unlockTimingTrace;
+
+            if (employee == null)
+                return _unlockTimingTrace;
+
+            _unlockTimingTrace = UnlockTimingTrace.Start(employee);
+            return _unlockTimingTrace;
+        }
+
+        private static void LogUnlockTrace(UnlockTimingTrace? trace, string step, string? details = null)
+        {
+            if (trace == null)
+                return;
+
+            var suffix = string.IsNullOrWhiteSpace(details) ? "" : $" | {details}";
+            DebugLogService.Write($"UnlockTrace | {trace.TraceId} | {step} | elapsed_ms={trace.Stopwatch.ElapsedMilliseconds}{suffix}");
+        }
+
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+        private sealed class UnlockTimingTrace
+        {
+            public string TraceId { get; }
+            public Stopwatch Stopwatch { get; }
+            public bool ShellVisibleLogged { get; set; }
+
+            private UnlockTimingTrace(string traceId)
+            {
+                TraceId = traceId;
+                Stopwatch = Stopwatch.StartNew();
+            }
+
+            public static UnlockTimingTrace Start(WorkstationRosterEmployee employee)
+            {
+                var employeeKey = string.IsNullOrWhiteSpace(employee.EmployeeCode) ? employee.EmployeeId : employee.EmployeeCode;
+                var traceId = $"unlock-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{(employeeKey ?? "employee").Trim()}";
+                return new UnlockTimingTrace(traceId);
+            }
+        }
     }
 }
+
+
+
+

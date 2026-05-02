@@ -14,19 +14,30 @@ namespace RunBook.Workstation.Services
             PropertyNameCaseInsensitive = true,
             WriteIndented = true
         };
+        private static ControlSessionRecord? _sessionOverride;
+
+        public static void ConfigureSessionOverride(ControlSessionRecord? session)
+        {
+            _sessionOverride = session;
+        }
+
+        public static void ClearSessionOverride()
+        {
+            _sessionOverride = null;
+        }
 
         public static bool HasSession()
         {
-            return WorkstationStorageService.LoadControlSession() != null;
+            return GetSessionRecord() != null;
         }
 
         public static string GetStatusLabel()
         {
-            var session = WorkstationStorageService.LoadControlSession();
+            var session = GetSessionRecord();
             if (session == null)
                 return "Not signed in";
 
-            var label = string.IsNullOrWhiteSpace(session.Email) ? "Signed in" : $"Signed in as {session.Email}";
+            var label = "Signed in";
             if (!DateTime.TryParse(session.ExpiresAtUtc, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var expiresUtc))
                 return label;
 
@@ -74,7 +85,7 @@ namespace RunBook.Workstation.Services
 
         public static string GetAccessToken(string baseUrl)
         {
-            var session = WorkstationStorageService.LoadControlSession() ?? throw new InvalidOperationException("Control supervisor sign-in required.");
+            var session = GetSessionRecord() ?? throw new InvalidOperationException("Control supervisor sign-in required.");
             if (NeedsRefresh(session))
             {
                 if (string.IsNullOrWhiteSpace(session.RefreshToken))
@@ -113,10 +124,7 @@ namespace RunBook.Workstation.Services
 
         private static ControlSessionRecord PostSession(string url, object request)
         {
-            using var client = new HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(20)
-            };
+            using var client = WorkstationHttpClientFactory.Create(timeout: TimeSpan.FromSeconds(20));
 
             using var content = new StringContent(JsonSerializer.Serialize(request, JsonOptions), Encoding.UTF8, "application/json");
             using var response = client.PostAsync(url, content).GetAwaiter().GetResult();
@@ -133,7 +141,7 @@ namespace RunBook.Workstation.Services
                 RefreshToken = payload.Session.RefreshToken ?? "",
                 ExpiresAtUtc = payload.Session.ExpiresAtUtc ?? "",
                 UserId = payload.Session.UserId ?? "",
-                Email = payload.Session.Email ?? ""
+                Email = ""
             };
         }
 
@@ -143,6 +151,11 @@ namespace RunBook.Workstation.Services
                 return true;
 
             return expiresUtc <= DateTime.UtcNow.AddMinutes(2);
+        }
+
+        private static ControlSessionRecord? GetSessionRecord()
+        {
+            return _sessionOverride ?? WorkstationStorageService.LoadControlSession();
         }
 
         private static string NormalizeBaseUrl(string baseUrl)

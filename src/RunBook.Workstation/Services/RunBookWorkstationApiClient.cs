@@ -1,9 +1,12 @@
 using RunBook.Workstation.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -14,21 +17,25 @@ namespace RunBook.Workstation.Services
 {
     public sealed class RunBookWorkstationApiClient
     {
+        private const int LocalServicePort = 30112;
+        private const string LocalServiceBaseUrl = "http://localhost:30112";
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         };
 
         private readonly HttpClient _client;
+        private readonly Func<WorkstationRegistrationSnapshot?> _registrationProvider;
 
-        public RunBookWorkstationApiClient(HttpClient? client = null)
+        public RunBookWorkstationApiClient(HttpClient? client = null, Func<WorkstationRegistrationSnapshot?>? registrationProvider = null)
         {
-            _client = client ?? new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+            _client = client ?? WorkstationHttpClientFactory.Create(timeout: TimeSpan.FromSeconds(20));
+            _registrationProvider = registrationProvider ?? WorkstationStorageService.LoadRegistration;
         }
 
         public async Task<WorkstationRegistrationSnapshot> RegisterAsync(WorkstationSettings settings, CancellationToken cancellationToken)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildUrl(settings.DesktopBaseUrl, "api/workstation-local/register"));
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildServiceUrl(settings.DesktopBaseUrl, "api/workstation-local/register"));
             request.Content = new StringContent(JsonSerializer.Serialize(new
             {
                 shop_id = settings.ShopId,
@@ -86,12 +93,12 @@ namespace RunBook.Workstation.Services
         public async Task<LocalAuthPackageResponse> GetLocalAuthPackageAsync(WorkstationSettings settings, CancellationToken cancellationToken)
         {
             var context = GetLocalDesktopContext(settings);
-            var url = BuildUrl(settings.DesktopBaseUrl, $"api/workstation-local/auth-package?shop_id={Uri.EscapeDataString(context.ShopId)}&workstation_id={Uri.EscapeDataString(context.WorkstationId)}");
+            var url = BuildServiceUrl(settings.DesktopBaseUrl, $"api/workstation-local/auth-package?shop_id={Uri.EscapeDataString(context.ShopId)}&workstation_id={Uri.EscapeDataString(context.WorkstationId)}");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             AddLocalDeviceAuthorization(request, settings);
             using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
             var payload = await DeserializeAsync<LocalAuthPackageResponse>(response, cancellationToken).ConfigureAwait(false);
-            EnsureSuccess(response, payload?.Error, "Unable to load Desktop employee auth package.");
+            EnsureSuccess(response, payload?.Error, "Unable to load local employee auth package.");
             return payload ?? throw new InvalidOperationException("Empty auth package response.");
         }
 
@@ -101,11 +108,14 @@ namespace RunBook.Workstation.Services
             string employeeId,
             string employeeCode,
             string passcode,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string? unlockTraceId = null)
         {
             var context = GetLocalDesktopContext(settings);
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildUrl(settings.DesktopBaseUrl, "api/workstation-local/login"));
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildServiceUrl(settings.DesktopBaseUrl, "api/workstation-local/login"));
             AddLocalDeviceAuthorization(request, settings);
+            if (!string.IsNullOrWhiteSpace(unlockTraceId))
+                request.Headers.TryAddWithoutValidation("X-RunBook-Unlock-Trace-Id", unlockTraceId);
             request.Content = new StringContent(JsonSerializer.Serialize(new
             {
                 shop_id = context.ShopId,
@@ -116,13 +126,27 @@ namespace RunBook.Workstation.Services
                 passcode
             }, JsonOptions), Encoding.UTF8, "application/json");
 
+            var sendStopwatch = Stopwatch.StartNew();
+            DebugLogService.Write($"UnlockTrace | {unlockTraceId ?? "none"} | workstation_local_api_call_start | elapsed_ms=0 | endpoint=/api/workstation-local/login");
             using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            DebugLogService.Write($"UnlockTrace | {unlockTraceId ?? "none"} | workstation_local_api_call_end | elapsed_ms={sendStopwatch.ElapsedMilliseconds} | status_code={(int)response.StatusCode}");
+            var parseStopwatch = Stopwatch.StartNew();
             var payload = await DeserializeAsync<LocalEmployeeSessionResponse>(response, cancellationToken).ConfigureAwait(false);
-            EnsureSuccess(response, payload?.Error, "Unable to sign in to Desktop.");
+            DebugLogService.Write($"UnlockTrace | {unlockTraceId ?? "none"} | response_parsing_complete | elapsed_ms={parseStopwatch.ElapsedMilliseconds}");
+            EnsureSuccess(response, payload?.Error, "Unable to sign in to the local workstation authority.");
             if (payload?.Session == null || payload.Payload == null || string.IsNullOrWhiteSpace(payload.Session.Token))
-                throw new InvalidOperationException("Desktop did not return a valid workstation sign-in session.");
+                throw new InvalidOperationException("Local workstation authority did not return a valid workstation sign-in session.");
 
             return payload;
+        }
+
+        public async Task<LocalHealthResponse> GetLocalHealthAsync(WorkstationSettings settings, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, BuildServiceUrl(settings.DesktopBaseUrl, "api/workstation-local/health"));
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<LocalHealthResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to reach local workstation authority.");
+            return payload ?? throw new InvalidOperationException("Empty local workstation authority health response.");
         }
 
         public async Task<CurrentShopResponse> GetCurrentShopAsync(string baseUrl, CancellationToken cancellationToken)
@@ -136,19 +160,19 @@ namespace RunBook.Workstation.Services
             return payload ?? throw new InvalidOperationException("Empty current shop response.");
         }
 
-        public async Task<DesktopTimeclockStateResponse> GetDesktopTimeclockStateAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, CancellationToken cancellationToken)
+        public async Task<DesktopTimeclockStateResponse> GetLocalTimeclockStateAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, CancellationToken cancellationToken)
         {
-            var url = BuildLocalSessionUrl(settings, "api/workstation-local/timeclock/state");
+            var url = BuildServiceSessionUrl(settings, "api/workstation-local/timeclock/state");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             AddLocalDeviceAuthorization(request, settings);
             AddLocalEmployeeSession(request, session);
             using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
             var payload = await DeserializeAsync<DesktopTimeclockStateResponse>(response, cancellationToken).ConfigureAwait(false);
-            EnsureSuccess(response, payload?.Error, "Unable to load Desktop time clock state.");
-            return payload ?? throw new InvalidOperationException("Empty Desktop time clock response.");
+            EnsureSuccess(response, payload?.Error, "Unable to load local time clock state.");
+            return payload ?? throw new InvalidOperationException("Empty local time clock response.");
         }
 
-        public async Task<DesktopSyncResponse> SyncDesktopTimeclockAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, IEnumerable<WorkstationSyncQueueItem> items, CancellationToken cancellationToken)
+        public async Task<DesktopSyncResponse> SyncLocalTimeclockAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, IEnumerable<WorkstationSyncQueueItem> items, CancellationToken cancellationToken)
         {
             var body = new DesktopSyncRequest
             {
@@ -157,19 +181,20 @@ namespace RunBook.Workstation.Services
                 Items = items?.Select(MapSyncItem).ToList() ?? new List<DesktopSyncItem>()
             };
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildUrl(settings.DesktopBaseUrl, "api/workstation-local/timeclock/sync"));
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildServiceSessionUrl(settings, "api/workstation-local/timeclock/sync"));
             AddLocalDeviceAuthorization(request, settings);
             AddLocalEmployeeSession(request, session);
             request.Content = new StringContent(JsonSerializer.Serialize(body, JsonOptions), Encoding.UTF8, "application/json");
             using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
             var payload = await DeserializeAsync<DesktopSyncResponse>(response, cancellationToken).ConfigureAwait(false);
-            EnsureSuccess(response, payload?.Error, "Unable to sync Desktop time clock items.");
-            return payload ?? throw new InvalidOperationException("Empty Desktop sync response.");
+            EnsureSuccess(response, payload?.Error, "Unable to sync local time clock items.");
+            return payload ?? throw new InvalidOperationException("Empty local time clock sync response.");
         }
+
 
         public async Task<CapabilityPayloadResponse> GetSessionMeAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, CancellationToken cancellationToken)
         {
-            var url = BuildLocalSessionUrl(settings, "api/workstation-local/session/me");
+            var url = BuildServiceSessionUrl(settings, "api/workstation-local/session/me");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             AddLocalDeviceAuthorization(request, settings);
             AddLocalEmployeeSession(request, session);
@@ -181,7 +206,7 @@ namespace RunBook.Workstation.Services
 
         public async Task<CapabilityPayloadResponse> GetNavigationAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, CancellationToken cancellationToken)
         {
-            var url = BuildLocalSessionUrl(settings, "api/workstation-local/navigation");
+            var url = BuildServiceSessionUrl(settings, "api/workstation-local/navigation");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             AddLocalDeviceAuthorization(request, settings);
             AddLocalEmployeeSession(request, session);
@@ -191,9 +216,52 @@ namespace RunBook.Workstation.Services
             return payload ?? throw new InvalidOperationException("Empty workstation navigation response.");
         }
 
+        public async Task<RuntimeAccessTokenResponse> IssueRuntimeAccessTokenAsync(WorkstationSettings settings, WorkstationRuntimeAccessRequest runtimeAccessRequest, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildLocalSessionUrl(settings, "api/workstation-local/runtime-access-token"));
+            AddLocalDeviceAuthorization(request, settings);
+            if (!string.IsNullOrWhiteSpace(runtimeAccessRequest.EmployeeSessionToken))
+                request.Headers.TryAddWithoutValidation("X-RunBook-Employee-Session", runtimeAccessRequest.EmployeeSessionToken);
+            request.Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                scope_mode = runtimeAccessRequest.ScopeMode,
+                shop_id = runtimeAccessRequest.ShopId,
+                workstation_id = runtimeAccessRequest.WorkstationId,
+                workstation_name = runtimeAccessRequest.WorkstationName,
+                operator_id = runtimeAccessRequest.OperatorId,
+                operator_display_name = runtimeAccessRequest.OperatorDisplayName
+            }, JsonOptions), Encoding.UTF8, "application/json");
+
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<RuntimeAccessTokenResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to issue runtime access token.");
+            return payload ?? throw new InvalidOperationException("Empty runtime access token response.");
+        }
+
+        public async Task<RuntimeAccessTokenResponse> RefreshRuntimeAccessTokenAsync(WorkstationSettings settings, WorkstationRuntimeAccessTokenRecord current, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildLocalSessionUrl(settings, "api/workstation-local/runtime-access-token/refresh"));
+            AddLocalDeviceAuthorization(request, settings);
+            if (!string.IsNullOrWhiteSpace(current.EmployeeSessionToken))
+                request.Headers.TryAddWithoutValidation("X-RunBook-Employee-Session", current.EmployeeSessionToken);
+            request.Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                refresh_token = current.RefreshToken,
+                scope_mode = current.ScopeMode,
+                shop_id = current.ShopId,
+                workstation_id = current.WorkstationId,
+                operator_id = current.OperatorId
+            }, JsonOptions), Encoding.UTF8, "application/json");
+
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<RuntimeAccessTokenResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to refresh runtime access token.");
+            return payload ?? throw new InvalidOperationException("Empty runtime token refresh response.");
+        }
+
         public async Task<WorkOrderListResponse> GetWorkOrdersAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, CancellationToken cancellationToken)
         {
-            var url = BuildLocalSessionUrl(settings, "api/workstation-local/work-orders");
+            var url = BuildServiceSessionUrl(settings, "api/workstation-local/work-orders");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             AddLocalDeviceAuthorization(request, settings);
             AddLocalEmployeeSession(request, session);
@@ -205,7 +273,7 @@ namespace RunBook.Workstation.Services
 
         public async Task<WorkOrderDetailResponse> GetWorkOrderDetailAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, CancellationToken cancellationToken)
         {
-            var url = BuildLocalSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}");
+            var url = BuildServiceSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             AddLocalDeviceAuthorization(request, settings);
             AddLocalEmployeeSession(request, session);
@@ -341,27 +409,35 @@ namespace RunBook.Workstation.Services
             return request;
         }
 
-        private static string BuildLocalSessionUrl(WorkstationSettings settings, string relativeUrl)
+        private string BuildLocalSessionUrl(WorkstationSettings settings, string relativeUrl)
         {
             var context = GetLocalDesktopContext(settings);
             var query = $"shop_id={Uri.EscapeDataString(context.ShopId)}&workstation_id={Uri.EscapeDataString(context.WorkstationId)}";
             var separator = relativeUrl.Contains('?') ? "&" : "?";
-            return BuildUrl(settings.DesktopBaseUrl, $"{relativeUrl}{separator}{query}");
+            return BuildServiceUrl(settings.DesktopBaseUrl, $"{relativeUrl}{separator}{query}");
         }
 
-        private static void AddLocalDeviceAuthorization(HttpRequestMessage request, WorkstationSettings settings)
+        private string BuildServiceSessionUrl(WorkstationSettings settings, string relativeUrl)
         {
-            var registration = WorkstationStorageService.LoadRegistration();
+            var context = GetLocalDesktopContext(settings);
+            var query = $"shop_id={Uri.EscapeDataString(context.ShopId)}&workstation_id={Uri.EscapeDataString(context.WorkstationId)}";
+            var separator = relativeUrl.Contains('?') ? "&" : "?";
+            return BuildServiceUrl(settings.DesktopBaseUrl, $"{relativeUrl}{separator}{query}");
+        }
+
+        private void AddLocalDeviceAuthorization(HttpRequestMessage request, WorkstationSettings settings)
+        {
+            var registration = _registrationProvider();
             if (registration == null || string.IsNullOrWhiteSpace(registration.DeviceToken))
-                throw new InvalidOperationException("Workstation is not enrolled with Desktop yet.");
+                throw new InvalidOperationException("Workstation registration with RunBook Service is required.");
 
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", registration.DeviceToken);
             request.Headers.TryAddWithoutValidation("X-RunBook-Workstation-Id", registration.WorkstationId ?? settings.WorkstationId ?? "");
         }
 
-        private static (string ShopId, string WorkstationId) GetLocalDesktopContext(WorkstationSettings settings)
+        private (string ShopId, string WorkstationId) GetLocalDesktopContext(WorkstationSettings settings)
         {
-            var registration = WorkstationStorageService.LoadRegistration();
+            var registration = _registrationProvider();
             var shopId = !string.IsNullOrWhiteSpace(registration?.ShopId)
                 ? (registration?.ShopId ?? "").Trim()
                 : (settings.ShopId ?? "").Trim();
@@ -382,6 +458,11 @@ namespace RunBook.Workstation.Services
         private static string BuildUrl(string baseUrl, string relativeUrl)
             => $"{(baseUrl ?? string.Empty).TrimEnd('/')}/{relativeUrl.TrimStart('/')}";
 
+        private static string BuildServiceUrl(string baseUrl, string relativeUrl)
+        {
+            return BuildUrl(LocalServiceBaseUrl, relativeUrl);
+        }
+
         private static async Task<T?> DeserializeAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
         {
             var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
@@ -394,6 +475,9 @@ namespace RunBook.Workstation.Services
         {
             if (response.IsSuccessStatusCode)
                 return;
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                throw new InvalidOperationException($"Service endpoint failed: {response.RequestMessage?.RequestUri?.AbsolutePath ?? "(unknown)"} (endpoint not implemented on Service).");
 
             throw new InvalidOperationException(string.IsNullOrWhiteSpace(apiError) ? fallbackMessage : apiError);
         }
@@ -408,6 +492,57 @@ namespace RunBook.Workstation.Services
             public bool Existing { get; set; }
             [JsonPropertyName("workstation")]
             public RegisterWorkstation? Workstation { get; set; }
+        }
+
+        public sealed class LocalHealthResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+
+            [JsonPropertyName("status")]
+            public string Status { get; set; } = "";
+
+            [JsonPropertyName("shop_id")]
+            public string ShopId { get; set; } = "";
+
+            [JsonPropertyName("company_name")]
+            public string CompanyName { get; set; } = "";
+
+            [JsonPropertyName("error_message")]
+            public string ErrorMessage { get; set; } = "";
+
+            [JsonPropertyName("missing_folder_name")]
+            public string MissingFolderName { get; set; } = "";
+
+            [JsonPropertyName("safe_company_name")]
+            public string SafeCompanyName { get; set; } = "";
+
+            [JsonPropertyName("company_data_folder_name")]
+            public string CompanyDataFolderName { get; set; } = "";
+
+            [JsonPropertyName("active_company_data_root")]
+            public string ActiveCompanyDataRoot { get; set; } = "";
+
+            [JsonPropertyName("context_loaded_utc")]
+            public string ContextLoadedUtc { get; set; } = "";
+
+            [JsonPropertyName("context_source")]
+            public string ContextSource { get; set; } = "";
+
+            [JsonPropertyName("monitoring_active")]
+            public bool MonitoringActive { get; set; }
+
+            [JsonPropertyName("monitored_machine_count")]
+            public int MonitoredMachineCount { get; set; }
+
+            [JsonPropertyName("listening_port")]
+            public int ListeningPort { get; set; }
+
+            [JsonPropertyName("timestamp_utc")]
+            public string TimestampUtc { get; set; } = "";
         }
 
         public sealed class RegisterWorkstation
@@ -883,6 +1018,75 @@ namespace RunBook.Workstation.Services
 
             [JsonPropertyName("payload")]
             public CapabilityPayload? Payload { get; set; }
+        }
+
+        public sealed class RuntimeAccessTokenResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+
+            [JsonPropertyName("token")]
+            public RuntimeAccessTokenPayload? Token { get; set; }
+        }
+
+        public sealed class RuntimeAccessTokenPayload
+        {
+            [JsonPropertyName("access_token")]
+            public string AccessToken { get; set; } = "";
+
+            [JsonPropertyName("refresh_token")]
+            public string RefreshToken { get; set; } = "";
+
+            [JsonPropertyName("expires_at_utc")]
+            public string ExpiresAtUtc { get; set; } = "";
+
+            [JsonPropertyName("refresh_expires_at_utc")]
+            public string RefreshExpiresAtUtc { get; set; } = "";
+
+            [JsonPropertyName("token_type")]
+            public string TokenType { get; set; } = "Bearer";
+
+            [JsonPropertyName("scope_mode")]
+            public string ScopeMode { get; set; } = "workstation";
+
+            [JsonPropertyName("claims")]
+            public RuntimeAccessClaims Claims { get; set; } = new RuntimeAccessClaims();
+        }
+
+        public sealed class RuntimeAccessClaims
+        {
+            [JsonPropertyName("iss")]
+            public string Issuer { get; set; } = "desktop-local";
+
+            [JsonPropertyName("aud")]
+            public string Audience { get; set; } = "runbook-runtime";
+
+            [JsonPropertyName("sub")]
+            public string Subject { get; set; } = "";
+
+            [JsonPropertyName("shop_id")]
+            public string ShopId { get; set; } = "";
+
+            [JsonPropertyName("workstation_id")]
+            public string WorkstationId { get; set; } = "";
+
+            [JsonPropertyName("workstation_name")]
+            public string WorkstationName { get; set; } = "";
+
+            [JsonPropertyName("operator_id")]
+            public string OperatorId { get; set; } = "";
+
+            [JsonPropertyName("operator_display_name")]
+            public string OperatorDisplayName { get; set; } = "";
+
+            [JsonPropertyName("scope_claims")]
+            public List<string> ScopeClaims { get; set; } = new List<string>();
+
+            [JsonPropertyName("allowed_channels")]
+            public List<string> AllowedChannels { get; set; } = new List<string>();
         }
 
         public sealed class CapabilityPayload
@@ -1509,3 +1713,4 @@ namespace RunBook.Workstation.Services
         }
     }
 }
+

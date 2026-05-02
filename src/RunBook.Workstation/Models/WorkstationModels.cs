@@ -46,7 +46,7 @@ namespace RunBook.Workstation.Models
     public sealed class WorkstationSettings : INotifyPropertyChanged
     {
         private string _controlBaseUrl = "http://localhost:3000";
-        private string _desktopBaseUrl = "http://localhost:30111";
+        private string _desktopBaseUrl = "http://localhost:30112";
         private string _shopId = "";
         private string _workstationId = "";
         private string _workstationName = Environment.MachineName;
@@ -106,6 +106,38 @@ namespace RunBook.Workstation.Models
         public string ExpiresAtUtc { get; set; } = "";
         public string UserId { get; set; } = "";
         public string Email { get; set; } = "";
+    }
+
+    public sealed class WorkstationRuntimeAccessTokenRecord
+    {
+        public string AccessToken { get; set; } = "";
+        public string RefreshToken { get; set; } = "";
+        public string ExpiresAtUtc { get; set; } = "";
+        public string RefreshExpiresAtUtc { get; set; } = "";
+        public string TokenType { get; set; } = "Bearer";
+        public string ScopeMode { get; set; } = "workstation";
+        public string ShopId { get; set; } = "";
+        public string WorkstationId { get; set; } = "";
+        public string WorkstationName { get; set; } = "";
+        public string OperatorId { get; set; } = "";
+        public string OperatorDisplayName { get; set; } = "";
+        public string EmployeeSessionToken { get; set; } = "";
+        public string IssuedAtUtc { get; set; } = "";
+        public List<string> ScopeClaims { get; set; } = new List<string>();
+        public List<string> AllowedChannels { get; set; } = new List<string>();
+        public string Issuer { get; set; } = "desktop-local";
+        public string Audience { get; set; } = "runbook-runtime";
+    }
+
+    public sealed class WorkstationRuntimeAccessRequest
+    {
+        public string ScopeMode { get; set; } = "workstation";
+        public string ShopId { get; set; } = "";
+        public string WorkstationId { get; set; } = "";
+        public string WorkstationName { get; set; } = "";
+        public string OperatorId { get; set; } = "";
+        public string OperatorDisplayName { get; set; } = "";
+        public string EmployeeSessionToken { get; set; } = "";
     }
 
     public sealed class WorkstationPunchRecord
