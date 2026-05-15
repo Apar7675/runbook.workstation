@@ -304,6 +304,7 @@ namespace RunBook.Workstation.Services
             string? lastLocalHostFailureReason)
         {
             var nowUtc = DateTime.UtcNow;
+            var needsWorkstationTrust = registration == null || !registration.IsActive || string.IsNullOrWhiteSpace(registration.DeviceToken);
             var item = new ConnectionStatusItem
             {
                 Key = "local_host",
@@ -311,7 +312,7 @@ namespace RunBook.Workstation.Services
                 LastCheckedUtc = ToLocalTimestamp(lastLocalHostProbeCheckedUtc ?? lastLocalHostSuccessUtc ?? lastLocalHostFailureUtc)
             };
 
-            if (registration == null || !registration.IsActive || string.IsNullOrWhiteSpace(registration.DeviceToken))
+            if (needsWorkstationTrust)
             {
                 item.Health = ConnectionHealth.Degraded;
                 item.Reason = "RunBook.Service health can still be checked, but workstation trust is not fully enrolled yet.";
@@ -323,7 +324,9 @@ namespace RunBook.Workstation.Services
                 if (age <= LocalHostHealthyWindow)
                 {
                     item.Health = ConnectionHealth.Healthy;
-                    item.Reason = "RunBook.Service is reachable and is the primary local host for workstation access.";
+                    item.Reason = needsWorkstationTrust
+                        ? "RunBook.Service is reachable. Employee auth still needs workstation registration/trust before operator tiles can load."
+                        : "RunBook.Service is reachable and is the primary local host for workstation access.";
                     return item;
                 }
             }
@@ -496,8 +499,21 @@ namespace RunBook.Workstation.Services
                 return item;
             }
 
+            if (string.Equals(registration.TrustStatus, "degraded", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(registration.TrustStatus, "offline", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(registration.TrustStatus, "blocked", StringComparison.OrdinalIgnoreCase))
+            {
+                item.Health = ConnectionHealth.Degraded;
+                item.Reason = string.IsNullOrWhiteSpace(registration.LastValidationError)
+                    ? "Saved workstation pairing is being used while Service trust validation is unavailable."
+                    : registration.LastValidationError;
+                return item;
+            }
+
             item.Health = ConnectionHealth.Healthy;
-            item.Reason = "Trusted workstation registration is valid.";
+            item.Reason = string.IsNullOrWhiteSpace(registration.TrustStatus)
+                ? "Trusted workstation registration is valid."
+                : $"Trusted workstation registration is {registration.TrustStatus}.";
             return item;
         }
 

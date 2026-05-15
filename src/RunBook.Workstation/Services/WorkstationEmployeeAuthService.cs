@@ -12,7 +12,7 @@ namespace RunBook.Workstation.Services
             if (cache == null || cache.Package == null || cache.Package.Employees.Count == 0)
             {
                 health.State = WorkstationAuthCacheState.Missing;
-                health.Message = "No local employee auth cache is available yet.";
+                health.Message = "No employee auth cache has been synced to this workstation yet.";
                 return health;
             }
 

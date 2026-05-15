@@ -60,6 +60,12 @@ namespace RunBook.Workstation.Services
                 EnrollmentVersion = payload?.Workstation?.EnrollmentVersion ?? 1,
                 Existing = payload?.Existing ?? false,
                 LastSyncUtc = DateTime.UtcNow.ToString("O"),
+                TrustStatus = "trusted",
+                LastValidatedUtc = DateTime.UtcNow.ToString("O"),
+                LastValidationError = "",
+                PairingRequiredReason = "",
+                TokenExpiresUtc = "",
+                RefreshAvailable = false,
             };
         }
 
@@ -324,6 +330,18 @@ namespace RunBook.Workstation.Services
         public async Task<WorkOrderDetailResponse> AddOperationNoteAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, string note, CancellationToken cancellationToken)
             => await PostWorkOrderOperationAsync(settings, session, $"api/workstation-local/work-orders/{workOrderId}/notes", new { operation_id = operationId, note }, cancellationToken).ConfigureAwait(false);
 
+        public async Task<MaterialReceiptResponse> SaveMaterialReceiptAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, MaterialReceiptSubmitRequest receipt, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildLocalSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}/operations/{operationId}/material-receipt"));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            request.Content = new StringContent(JsonSerializer.Serialize(receipt, JsonOptions), Encoding.UTF8, "application/json");
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<MaterialReceiptResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to save material receipt.");
+            return payload ?? throw new InvalidOperationException("Empty material receipt response.");
+        }
+
         public async Task<InspectionTaskResponse> GetInspectionTasksAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, CancellationToken cancellationToken)
         {
             var relative = operationId > 0
@@ -357,6 +375,69 @@ namespace RunBook.Workstation.Services
             var payload = await DeserializeAsync<InspectionTaskResponse>(response, cancellationToken).ConfigureAwait(false);
             EnsureSuccess(response, payload?.Error, "Unable to submit workstation inspection result.");
             return payload ?? throw new InvalidOperationException("Empty inspection submit response.");
+        }
+
+        public async Task<MobileCaptureSessionResponse> CreateMobileCaptureSessionAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, string attachmentType, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildLocalSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}/operations/{operationId}/mobile-capture/session"));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            request.Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                attachment_type = attachmentType
+            }, JsonOptions), Encoding.UTF8, "application/json");
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<MobileCaptureSessionResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to create mobile capture session.");
+            return payload ?? throw new InvalidOperationException("Empty mobile capture session response.");
+        }
+
+        public async Task<OperationAttachmentResponse> GetOperationAttachmentsAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, BuildLocalSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}/operations/{operationId}/attachments"));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<OperationAttachmentResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to load operation attachments.");
+            return payload ?? throw new InvalidOperationException("Empty operation attachment response.");
+        }
+
+        public async Task<OperationPacketResponse> GetOperationPacketAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, BuildLocalSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}/operations/{operationId}/packet"));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<OperationPacketResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to load operation packet.");
+            return payload ?? throw new InvalidOperationException("Empty operation packet response.");
+        }
+
+        public async Task<DrawingContentResponse> DownloadPacketDocumentAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, string relativeRoute, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, BuildLocalSessionUrl(settings, relativeRoute));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<DrawingContentResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to download packet document.");
+            return payload ?? throw new InvalidOperationException("Empty packet document response.");
+        }
+
+        public async Task<PacketDocumentThumbnailResponse> DownloadPacketDocumentThumbnailAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, string relativeRoute, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, BuildLocalSessionUrl(settings, relativeRoute));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, null, "Unable to download packet document thumbnail.");
+            var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+            return new PacketDocumentThumbnailResponse
+            {
+                ContentType = response.Content.Headers.ContentType?.MediaType ?? "image/png",
+                Bytes = bytes
+            };
         }
 
         private async Task<WorkOrderDetailResponse> PostWorkOrderOperationAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, string relativeUrl, object body, CancellationToken cancellationToken)
@@ -818,8 +899,38 @@ namespace RunBook.Workstation.Services
             [JsonPropertyName("avatar_display_url")]
             public string AvatarDisplayUrl { get; set; } = "";
 
+            [JsonPropertyName("employee_avatar_ref")]
+            public AvatarRefDto? EmployeeAvatarRef { get; set; }
+
             [JsonPropertyName("updated_utc")]
             public string UpdatedUtc { get; set; } = "";
+        }
+
+        public sealed class AvatarRefDto
+        {
+            [JsonPropertyName("avatar_asset_id")]
+            public string AvatarAssetId { get; set; } = "";
+
+            [JsonPropertyName("employee_public_id")]
+            public string EmployeePublicId { get; set; } = "";
+
+            [JsonPropertyName("machine_public_id")]
+            public string MachinePublicId { get; set; } = "";
+
+            [JsonPropertyName("local_api_url")]
+            public string LocalApiUrl { get; set; } = "";
+
+            [JsonPropertyName("content_hash")]
+            public string ContentHash { get; set; } = "";
+
+            [JsonPropertyName("updated_at_utc")]
+            public string UpdatedAtUtc { get; set; } = "";
+
+            [JsonPropertyName("content_type")]
+            public string ContentType { get; set; } = "";
+
+            [JsonPropertyName("is_placeholder")]
+            public bool IsPlaceholder { get; set; } = true;
         }
 
         public sealed class TimeClockPunch
@@ -1599,6 +1710,472 @@ namespace RunBook.Workstation.Services
 
             [JsonPropertyName("inspection")]
             public InspectionTaskPackage? Inspection { get; set; }
+        }
+
+        public sealed class MobileCaptureSessionResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+
+            [JsonPropertyName("capture")]
+            public MobileCaptureSession? Capture { get; set; }
+        }
+
+        public sealed class MobileCaptureSession
+        {
+            [JsonPropertyName("token")]
+            public string Token { get; set; } = "";
+
+            [JsonPropertyName("capture_url")]
+            public string CaptureUrl { get; set; } = "";
+
+            [JsonPropertyName("short_url")]
+            public string ShortUrl { get; set; } = "";
+
+            [JsonPropertyName("expires_utc")]
+            public string ExpiresUtc { get; set; } = "";
+
+            [JsonPropertyName("attachment_type")]
+            public string AttachmentType { get; set; } = "";
+
+            [JsonPropertyName("work_order_id")]
+            public int WorkOrderId { get; set; }
+
+            [JsonPropertyName("work_order_number")]
+            public string WorkOrderNumber { get; set; } = "";
+
+            [JsonPropertyName("operation_id")]
+            public int OperationId { get; set; }
+
+            [JsonPropertyName("operation_number")]
+            public int OperationNumber { get; set; }
+
+            [JsonPropertyName("operation_title")]
+            public string OperationTitle { get; set; } = "";
+        }
+
+        public sealed class OperationAttachmentResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+
+            [JsonPropertyName("attachments")]
+            public OperationAttachmentPackage? Attachments { get; set; }
+        }
+
+        public sealed class OperationAttachmentPackage
+        {
+            [JsonPropertyName("work_order_id")]
+            public int WorkOrderId { get; set; }
+
+            [JsonPropertyName("work_order_number")]
+            public string WorkOrderNumber { get; set; } = "";
+
+            [JsonPropertyName("operation_id")]
+            public int OperationId { get; set; }
+
+            [JsonPropertyName("operation_number")]
+            public int OperationNumber { get; set; }
+
+            [JsonPropertyName("items")]
+            public List<OperationAttachment> Items { get; set; } = new List<OperationAttachment>();
+        }
+
+        public sealed class OperationAttachment
+        {
+            [JsonPropertyName("attachment_id")]
+            public string AttachmentId { get; set; } = "";
+
+            [JsonPropertyName("file_name")]
+            public string FileName { get; set; } = "";
+
+            [JsonPropertyName("attachment_type")]
+            public string AttachmentType { get; set; } = "";
+
+            [JsonPropertyName("content_type")]
+            public string ContentType { get; set; } = "";
+
+            [JsonPropertyName("size_bytes")]
+            public long SizeBytes { get; set; }
+
+            [JsonPropertyName("created_utc")]
+            public string CreatedUtc { get; set; } = "";
+
+            [JsonPropertyName("operation_number")]
+            public int OperationNumber { get; set; }
+        }
+
+        public sealed class OperationPacketResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+
+            [JsonPropertyName("packet")]
+            public OperationPacket? Packet { get; set; }
+        }
+
+        public sealed class OperationPacket
+        {
+            [JsonPropertyName("work_order_id")]
+            public int WorkOrderId { get; set; }
+
+            [JsonPropertyName("work_order_number")]
+            public string WorkOrderNumber { get; set; } = "";
+
+            [JsonPropertyName("operation_id")]
+            public int OperationId { get; set; }
+
+            [JsonPropertyName("operation_number")]
+            public int OperationNumber { get; set; }
+
+            [JsonPropertyName("operation_title")]
+            public string OperationTitle { get; set; } = "";
+
+            [JsonPropertyName("operation_type_id")]
+            public int OperationTypeId { get; set; }
+
+            [JsonPropertyName("operation_type")]
+            public string OperationType { get; set; } = "";
+
+            [JsonPropertyName("operation_type_display")]
+            public string OperationTypeDisplay { get; set; } = "";
+
+            [JsonPropertyName("department_display")]
+            public string DepartmentDisplay { get; set; } = "";
+
+            [JsonPropertyName("work_center_display")]
+            public string WorkCenterDisplay { get; set; } = "";
+
+            [JsonPropertyName("setup_minutes")]
+            public double SetupMinutes { get; set; }
+
+            [JsonPropertyName("cycle_minutes")]
+            public double CycleMinutes { get; set; }
+
+            [JsonPropertyName("notes_display")]
+            public string NotesDisplay { get; set; } = "";
+
+            [JsonPropertyName("detail_notes_display")]
+            public string DetailNotesDisplay { get; set; } = "";
+
+            [JsonPropertyName("material_summary_display")]
+            public string MaterialSummaryDisplay { get; set; } = "";
+
+            [JsonPropertyName("evidence_required")]
+            public int EvidenceRequired { get; set; }
+
+            [JsonPropertyName("require_photo")]
+            public bool RequirePhoto { get; set; }
+
+            [JsonPropertyName("require_video")]
+            public bool RequireVideo { get; set; }
+
+            [JsonPropertyName("require_qa_signoff")]
+            public bool RequireQaSignoff { get; set; }
+
+            [JsonPropertyName("require_supervisor_signoff")]
+            public bool RequireSupervisorSignoff { get; set; }
+
+            [JsonPropertyName("require_attachment")]
+            public bool RequireAttachment { get; set; }
+
+            [JsonPropertyName("require_checklist")]
+            public bool RequireChecklist { get; set; }
+
+            [JsonPropertyName("require_notes")]
+            public bool RequireNotes { get; set; }
+
+            [JsonPropertyName("checklist_items")]
+            public List<OperationPacketChecklistItem> ChecklistItems { get; set; } = new List<OperationPacketChecklistItem>();
+
+            [JsonPropertyName("reference_items")]
+            public List<OperationPacketReferenceItem> ReferenceItems { get; set; } = new List<OperationPacketReferenceItem>();
+
+            [JsonPropertyName("has_preview_routes")]
+            public bool HasPreviewRoutes { get; set; }
+
+            [JsonPropertyName("has_thumbnail_routes")]
+            public bool HasThumbnailRoutes { get; set; }
+
+            [JsonPropertyName("has_balloon_geometry")]
+            public bool HasBalloonGeometry { get; set; }
+
+            [JsonPropertyName("drawing_documents")]
+            public List<OperationPacketDocument> DrawingDocuments { get; set; } = new List<OperationPacketDocument>();
+
+            [JsonPropertyName("ballooned_drawing_documents")]
+            public List<OperationPacketDocument> BalloonedDrawingDocuments { get; set; } = new List<OperationPacketDocument>();
+
+            [JsonPropertyName("inspection_documents")]
+            public List<OperationPacketDocument> InspectionDocuments { get; set; } = new List<OperationPacketDocument>();
+
+            [JsonPropertyName("operation_references")]
+            public List<OperationPacketDocument> OperationReferences { get; set; } = new List<OperationPacketDocument>();
+
+            [JsonPropertyName("operation_attachments")]
+            public List<OperationAttachment> OperationAttachments { get; set; } = new List<OperationAttachment>();
+
+            [JsonPropertyName("material_documents")]
+            public List<OperationPacketDocument> MaterialDocuments { get; set; } = new List<OperationPacketDocument>();
+
+            [JsonPropertyName("material_unit_options")]
+            public List<string> MaterialUnitOptions { get; set; } = new List<string>();
+
+            [JsonPropertyName("material_requirements")]
+            public List<MaterialRequirementDto> MaterialRequirements { get; set; } = new List<MaterialRequirementDto>();
+
+            [JsonPropertyName("material_receipts")]
+            public List<MaterialReceiptDto> MaterialReceipts { get; set; } = new List<MaterialReceiptDto>();
+
+            [JsonPropertyName("material_traces")]
+            public List<MaterialTraceDto> MaterialTraces { get; set; } = new List<MaterialTraceDto>();
+
+            [JsonPropertyName("balloon_markers")]
+            public List<BalloonMarker> BalloonMarkers { get; set; } = new List<BalloonMarker>();
+
+            [JsonPropertyName("inspection_tasks")]
+            public List<InspectionTask> InspectionTasks { get; set; } = new List<InspectionTask>();
+        }
+
+        public sealed class MaterialRequirementDto
+        {
+            [JsonPropertyName("material_requirement_id")]
+            public int MaterialRequirementId { get; set; }
+            [JsonPropertyName("work_order_op_id")]
+            public int WorkOrderOpId { get; set; }
+            [JsonPropertyName("expected_shape")]
+            public string ExpectedShape { get; set; } = "";
+            [JsonPropertyName("expected_size")]
+            public string ExpectedSize { get; set; } = "";
+            [JsonPropertyName("expected_grade")]
+            public string ExpectedGrade { get; set; } = "";
+            [JsonPropertyName("expected_spec")]
+            public string ExpectedSpec { get; set; } = "";
+            [JsonPropertyName("expected_quantity")]
+            public double ExpectedQuantity { get; set; }
+            [JsonPropertyName("expected_unit")]
+            public string ExpectedUnit { get; set; } = "";
+            [JsonPropertyName("material_summary_display")]
+            public string MaterialSummaryDisplay { get; set; } = "";
+        }
+
+        public sealed class MaterialReceiptDto
+        {
+            [JsonPropertyName("material_receipt_id")]
+            public int MaterialReceiptId { get; set; }
+            [JsonPropertyName("work_order_op_id")]
+            public int WorkOrderOpId { get; set; }
+            [JsonPropertyName("material_requirement_id")]
+            public int MaterialRequirementId { get; set; }
+            [JsonPropertyName("received_shape")]
+            public string ReceivedShape { get; set; } = "";
+            [JsonPropertyName("received_size")]
+            public string ReceivedSize { get; set; } = "";
+            [JsonPropertyName("received_grade")]
+            public string ReceivedGrade { get; set; } = "";
+            [JsonPropertyName("received_spec")]
+            public string ReceivedSpec { get; set; } = "";
+            [JsonPropertyName("received_quantity")]
+            public double ReceivedQuantity { get; set; }
+            [JsonPropertyName("received_unit")]
+            public string ReceivedUnit { get; set; } = "";
+            [JsonPropertyName("condition_status")]
+            public string ConditionStatus { get; set; } = "";
+            [JsonPropertyName("receiver_name")]
+            public string ReceiverName { get; set; } = "";
+            [JsonPropertyName("received_utc")]
+            public string ReceivedUtc { get; set; } = "";
+            [JsonPropertyName("notes")]
+            public string Notes { get; set; } = "";
+        }
+
+        public sealed class MaterialTraceDto
+        {
+            [JsonPropertyName("material_trace_id")]
+            public int MaterialTraceId { get; set; }
+            [JsonPropertyName("material_requirement_id")]
+            public int MaterialRequirementId { get; set; }
+            [JsonPropertyName("material_receipt_id")]
+            public int MaterialReceiptId { get; set; }
+            [JsonPropertyName("heat_lot_number")]
+            public string HeatLotNumber { get; set; } = "";
+            [JsonPropertyName("received_quantity")]
+            public double ReceivedQuantity { get; set; }
+            [JsonPropertyName("unit")]
+            public string Unit { get; set; } = "";
+            [JsonPropertyName("cert_status")]
+            public string CertStatus { get; set; } = "";
+            [JsonPropertyName("created_utc")]
+            public string CreatedUtc { get; set; } = "";
+            [JsonPropertyName("notes")]
+            public string Notes { get; set; } = "";
+        }
+
+        public sealed class MaterialReceiptSubmitRequest
+        {
+            [JsonPropertyName("material_requirement_id")]
+            public int MaterialRequirementId { get; set; }
+            [JsonPropertyName("received_shape")]
+            public string ReceivedShape { get; set; } = "";
+            [JsonPropertyName("received_size")]
+            public string ReceivedSize { get; set; } = "";
+            [JsonPropertyName("received_grade")]
+            public string ReceivedGrade { get; set; } = "";
+            [JsonPropertyName("received_spec")]
+            public string ReceivedSpec { get; set; } = "";
+            [JsonPropertyName("received_quantity")]
+            public double ReceivedQuantity { get; set; }
+            [JsonPropertyName("received_unit")]
+            public string ReceivedUnit { get; set; } = "";
+            [JsonPropertyName("condition_status")]
+            public string ConditionStatus { get; set; } = "OK";
+            [JsonPropertyName("notes")]
+            public string Notes { get; set; } = "";
+            [JsonPropertyName("storage_location")]
+            public string StorageLocation { get; set; } = "";
+            [JsonPropertyName("heat_lots")]
+            public List<MaterialReceiptHeatLotSubmitRequest> HeatLots { get; set; } = new List<MaterialReceiptHeatLotSubmitRequest>();
+        }
+
+        public sealed class MaterialReceiptHeatLotSubmitRequest
+        {
+            [JsonPropertyName("heat_lot_number")]
+            public string HeatLotNumber { get; set; } = "";
+            [JsonPropertyName("quantity")]
+            public double Quantity { get; set; }
+            [JsonPropertyName("unit")]
+            public string Unit { get; set; } = "";
+            [JsonPropertyName("cert_received")]
+            public bool CertReceived { get; set; }
+            [JsonPropertyName("notes")]
+            public string Notes { get; set; } = "";
+        }
+
+        public sealed class MaterialReceiptResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+            [JsonPropertyName("message")]
+            public string Message { get; set; } = "";
+            [JsonPropertyName("work_order")]
+            public WorkOrderDetail? WorkOrder { get; set; }
+            [JsonPropertyName("material_receipt_id")]
+            public int MaterialReceiptId { get; set; }
+            [JsonPropertyName("material_trace_ids")]
+            public List<int> MaterialTraceIds { get; set; } = new List<int>();
+        }
+
+        public sealed class OperationPacketChecklistItem
+        {
+            [JsonPropertyName("label")]
+            public string Label { get; set; } = "";
+
+            [JsonPropertyName("is_required")]
+            public bool IsRequired { get; set; }
+        }
+
+        public sealed class OperationPacketReferenceItem
+        {
+            [JsonPropertyName("display_name")]
+            public string DisplayName { get; set; } = "";
+
+            [JsonPropertyName("released_relative_path")]
+            public string ReleasedRelativePath { get; set; } = "";
+
+            [JsonPropertyName("category")]
+            public string Category { get; set; } = "";
+        }
+
+        public sealed class OperationPacketDocument
+        {
+            [JsonPropertyName("id")]
+            public string Id { get; set; } = "";
+
+            [JsonPropertyName("title")]
+            public string Title { get; set; } = "";
+
+            [JsonPropertyName("type")]
+            public string Type { get; set; } = "";
+
+            [JsonPropertyName("source")]
+            public string Source { get; set; } = "";
+
+            [JsonPropertyName("revision")]
+            public string Revision { get; set; } = "";
+
+            [JsonPropertyName("page_count")]
+            public int PageCount { get; set; }
+
+            [JsonPropertyName("content_type")]
+            public string ContentType { get; set; } = "";
+
+            [JsonPropertyName("created_utc")]
+            public string CreatedUtc { get; set; } = "";
+
+            [JsonPropertyName("updated_utc")]
+            public string UpdatedUtc { get; set; } = "";
+
+            [JsonPropertyName("preview_route")]
+            public string PreviewRoute { get; set; } = "";
+
+            [JsonPropertyName("download_route")]
+            public string DownloadRoute { get; set; } = "";
+
+            [JsonPropertyName("thumbnail_route")]
+            public string ThumbnailRoute { get; set; } = "";
+
+            [JsonPropertyName("operation_number")]
+            public int OperationNumber { get; set; }
+        }
+
+        public sealed class PacketDocumentThumbnailResponse
+        {
+            public string ContentType { get; set; } = "image/png";
+            public byte[] Bytes { get; set; } = Array.Empty<byte>();
+        }
+
+        public sealed class BalloonMarker
+        {
+            [JsonPropertyName("balloon_number")]
+            public int BalloonNumber { get; set; }
+
+            [JsonPropertyName("page")]
+            public int Page { get; set; }
+
+            [JsonPropertyName("feature_id")]
+            public int FeatureId { get; set; }
+
+            [JsonPropertyName("characteristic_id")]
+            public int CharacteristicId { get; set; }
+
+            [JsonPropertyName("has_geometry")]
+            public bool HasGeometry { get; set; }
+
+            [JsonPropertyName("x")]
+            public double X { get; set; }
+
+            [JsonPropertyName("y")]
+            public double Y { get; set; }
+
+            [JsonPropertyName("width")]
+            public double Width { get; set; }
+
+            [JsonPropertyName("height")]
+            public double Height { get; set; }
+
+            [JsonPropertyName("radius")]
+            public double Radius { get; set; }
         }
 
         public sealed class InspectionTaskPackage

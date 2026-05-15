@@ -3,25 +3,184 @@
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime"
                     xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework">
 
-    <!-- Core -->
+    <!-- Semantic RunBook color system -->
+    <SolidColorBrush x:Key="RunBook.Brush.Surface.Base" Color="#040811"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Surface.Shell" Color="#EE07111D"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Surface.Panel" Color="#E90B1424"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Surface.Card" Color="#D40F1B2F"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Surface.CardMuted" Color="#CC0B1626"/>
+    <LinearGradientBrush x:Key="RunBook.Brush.Surface.QualityPanel" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#F00B1424" Offset="0"/>
+        <GradientStop Color="#EE111126" Offset="0.55"/>
+        <GradientStop Color="#E90B1424" Offset="1"/>
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="RunBook.Brush.Surface.QualityCard" Color="#D4111226"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Footer.IconSurface" Color="#15162636"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Border.Default" Color="#263D61"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Border.Strong" Color="#3A5F8F"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Border.Faint" Color="#16FFFFFF"/>
+
+    <SolidColorBrush x:Key="RunBook.Brush.Primary" Color="#31C7FF"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Primary.Hover" Color="#4BD2FF"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Primary.Subtle" Color="#1031C7FF"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Primary.Border" Color="#5531C7FF"/>
+
+    <SolidColorBrush x:Key="RunBook.Brush.Active" Color="#F08A24"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Active.Subtle" Color="#16F08A24"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Active.Border" Color="#66F08A24"/>
+
+    <SolidColorBrush x:Key="RunBook.Brush.Success" Color="#3CC875"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Success.Subtle" Color="#123CC875"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Success.Border" Color="#553CC875"/>
+
+    <SolidColorBrush x:Key="RunBook.Brush.Quality" Color="#8D63E6"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Quality.Subtle" Color="#148D63E6"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Quality.Border" Color="#5C8D63E6"/>
+
+    <SolidColorBrush x:Key="RunBook.Brush.Warning" Color="#E8BC52"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Warning.Subtle" Color="#14E8BC52"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Warning.Border" Color="#5CE8BC52"/>
+
+    <SolidColorBrush x:Key="RunBook.Brush.Error" Color="#F0525E"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Error.Subtle" Color="#18F0525E"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Error.Border" Color="#66F0525E"/>
+
+    <SolidColorBrush x:Key="RunBook.Brush.Neutral" Color="#7F91AA"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Neutral.Subtle" Color="#15162636"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Neutral.Border" Color="#3B526F"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Text.Primary" Color="#EAF0F8"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Text.Secondary" Color="#B0BDD0"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Text.Muted" Color="#7B8BA3"/>
+    <SolidColorBrush x:Key="RunBook.Brush.Text.Disabled" Color="#58677B"/>
+
+    <!-- Time Clock exact palette -->
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Surface.App" Color="#06101C"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Surface.Panel" Color="#0A1626"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Surface.Card" Color="#0C1B2E"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Surface.Elevated" Color="#102238"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Border.Default" Color="#18314C"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Border.Strong" Color="#21486D"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Text.Primary" Color="#EAF4FF"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Text.Secondary" Color="#A5B8CD"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Text.Muted" Color="#7389A3"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Text.Disabled" Color="#5D7088"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Primary" Color="#35C8FF"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Primary.Hover" Color="#57D6FF"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Primary.Border" Color="#1F82C7"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Primary.Subtle" Color="#112D45"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Primary.Glow" Color="#35C8FF"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Success" Color="#58E58B"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Success.Strong" Color="#39D173"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Success.Subtle" Color="#0E2F25"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Success.Border" Color="#1F6A4C"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Success.Glow" Color="#58E58B"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Warning" Color="#F5A623"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Warning.Strong" Color="#FFB020"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Warning.Subtle" Color="#31230F"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Warning.Border" Color="#8A5A10"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Warning.Glow" Color="#F5A623"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Info" Color="#49A7FF"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Info.Subtle" Color="#112946"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Info.Border" Color="#2B6FB2"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Purple" Color="#A46BFF"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Purple.Subtle" Color="#24173D"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Purple.Border" Color="#5D3A99"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Purple.Glow" Color="#A46BFF"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Error" Color="#FF5B6E"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Error.Subtle" Color="#34151C"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Error.Border" Color="#8E3140"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Error.Glow" Color="#FF5B6E"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Neutral.Fill" Color="#16263B"/>
+    <SolidColorBrush x:Key="RunBook.Brush.TimeClock.Neutral.Border" Color="#2A3F5A"/>
+
+    <LinearGradientBrush x:Key="RunBook.Brush.TimeClock.Gradient.Hero" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Color="#F20E2F25" Offset="0"/>
+        <GradientStop Color="#F00E2F25" Offset="0.22"/>
+        <GradientStop Color="#F00C1B2E" Offset="0.62"/>
+        <GradientStop Color="#F006101C" Offset="1"/>
+    </LinearGradientBrush>
+    <RadialGradientBrush x:Key="RunBook.Brush.TimeClock.Glow.HeroWash"
+                         Center="0.08,0.48"
+                         GradientOrigin="0.08,0.44"
+                         RadiusX="1.05"
+                         RadiusY="1.2">
+        <GradientStop Color="#7258E58B" Offset="0"/>
+        <GradientStop Color="#360E2F25" Offset="0.36"/>
+        <GradientStop Color="#160E2F25" Offset="0.68"/>
+        <GradientStop Color="#0006101C" Offset="1"/>
+    </RadialGradientBrush>
+    <LinearGradientBrush x:Key="RunBook.Brush.TimeClock.Glow.TitleWash" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Color="#2058E58B" Offset="0"/>
+        <GradientStop Color="#120E2F25" Offset="0.42"/>
+        <GradientStop Color="#0006101C" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="RunBook.Brush.TimeClock.Gradient.Panel" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#F0102238" Offset="0"/>
+        <GradientStop Color="#F00C1B2E" Offset="0.48"/>
+        <GradientStop Color="#F00A1626" Offset="0.76"/>
+        <GradientStop Color="#F006101C" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="RunBook.Brush.TimeClock.Gradient.Card" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#F0102238" Offset="0"/>
+        <GradientStop Color="#F00C1B2E" Offset="0.5"/>
+        <GradientStop Color="#F00A1626" Offset="0.76"/>
+        <GradientStop Color="#F00A1626" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="RunBook.Brush.TimeClock.Gradient.CardSheen" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#1FEAF4FF" Offset="0"/>
+        <GradientStop Color="#0006101C" Offset="0.42"/>
+        <GradientStop Color="#1606101C" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="RunBook.Brush.TimeClock.Gradient.PurplePanel" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#EF24173D" Offset="0"/>
+        <GradientStop Color="#D824173D" Offset="0.28"/>
+        <GradientStop Color="#F00C1B2E" Offset="0.66"/>
+        <GradientStop Color="#E806101C" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="RunBook.Brush.TimeClock.Gradient.SuccessTile" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Color="#DC0E2F25" Offset="0"/>
+        <GradientStop Color="#C80E2F25" Offset="0.28"/>
+        <GradientStop Color="#F00C1B2E" Offset="0.66"/>
+        <GradientStop Color="#F00A1626" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="RunBook.Brush.TimeClock.Gradient.WarningTile" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Color="#3331230F" Offset="0"/>
+        <GradientStop Color="#6631230F" Offset="0.34"/>
+        <GradientStop Color="#9931230F" Offset="0.7"/>
+        <GradientStop Color="#CC31230F" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="RunBook.Brush.TimeClock.Gradient.InfoTile" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Color="#33112946" Offset="0"/>
+        <GradientStop Color="#66112946" Offset="0.34"/>
+        <GradientStop Color="#99112946" Offset="0.7"/>
+        <GradientStop Color="#CC112946" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="RunBook.Brush.TimeClock.Gradient.ErrorTile" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Color="#3334151C" Offset="0"/>
+        <GradientStop Color="#6634151C" Offset="0.34"/>
+        <GradientStop Color="#9934151C" Offset="0.7"/>
+        <GradientStop Color="#CC34151C" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- Compatibility aliases for existing styles -->
     <SolidColorBrush x:Key="ShellBg" Color="#040811"/>
-    <SolidColorBrush x:Key="Surface" Color="#B8121B2A"/>
+    <SolidColorBrush x:Key="Surface" Color="#B80B1424"/>
     <SolidColorBrush x:Key="Surface2" Color="#D9182436"/>
     <SolidColorBrush x:Key="SurfaceDark" Color="#E60A1220"/>
-    <SolidColorBrush x:Key="Border" Color="#5F87C8"/>
+    <SolidColorBrush x:Key="Border" Color="#31C7FF"/>
     <SolidColorBrush x:Key="BorderSoft" Color="#2BFFFFFF"/>
     <SolidColorBrush x:Key="BorderFaint" Color="#16FFFFFF"/>
     <SolidColorBrush x:Key="Text" Color="#EAF0F8"/>
     <SolidColorBrush x:Key="Muted" Color="#B0BDD0"/>
     <SolidColorBrush x:Key="Muted2" Color="#7B8BA3"/>
-    <SolidColorBrush x:Key="Accent" Color="#5E84C6"/>
-    <SolidColorBrush x:Key="Glow" Color="#7399D6"/>
-    <SolidColorBrush x:Key="Indigo" Color="#7F96C7"/>
-    <SolidColorBrush x:Key="Indigo2" Color="#496995"/>
-    <SolidColorBrush x:Key="SuccessBrush" Color="#56C78C"/>
-    <SolidColorBrush x:Key="WarningBrush" Color="#E2AE58"/>
-    <SolidColorBrush x:Key="DangerBrush" Color="#DE7676"/>
-    <SolidColorBrush x:Key="InfoBrush" Color="#7EABD9"/>
+    <SolidColorBrush x:Key="Accent" Color="#31C7FF"/>
+    <SolidColorBrush x:Key="Glow" Color="#31C7FF"/>
+    <SolidColorBrush x:Key="Indigo" Color="#9B6BFF"/>
+    <SolidColorBrush x:Key="Indigo2" Color="#7450C7"/>
+    <SolidColorBrush x:Key="SuccessBrush" Color="#43D17E"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="#F2C75E"/>
+    <SolidColorBrush x:Key="DangerBrush" Color="#FF5D66"/>
+    <SolidColorBrush x:Key="InfoBrush" Color="#31C7FF"/>
 
     <LinearGradientBrush x:Key="HeaderGrad" StartPoint="0,0" EndPoint="1,0">
         <GradientStop Color="#D0141C2A" Offset="0"/>
@@ -240,66 +399,68 @@
     </Style>
 
     <Style x:Key="TimeClockHeroCard" TargetType="Border" BasedOn="{StaticResource Card}">
-        <Setter Property="Padding" Value="16"/>
-        <Setter Property="CornerRadius" Value="22"/>
-        <Setter Property="Background" Value="#CC132133"/>
-        <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+        <Setter Property="Padding" Value="17"/>
+        <Setter Property="CornerRadius" Value="18"/>
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.TimeClock.Gradient.Hero}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource RunBook.Brush.TimeClock.Success.Border}"/>
         <Setter Property="BorderThickness" Value="1"/>
     </Style>
+    <Style x:Key="RunBook.Style.TimeClockHeroCard" TargetType="Border" BasedOn="{StaticResource TimeClockHeroCard}"/>
     <Style x:Key="TimeClockPanelCard" TargetType="Border" BasedOn="{StaticResource SectionCard}">
         <Setter Property="Padding" Value="14"/>
-        <Setter Property="CornerRadius" Value="18"/>
-        <Setter Property="Background" Value="#C6132032"/>
-        <Setter Property="Margin" Value="0,0,0,10"/>
+        <Setter Property="CornerRadius" Value="16"/>
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.TimeClock.Gradient.Panel}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource RunBook.Brush.TimeClock.Border.Default}"/>
+        <Setter Property="Margin" Value="0,0,0,12"/>
     </Style>
     <Style x:Key="TimeClockStatusPill" TargetType="Border">
-        <Setter Property="Background" Value="#18000000"/>
-        <Setter Property="BorderBrush" Value="#2BFFFFFF"/>
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.TimeClock.Neutral.Fill}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource RunBook.Brush.TimeClock.Neutral.Border}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="999"/>
-        <Setter Property="Padding" Value="10,5"/>
+        <Setter Property="Padding" Value="10,4"/>
     </Style>
     <Style x:Key="TimeClockHeroEyebrow" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+        <Setter Property="Foreground" Value="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}"/>
         <Setter Property="FontSize" Value="12"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
     </Style>
     <Style x:Key="TimeClockHeroTitle" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource Text}"/>
-        <Setter Property="FontSize" Value="30"/>
+        <Setter Property="Foreground" Value="{StaticResource RunBook.Brush.TimeClock.Success}"/>
+        <Setter Property="FontSize" Value="34"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
     <Style x:Key="TimeClockHeroStatus" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource Text}"/>
-        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="Foreground" Value="{StaticResource RunBook.Brush.TimeClock.Text.Primary}"/>
+        <Setter Property="FontSize" Value="18"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
     <Style x:Key="TimeClockHeroMeta" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="#DDE6F3"/>
+        <Setter Property="Foreground" Value="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
     <Style x:Key="TimeClockHeroHint" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+        <Setter Property="Foreground" Value="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}"/>
         <Setter Property="FontSize" Value="12"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
     <Style x:Key="TimeClockSectionTitle" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource Text}"/>
-        <Setter Property="FontSize" Value="17"/>
+        <Setter Property="Foreground" Value="{StaticResource RunBook.Brush.TimeClock.Text.Primary}"/>
+        <Setter Property="FontSize" Value="15"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style x:Key="TimeClockSectionBody" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource Muted}"/>
-        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="Foreground" Value="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}"/>
+        <Setter Property="FontSize" Value="12"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
     <Style x:Key="TimeClockGroupTitle" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource Text}"/>
+        <Setter Property="Foreground" Value="{StaticResource RunBook.Brush.TimeClock.Text.Primary}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
@@ -329,40 +490,90 @@
         <Setter Property="FontSize" Value="16"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
+    <Style x:Key="RunBook.Style.TimeClockActionTile" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}"/>
+        <Setter Property="Foreground" Value="{StaticResource RunBook.Brush.TimeClock.Text.Primary}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource RunBook.Brush.TimeClock.Border.Default}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template" Value="{DynamicResource RB.ButtonTemplate}"/>
+        <Setter Property="MinHeight" Value="100"/>
+    </Style>
     <Style x:Key="TimeClockSummaryTile" TargetType="Border" BasedOn="{StaticResource BubbleCard}">
         <Setter Property="Padding" Value="12,10"/>
         <Setter Property="CornerRadius" Value="16"/>
-        <Setter Property="Background" Value="#B10E1827"/>
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.TimeClock.Surface.Card}"/>
         <Setter Property="Margin" Value="0,0,0,8"/>
     </Style>
     <Style x:Key="TimeClockSummaryGroupCard" TargetType="Border" BasedOn="{StaticResource BubbleCard}">
-        <Setter Property="Padding" Value="12"/>
+        <Setter Property="Padding" Value="16"/>
         <Setter Property="CornerRadius" Value="16"/>
-        <Setter Property="Background" Value="#A40D1725"/>
-        <Setter Property="Margin" Value="0,0,0,10"/>
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.TimeClock.Gradient.Panel}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource RunBook.Brush.TimeClock.Border.Default}"/>
+        <Setter Property="Margin" Value="0,0,0,12"/>
     </Style>
     <Style x:Key="TimeClockSummaryMetricTile" TargetType="Border" BasedOn="{StaticResource BubbleCard}">
-        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="Padding" Value="16,14"/>
         <Setter Property="CornerRadius" Value="14"/>
-        <Setter Property="Background" Value="#B60E1827"/>
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource RunBook.Brush.TimeClock.Border.Default}"/>
         <Setter Property="Margin" Value="0,0,8,8"/>
+        <Setter Property="Effect" Value="{StaticResource SoftFloatShadow}"/>
     </Style>
+    <Style x:Key="RunBook.Style.TimeClockMetricCard" TargetType="Border" BasedOn="{StaticResource TimeClockSummaryMetricTile}"/>
     <Style x:Key="TimeClockMetricLabel" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+        <Setter Property="Foreground" Value="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}"/>
         <Setter Property="FontSize" Value="11.5"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style x:Key="TimeClockMetricValue" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource Text}"/>
-        <Setter Property="FontSize" Value="20"/>
+        <Setter Property="Foreground" Value="{StaticResource RunBook.Brush.TimeClock.Text.Primary}"/>
+        <Setter Property="FontSize" Value="24"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
     <Style x:Key="TimeClockActivityCard" TargetType="Border" BasedOn="{StaticResource BubbleCard}">
-        <Setter Property="Padding" Value="12,10"/>
-        <Setter Property="CornerRadius" Value="16"/>
-        <Setter Property="Background" Value="#B70D1625"/>
-        <Setter Property="Margin" Value="0,0,0,8"/>
+        <Setter Property="Padding" Value="14,11"/>
+        <Setter Property="CornerRadius" Value="14"/>
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}"/>
+        <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+        <Setter Property="Margin" Value="0,0,0,6"/>
+    </Style>
+    <Style x:Key="RunBook.Style.TimeClockActivityRow" TargetType="Border" BasedOn="{StaticResource TimeClockActivityCard}"/>
+    <Style x:Key="RunBook.Style.TimeClockTimelineStep" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.TimeClock.Neutral.Fill}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource RunBook.Brush.TimeClock.Neutral.Border}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="999"/>
+    </Style>
+    <Style x:Key="RunBook.Style.TimeClockIconGlow" TargetType="Border">
+        <Setter Property="Width" Value="72"/>
+        <Setter Property="Height" Value="72"/>
+        <Setter Property="CornerRadius" Value="36"/>
+        <Setter Property="BorderThickness" Value="1.8"/>
+    </Style>
+    <Style x:Key="RunBook.Style.TimeClockProgressBar" TargetType="ProgressBar">
+        <Setter Property="Height" Value="7"/>
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.TimeClock.Neutral.Fill}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Grid Height="{TemplateBinding Height}">
+                        <Border x:Name="PART_Track"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="4"/>
+                        <Decorator x:Name="PART_Indicator"
+                                   HorizontalAlignment="Left">
+                            <Border Background="{TemplateBinding Foreground}"
+                                    CornerRadius="4"/>
+                        </Decorator>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- Shell -->
@@ -746,18 +957,30 @@
     <Style x:Key="RB.Button.Primary" TargetType="Button">
         <Setter Property="Background" Value="{StaticResource Accent}"/>
         <Setter Property="Foreground" Value="White"/>
-        <Setter Property="BorderBrush" Value="#00000000"/>
-        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="BorderBrush" Value="{StaticResource RunBook.Brush.Primary.Border}"/>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="14,9"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Template" Value="{StaticResource RB.ButtonTemplate}"/>
     </Style>
+    <Style x:Key="RB.Button.Active" TargetType="Button" BasedOn="{StaticResource RB.Button.Primary}">
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.Active}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource RunBook.Brush.Active.Border}"/>
+    </Style>
+    <Style x:Key="RB.Button.Success" TargetType="Button" BasedOn="{StaticResource RB.Button.Primary}">
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.Success}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource RunBook.Brush.Success.Border}"/>
+    </Style>
+    <Style x:Key="RB.Button.Quality" TargetType="Button" BasedOn="{StaticResource RB.Button.Primary}">
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.Quality}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource RunBook.Brush.Quality.Border}"/>
+    </Style>
     <Style x:Key="RB.Button.Ghost" TargetType="Button">
-        <Setter Property="Background" Value="#14000000"/>
+        <Setter Property="Background" Value="{StaticResource RunBook.Brush.Neutral.Subtle}"/>
         <Setter Property="Foreground" Value="{StaticResource Text}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderSoft}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource RunBook.Brush.Neutral.Border}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="14,9"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
@@ -1119,6 +1342,7 @@
     <Style x:Key="TimeOffComboBox" TargetType="ComboBox" BasedOn="{StaticResource ComboBoxBox}">
         <Setter Property="Height" Value="40"/>
     </Style>
+    <Style x:Key="RB.ComboBox" TargetType="ComboBox" BasedOn="{StaticResource ComboBoxBox}"/>
     <Style x:Key="TimeOffDatePickerTextBox" TargetType="{x:Type DatePickerTextBox}">
         <Setter Property="Foreground" Value="{StaticResource Text}"/>
         <Setter Property="Background" Value="Transparent"/>

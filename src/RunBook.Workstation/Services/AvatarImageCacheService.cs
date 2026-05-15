@@ -4,12 +4,16 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using RunBook.Workstation.Models;
 
 namespace RunBook.Workstation.Services
 {
     public static class AvatarImageCacheService
     {
         public static async Task<string> ResolveDisplayPathAsync(string avatarDisplayUrl)
+            => await ResolveDisplayPathAsync(avatarDisplayUrl, null).ConfigureAwait(false);
+
+        public static async Task<string> ResolveDisplayPathAsync(string avatarDisplayUrl, WorkstationAvatarRef? avatarRef)
         {
             if (string.IsNullOrWhiteSpace(avatarDisplayUrl))
                 return "";
@@ -27,7 +31,7 @@ namespace RunBook.Workstation.Services
                 return "";
 
             WorkstationStorageService.EnsureRuntimeFolders();
-            var cacheKey = BuildCacheKey(avatarUri, avatarDisplayUrl);
+            var cacheKey = BuildCacheKey(avatarUri, avatarDisplayUrl, avatarRef);
 
             var extension = Path.GetExtension(avatarUri.AbsolutePath);
             if (string.IsNullOrWhiteSpace(extension) || extension.Length > 8)
@@ -62,8 +66,15 @@ namespace RunBook.Workstation.Services
             return Convert.ToHexString(bytes);
         }
 
-        private static string BuildCacheKey(Uri avatarUri, string originalValue)
+        private static string BuildCacheKey(Uri avatarUri, string originalValue, WorkstationAvatarRef? avatarRef)
         {
+            if (avatarRef != null &&
+                !string.IsNullOrWhiteSpace(avatarRef.AvatarAssetId) &&
+                !string.IsNullOrWhiteSpace(avatarRef.ContentHash))
+            {
+                return $"{avatarRef.AvatarAssetId.Trim()}:{avatarRef.ContentHash.Trim()}";
+            }
+
             if (!avatarUri.IsAbsoluteUri)
                 return originalValue;
 

@@ -17,4 +17,7 @@
     <Resource Include="Assets\Images\Avatars\avatar_*.jpg" />
     <Resource Include="Themes\RunBookTheme.xaml" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+  </ItemGroup>
 </Project>

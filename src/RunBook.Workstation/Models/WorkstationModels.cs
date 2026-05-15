@@ -22,21 +22,21 @@ namespace RunBook.Workstation.Models
         public string DisplayLabel => (Label ?? "").ToUpperInvariant();
         public string DotColor => Health switch
         {
-            ConnectionHealth.Healthy => "#6FE0A7",
-            ConnectionHealth.Degraded => "#F2C46D",
-            _ => "#F07C86"
+            ConnectionHealth.Healthy => "#43D17E",
+            ConnectionHealth.Degraded => "#F2C75E",
+            _ => "#FF5D66"
         };
         public string BackgroundColor => Health switch
         {
-            ConnectionHealth.Healthy => "#1C143021",
-            ConnectionHealth.Degraded => "#241F180D",
-            _ => "#241F1014"
+            ConnectionHealth.Healthy => "#123CC875",
+            ConnectionHealth.Degraded => "#14E8BC52",
+            _ => "#18F0525E"
         };
         public string BorderColor => Health switch
         {
-            ConnectionHealth.Healthy => "#446FE0A7",
-            ConnectionHealth.Degraded => "#44F2C46D",
-            _ => "#44F07C86"
+            ConnectionHealth.Healthy => "#553CC875",
+            ConnectionHealth.Degraded => "#5CE8BC52",
+            _ => "#66F0525E"
         };
         public string DetailText => string.IsNullOrWhiteSpace(LastCheckedUtc)
             ? ""
@@ -173,6 +173,12 @@ namespace RunBook.Workstation.Models
         public int EnrollmentVersion { get; set; } = 1;
         public bool Existing { get; set; }
         public string LastSyncUtc { get; set; } = "";
+        public string TrustStatus { get; set; } = "";
+        public string LastValidatedUtc { get; set; } = "";
+        public string LastValidationError { get; set; } = "";
+        public string PairingRequiredReason { get; set; } = "";
+        public string TokenExpiresUtc { get; set; } = "";
+        public bool RefreshAvailable { get; set; }
     }
 
     public sealed class WorkstationEmployeeAuthCache
@@ -220,6 +226,7 @@ namespace RunBook.Workstation.Models
         public bool HasWorkstationPasscode { get; set; }
         public int SessionTimeoutMinutes { get; set; } = 15;
         public string AvatarDisplayUrl { get; set; } = "";
+        public WorkstationAvatarRef EmployeeAvatarRef { get; set; } = WorkstationAvatarRef.Placeholder();
         public string UpdatedUtc { get; set; } = "";
     }
 
@@ -322,6 +329,7 @@ namespace RunBook.Workstation.Models
         public string Role { get; set; } = "";
         public string Initials { get; set; } = "";
         public string AvatarDisplayUrl { get; set; } = "";
+        public WorkstationAvatarRef EmployeeAvatarRef { get; set; } = WorkstationAvatarRef.Placeholder();
         public bool HasAvatarDisplayUrl => !string.IsNullOrWhiteSpace(AvatarDisplayUrl);
         public string AvatarBrush { get; set; } = "#5E84C6";
         public string AccentBrush { get; set; } = "#7EA4E2";
@@ -333,6 +341,21 @@ namespace RunBook.Workstation.Models
         public bool CanInspectionEntry { get; set; }
         public bool CanCameraView { get; set; }
         public bool HasWorkstationPasscode { get; set; }
+    }
+
+    public sealed class WorkstationAvatarRef
+    {
+        public string AvatarAssetId { get; set; } = "";
+        public string EmployeePublicId { get; set; } = "";
+        public string MachinePublicId { get; set; } = "";
+        public string LocalApiUrl { get; set; } = "";
+        public string ContentHash { get; set; } = "";
+        public string UpdatedAtUtc { get; set; } = "";
+        public string ContentType { get; set; } = "";
+        public bool IsPlaceholder { get; set; } = true;
+
+        public static WorkstationAvatarRef Placeholder()
+            => new WorkstationAvatarRef { IsPlaceholder = true };
     }
 
     public sealed class WorkstationWorkOrderSummary
@@ -372,6 +395,14 @@ namespace RunBook.Workstation.Models
             1 => $"{ActiveOperators[0].EmployeeName} active",
             _ => $"{ActiveOperatorCount} active operators"
         };
+        public string CardBackgroundBrush => "#D40F1B2F";
+        public string CardBorderBrush => IsCurrentJob ? "#5531C7FF" : "#3B526F";
+        public string StatusPillBackgroundBrush => IsCurrentJob ? "#16F08A24" : "#15162636";
+        public string StatusPillBorderBrush => IsCurrentJob ? "#66F08A24" : "#3B526F";
+        public string StatusTextBrush => IsCurrentJob ? "#F08A24" : "#B0BDD0";
+        public string AssignmentPillBackgroundBrush => IsCurrentJob ? "#123CC875" : "#15162636";
+        public string AssignmentPillBorderBrush => IsCurrentJob ? "#553CC875" : "#3B526F";
+        public string AssignmentTextBrush => IsCurrentJob ? "#3CC875" : "#B0BDD0";
     }
 
     public sealed class WorkstationWorkOrderDetail
@@ -449,6 +480,25 @@ namespace RunBook.Workstation.Models
         public bool CanStart { get; set; }
         public bool CanStop { get; set; }
         public bool CanComplete { get; set; }
+        public bool IsPaused => ContainsStatus("stop") || ContainsStatus("pause");
+        public bool IsInProgress => ContainsStatus("progress") || CanStop;
+        public bool IsCompleted => ContainsStatus("complete") || !string.IsNullOrWhiteSpace(CompletedUtc);
+        public string DisplayStatus => IsPaused ? "Paused" : Status;
+        public bool IsInspection => ContainsStatus("inspection") ||
+            (Title ?? "").IndexOf("inspection", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            (Department ?? "").IndexOf("quality", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            (Department ?? "").IndexOf("qa", StringComparison.OrdinalIgnoreCase) >= 0;
+        public string RowBackgroundBrush => IsInProgress ? "#16F08A24" : "#D40F1B2F";
+        public string RowBorderBrush => IsInProgress ? "#66F08A24" : IsCompleted ? "#553CC875" : IsInspection ? "#5C8D63E6" : "#3B526F";
+        public string MarkerBackgroundBrush => IsInProgress ? "#22F08A24" : IsCompleted ? "#123CC875" : IsInspection ? "#148D63E6" : "#15162636";
+        public string MarkerBorderBrush => IsInProgress ? "#66F08A24" : IsCompleted ? "#553CC875" : IsInspection ? "#5C8D63E6" : "#3B526F";
+        public string OperationNumberBrush => IsInProgress ? "#F08A24" : IsCompleted ? "#3CC875" : IsInspection ? "#8D63E6" : "#31C7FF";
+        public string StatusPillBackgroundBrush => IsInProgress ? "#16F08A24" : IsCompleted ? "#123CC875" : "#1031C7FF";
+        public string StatusPillBorderBrush => IsInProgress ? "#66F08A24" : IsCompleted ? "#553CC875" : "#5531C7FF";
+        public string StatusTextBrush => IsInProgress ? "#F08A24" : IsCompleted ? "#3CC875" : "#31C7FF";
+
+        private bool ContainsStatus(string value)
+            => (Status ?? "").IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     public sealed class WorkstationDrawingPackage
@@ -507,6 +557,46 @@ namespace RunBook.Workstation.Models
         public string ResultNotes { get; set; } = "";
     }
 
+    public sealed class WorkstationDataEntrySection
+    {
+        public string Number { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Subtitle { get; set; } = "";
+        public string AccentBrush { get; set; } = "#31C7FF";
+        public string BorderBrush { get; set; } = "#5531C7FF";
+        public string BackgroundBrush { get; set; } = "#D40F1B2F";
+        public List<WorkstationDataEntryRequirementRow> Items { get; set; } = new List<WorkstationDataEntryRequirementRow>();
+    }
+
+    public sealed class WorkstationDataEntryRequirementRow
+    {
+        public string Label { get; set; } = "";
+        public string Value { get; set; } = "";
+        public string State { get; set; } = "";
+        public string StateBrush { get; set; } = "#B0BDD0";
+        public string StateBorderBrush { get; set; } = "#3B526F";
+        public string StateBackgroundBrush { get; set; } = "#15162636";
+    }
+
+    public sealed class WorkstationMaterialHeatLotEntry : INotifyPropertyChanged
+    {
+        private string _heatLotNumber = "";
+        private string _quantityText = "";
+        private string _unit = "Bars";
+        private bool _certReceived;
+        private string _notes = "";
+
+        public string HeatLotNumber { get => _heatLotNumber; set { value ??= ""; if (_heatLotNumber != value) { _heatLotNumber = value; OnPropertyChanged(); } } }
+        public string QuantityText { get => _quantityText; set { value ??= ""; if (_quantityText != value) { _quantityText = value; OnPropertyChanged(); } } }
+        public string Unit { get => _unit; set { value ??= ""; if (_unit != value) { _unit = value; OnPropertyChanged(); } } }
+        public bool CertReceived { get => _certReceived; set { if (_certReceived != value) { _certReceived = value; OnPropertyChanged(); } } }
+        public string Notes { get => _notes; set { value ??= ""; if (_notes != value) { _notes = value; OnPropertyChanged(); } } }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
     public sealed class WorkstationTimeclockSnapshot
     {
         public string RemoteEmployeeId { get; set; } = "";
@@ -549,7 +639,10 @@ namespace RunBook.Workstation.Models
     {
         public string Label { get; set; } = "";
         public string Value { get; set; } = "";
+        public string DetailText { get; set; } = "";
+        public string IconText { get; set; } = "";
         public string AccentBrush { get; set; } = "#7EABD9";
+        public double ProgressValue { get; set; }
     }
 
     public sealed class WorkstationTimeClockActivityRow
@@ -558,6 +651,7 @@ namespace RunBook.Workstation.Models
         public string TimeText { get; set; } = "";
         public string StateText { get; set; } = "";
         public string DetailText { get; set; } = "";
+        public string IconText { get; set; } = "";
         public string AccentBrush { get; set; } = "#7EABD9";
     }
 

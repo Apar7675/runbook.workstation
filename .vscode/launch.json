@@ -2,6 +2,19 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "F5 Reboot Workstation (local Service)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "reboot RunBook Workstation",
+      "program": "${workspaceFolder}/src/RunBook.Workstation/bin/Debug/net8.0-windows10.0.19041.0/RunBook.Workstation.exe",
+      "cwd": "${workspaceFolder}/src/RunBook.Workstation",
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "env": {
+        "RUNBOOK_WORKSTATION_FORCE_LOCAL_SERVICE": "1"
+      }
+    },
+    {
       "name": "RunBook Workstation",
       "type": "coreclr",
       "request": "launch",

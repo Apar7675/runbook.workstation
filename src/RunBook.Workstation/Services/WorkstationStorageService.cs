@@ -183,6 +183,11 @@ namespace RunBook.Workstation.Services
             }
             catch
             {
+                var fileName = Path.GetFileName(path);
+                var reason = string.Equals(fileName, "registration.dat", StringComparison.OrdinalIgnoreCase)
+                    ? " | pairing_required_reason=corrupt_or_unreadable"
+                    : "";
+                DebugLogService.Write($"Workstation protected store could not be read | path={fileName}{reason}");
                 return default;
             }
         }
@@ -251,6 +256,8 @@ namespace RunBook.Workstation.Services
             settings.DesktopBaseUrl = (settings.DesktopBaseUrl ?? "").Trim();
             if (string.IsNullOrWhiteSpace(settings.DesktopBaseUrl))
                 settings.DesktopBaseUrl = "http://localhost:30112";
+            if (ShouldForceLocalService())
+                settings.DesktopBaseUrl = "http://localhost:30112";
 
             settings.WorkstationName = string.IsNullOrWhiteSpace(settings.WorkstationName)
                 ? Environment.MachineName
@@ -258,6 +265,15 @@ namespace RunBook.Workstation.Services
 
             if (string.IsNullOrWhiteSpace(settings.WorkstationId))
                 settings.WorkstationId = NewStableId();
+        }
+
+        public static bool ShouldForceLocalService()
+        {
+            var value = Environment.GetEnvironmentVariable("RUNBOOK_WORKSTATION_FORCE_LOCAL_SERVICE");
+            return !string.IsNullOrWhiteSpace(value)
+                && (string.Equals(value, "1", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase));
         }
 
         private static string GetCurrentShopScopedCacheFolder()
