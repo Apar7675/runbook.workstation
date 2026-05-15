@@ -1,0 +1,29 @@
+# ---- Build output ----
+bin/
+obj/
+**/bin/
+**/obj/
+artifacts/
+artifacts/**
+
+# ---- Local tooling ----
+.vs/
+.dotnet/
+.dotnet_cli/
+.expo/
+.next/
+temp-*/
+temp_*/
+tmp_build_verify/
+buildverify/
+
+# ---- RunBook Workstation generated runtime files ----
+**/Data/_logs/
+**/Data/_temp/
+**/Data/cache/avatars/
+**/Data/cache/shops/
+diagnostics/workstation-ui-dump.txt
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db
