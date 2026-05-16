@@ -14,6 +14,7 @@ Architecture violations are not allowed even if the code compiles.
 
 - `Docs/Architecture/RunBook-System-Bible.md` is the top authority.
 - App bibles in `Docs/Architecture/` are secondary authorities for app-local boundaries.
+- `Docs/Architecture/RunBook-Production-Packaging-Bible.md` is authoritative for production packaging and runtime containment.
 - If this file conflicts with the System Bible, the System Bible wins.
 - This repo does not carry `Docs/Architecture/` locally. Reference the shared architecture docs at `D:\RunBook.Desktop\Docs\Architecture\`.
 
@@ -42,6 +43,7 @@ Architecture violations are not allowed even if the code compiles.
 - DO NOT read runtime state directly from runtime host objects in Desktop.
 - DO NOT create new cross-app authority docs outside `Docs/Architecture/`.
 - DO NOT duplicate source-of-truth rules in multiple places.
+- DO NOT make production Workstation packages depend on machine-global .NET, Visual Studio, Python, OCR, Pdfium, OpenCV, repo-local development folders, or hard-coded local paths.
 
 ## 5. Runtime Ownership Rules
 
@@ -71,6 +73,7 @@ Architecture violations are not allowed even if the code compiles.
 
 - Before making architecture changes, verify them against `Docs/Architecture/RunBook-System-Bible.md`.
 - If a change affects runtime ownership, storage, communication, or source-of-truth rules, re-check the System Bible before editing code.
+- If a change affects production publishing, installer shape, runtime containment, OCR/native dependency packaging, or developer-tool exclusion, re-check the Production Packaging Bible before editing code.
 - If a change conflicts with the System Bible or an app bible, stop.
 - If unsure, stop and ask for clarification.
 

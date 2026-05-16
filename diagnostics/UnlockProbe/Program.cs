@@ -5,8 +5,22 @@ using Microsoft.Data.Sqlite;
 
 SQLitePCL.Batteries_V2.Init();
 
-const string dbPath = @"C:\ProgramData\RunBook\Desktop\TenMfg_data\_core\runbook.db";
-const string shopId = "c0c22250-54ee-420b-8d3c-50dbe8907c89";
+if (args.Length < 2 ||
+    string.IsNullOrWhiteSpace(args[0]) ||
+    string.IsNullOrWhiteSpace(args[1]))
+{
+    Console.Error.WriteLine("Usage: UnlockProbe <path-to-runbook.db> <shop-id>");
+    return 2;
+}
+
+var dbPath = Path.GetFullPath(args[0]);
+var shopId = args[1];
+
+if (!File.Exists(dbPath))
+{
+    Console.Error.WriteLine($"Database was not found: {dbPath}");
+    return 2;
+}
 
 using var conn = new SqliteConnection($"Data Source={dbPath}");
 conn.Open();

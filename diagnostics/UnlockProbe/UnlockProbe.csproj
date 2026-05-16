@@ -6,27 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Microsoft.Data.Sqlite">
-      <HintPath>D:\RunBook.Desktop\.dotnet-cli\.nuget\packages\microsoft.data.sqlite.core\8.0.0\lib\net8.0\Microsoft.Data.Sqlite.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="SQLitePCLRaw.core">
-      <HintPath>D:\RunBook.Desktop\.dotnet-cli\.nuget\packages\sqlitepclraw.core\2.1.6\lib\netstandard2.0\SQLitePCLRaw.core.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="SQLitePCLRaw.provider.e_sqlite3">
-      <HintPath>D:\RunBook.Desktop\.dotnet-cli\.nuget\packages\sqlitepclraw.provider.e_sqlite3\2.1.6\lib\netstandard2.0\SQLitePCLRaw.provider.e_sqlite3.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="SQLitePCLRaw.batteries_v2">
-      <HintPath>D:\RunBook.Desktop\.dotnet-cli\.nuget\packages\sqlitepclraw.bundle_e_sqlite3\2.1.6\lib\netstandard2.0\SQLitePCLRaw.batteries_v2.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="D:\RunBook.Desktop\.dotnet-cli\.nuget\packages\sqlitepclraw.lib.e_sqlite3\2.1.6\runtimes\win-x64\native\e_sqlite3.dll">
-      <Link>e_sqlite3.dll</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.6" />
   </ItemGroup>
 </Project>
