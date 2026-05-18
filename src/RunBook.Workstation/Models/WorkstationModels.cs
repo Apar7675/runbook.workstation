@@ -341,6 +341,10 @@ namespace RunBook.Workstation.Models
         public bool CanInspectionEntry { get; set; }
         public bool CanCameraView { get; set; }
         public bool HasWorkstationPasscode { get; set; }
+        public string StatusChipText { get; set; } = "AVAILABLE";
+        public string StatusChipForeground { get; set; } = "#AAB6C8";
+        public string StatusChipBackground { get; set; } = "#151C2836";
+        public string StatusChipBorder { get; set; } = "#2F425B";
     }
 
     public sealed class WorkstationAvatarRef

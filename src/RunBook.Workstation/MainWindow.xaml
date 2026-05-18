@@ -83,6 +83,68 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="WelcomePanelCard" TargetType="Border">
+            <Setter Property="CornerRadius" Value="18"/>
+            <Setter Property="Padding" Value="18"/>
+            <Setter Property="Background" Value="#F20B111A"/>
+            <Setter Property="BorderBrush" Value="#FF243246"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style x:Key="WelcomeInnerCard" TargetType="Border">
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Background" Value="#FF101824"/>
+            <Setter Property="BorderBrush" Value="#FF243246"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style x:Key="WelcomeActionCardButton" TargetType="Button" BasedOn="{StaticResource RB.Button.Ghost}">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="#FF101824"/>
+            <Setter Property="BorderBrush" Value="#FF243246"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="#FFF4F7FB"/>
+            <Setter Property="Height" Value="208"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Outer"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="16"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Outer" Property="BorderBrush" Value="#FF3F6EB7"/>
+                                <Setter TargetName="Outer" Property="Background" Value="#FF131D2A"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Outer" Property="Background" Value="#FF0D1520"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.55"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="WelcomeShortcutButton" TargetType="Button" BasedOn="{StaticResource RB.Button.Ghost}">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="14,12"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Background" Value="#FF0D1520"/>
+            <Setter Property="BorderBrush" Value="#FF243246"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style x:Key="WelcomeSearchButton" TargetType="Button" BasedOn="{StaticResource RB.Button.Ghost}">
+            <Setter Property="Background" Value="#FF0D1520"/>
+            <Setter Property="BorderBrush" Value="#FF243246"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Height" Value="48"/>
+        </Style>
     </Window.Resources>
     <Grid>
         <Grid.Background>
@@ -244,198 +306,471 @@
                                   Visibility="{Binding ShowLoginPanel, Converter={StaticResource BooleanToVisibilityConverter}}"
                                   HorizontalAlignment="Stretch"
                                   VerticalAlignment="Stretch">
-                                <Border Style="{StaticResource ModuleCard}" Padding="20,18,18,16">
+                                <Border CornerRadius="22"
+                                        Padding="18"
+                                        Background="#FF070A0F"
+                                        BorderBrush="#FF243246"
+                                        BorderThickness="1">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="8"/>
-                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="18"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="18"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="18"/>
+                                            <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
-                                        <StackPanel>
-                                            <TextBlock Text="Employee Roster" Foreground="{StaticResource Text}" FontSize="30" FontWeight="SemiBold"/>
-                                            <TextBlock Text="{Binding AuthCacheStatus}"
-                                                       Style="{StaticResource Sub}"
-                                                       FontSize="13"
-                                                       Margin="0,4,0,0"/>
-                                        </StackPanel>
-                                        <ScrollViewer Grid.Row="2"
-                                                      VerticalScrollBarVisibility="Auto"
-                                                      HorizontalScrollBarVisibility="Disabled"
-                                                      CanContentScroll="False"
-                                                      Padding="0,0,6,0">
-                                            <StackPanel>
-                                                <Button Command="{Binding OpenSupervisorDialogCommand}"
-                                                        Style="{StaticResource RosterEmployeeButtonStyle}"
-                                                        HorizontalAlignment="Left"
-                                                        Margin="6,8,6,14"
-                                                        ToolTip="Supervisor sign-in opens workstation settings and registration tools.">
-                                                    <StackPanel Width="158" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                        <Grid Width="68"
-                                                              Height="68"
-                                                              HorizontalAlignment="Center"
-                                                              RenderTransformOrigin="0.5,0.5">
-                                                            <Grid.RenderTransform>
-                                                                <ScaleTransform ScaleX="1" ScaleY="1"/>
-                                                            </Grid.RenderTransform>
-                                                            <Grid.Style>
-                                                                <Style TargetType="Grid">
-                                                                    <Setter Property="Effect">
-                                                                        <Setter.Value>
-                                                                            <DropShadowEffect BlurRadius="18" ShadowDepth="0" Color="#66000000" Opacity="0.9"/>
-                                                                        </Setter.Value>
-                                                                    </Setter>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
-                                                                            <Setter Property="Effect">
-                                                                                <Setter.Value>
-                                                                                    <DropShadowEffect BlurRadius="34" ShadowDepth="0" Color="#B38B63F2" Opacity="1"/>
-                                                                                </Setter.Value>
-                                                                            </Setter>
-                                                                            <Setter Property="RenderTransform">
-                                                                                <Setter.Value>
-                                                                                    <ScaleTransform ScaleX="1.14" ScaleY="1.14"/>
-                                                                                </Setter.Value>
-                                                                            </Setter>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Grid.Style>
-                                                            <Ellipse Stroke="#9F82FF"
-                                                                     StrokeThickness="2">
-                                                                <Ellipse.Fill>
-                                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                                                        <GradientStop Color="#274F9D" Offset="0"/>
-                                                                        <GradientStop Color="#5E84C6" Offset="0.52"/>
-                                                                        <GradientStop Color="#8B63F2" Offset="1"/>
-                                                                    </LinearGradientBrush>
-                                                                </Ellipse.Fill>
-                                                            </Ellipse>
-                                                            <Ellipse Margin="7" Fill="#E7111B2C" Stroke="#44FFFFFF" StrokeThickness="1"/>
-                                                            <Image Source="pack://application:,,,/Assets/Images/logo.png"
-                                                                   Width="44"
-                                                                   Height="44"
-                                                                   Stretch="Uniform"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center"/>
-                                                        </Grid>
-                                                        <TextBlock Text="Supervisor"
-                                                                   Foreground="{StaticResource Text}"
-                                                                   FontSize="13"
-                                                                   FontWeight="SemiBold"
-                                                                   TextAlignment="Center"
-                                                                   Margin="0,8,0,0"
-                                                                   Width="112"
-                                                                   HorizontalAlignment="Center"/>
-                                                        <TextBlock Text="Admin access"
-                                                                   Foreground="{StaticResource Muted2}"
-                                                                   FontSize="11"
-                                                                   TextAlignment="Center"
-                                                                   Margin="0,3,0,0"
-                                                                   Width="124"
-                                                                   HorizontalAlignment="Center"/>
+
+                                        <Border Grid.Row="0" Style="{StaticResource WelcomePanelCard}" Padding="16,14">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="18"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="20"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="20"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Image Source="pack://application:,,,/Assets/Images/logo.png"
+                                                           Width="56"
+                                                           Height="56"
+                                                           Stretch="Uniform"
+                                                           Margin="0,0,14,0"/>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="RUNBOOK" Foreground="#FFF4F7FB" FontSize="25" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="WORKSTATION" Foreground="#FF38D5FF" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding StationAreaLabel}" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding StationSubtitle}" Foreground="#FFAAB6C8" FontSize="13" Margin="0,4,0,0"/>
+                                                </StackPanel>
+                                                <Border Grid.Column="3"
+                                                        Padding="16,10"
+                                                        CornerRadius="12"
+                                                        Background="#FF0D1520"
+                                                        BorderBrush="#FF243246"
+                                                        BorderThickness="1"
+                                                        VerticalAlignment="Center">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Ellipse Width="14" Height="14" Fill="{Binding ServiceStatusAccentBrush}" VerticalAlignment="Top" Margin="0,2,10,0"/>
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding ServiceStatusHeadline}" Foreground="{Binding ServiceStatusAccentBrush}" FontSize="13" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding ServiceStatusDetail}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,3,0,0"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+                                                <StackPanel Grid.Column="5" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding HeaderTimeText}" Foreground="#FFF4F7FB" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                                    <TextBlock Text="{Binding HeaderDateText}" Foreground="#FFAAB6C8" FontSize="13" Margin="0,4,0,0" HorizontalAlignment="Right"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="7"
+                                                        Command="{Binding OpenSupervisorDialogCommand}"
+                                                        Style="{StaticResource WelcomeSearchButton}"
+                                                        Padding="18,12"
+                                                        VerticalAlignment="Center">
+                                                    <StackPanel>
+                                                        <TextBlock Text="SUPERVISOR ACCESS" Foreground="#FF38D5FF" FontSize="13" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="Authorized personnel only" Foreground="#FFAAB6C8" FontSize="11" Margin="0,3,0,0"/>
                                                     </StackPanel>
                                                 </Button>
-                                                <ItemsControl ItemsSource="{Binding DataContext.RosterEmployees, RelativeSource={RelativeSource AncestorType=Window}}">
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate>
-                                                        <WrapPanel Orientation="Horizontal"
-                                                                   ItemWidth="170"
-                                                                   ItemHeight="140"/>
-                                                    </ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Button Command="{Binding DataContext.OpenRosterEmployeeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                CommandParameter="{Binding}"
-                                                                Style="{StaticResource RosterEmployeeButtonStyle}">
-                                                            <StackPanel Width="158" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                <Grid Width="68"
-                                                                      Height="68"
-                                                                      HorizontalAlignment="Center"
-                                                                      RenderTransformOrigin="0.5,0.5">
-                                                                    <Grid.RenderTransform>
-                                                                        <ScaleTransform ScaleX="1" ScaleY="1"/>
-                                                                    </Grid.RenderTransform>
-                                                                    <Grid.Style>
-                                                                        <Style TargetType="Grid">
-                                                                            <Setter Property="Effect">
-                                                                                <Setter.Value>
-                                                                                    <DropShadowEffect BlurRadius="18" ShadowDepth="0" Color="#55000000" Opacity="0.9"/>
-                                                                                </Setter.Value>
-                                                                            </Setter>
-                                                                            <Style.Triggers>
-                                                                                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
-                                                                                    <Setter Property="Effect">
-                                                                                        <Setter.Value>
-                                                                                            <DropShadowEffect BlurRadius="34" ShadowDepth="0" Color="#B36FD6FF" Opacity="1"/>
-                                                                                        </Setter.Value>
-                                                                                    </Setter>
-                                                                                    <Setter Property="RenderTransform">
-                                                                                        <Setter.Value>
-                                                                                            <ScaleTransform ScaleX="1.14" ScaleY="1.14"/>
-                                                                                        </Setter.Value>
-                                                                                    </Setter>
-                                                                                </DataTrigger>
-                                                                            </Style.Triggers>
-                                                                        </Style>
-                                                                    </Grid.Style>
-                                                                    <Ellipse Fill="{Binding AvatarBrush}"
-                                                                             Stroke="{Binding AccentBrush}"
-                                                                             StrokeThickness="2"/>
-                                                                    <Ellipse Margin="2">
-                                                                        <Ellipse.Style>
-                                                                            <Style TargetType="Ellipse">
-                                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                                                <Style.Triggers>
-                                                                                    <DataTrigger Binding="{Binding HasAvatarDisplayUrl}" Value="True">
-                                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                                    </DataTrigger>
-                                                                                </Style.Triggers>
-                                                                            </Style>
-                                                                        </Ellipse.Style>
-                                                                        <Ellipse.Fill>
-                                                                            <ImageBrush ImageSource="{Binding AvatarDisplayUrl}"
-                                                                                        Stretch="UniformToFill"
-                                                                                        AlignmentX="Center"
-                                                                                        AlignmentY="Center"/>
-                                                                        </Ellipse.Fill>
-                                                                    </Ellipse>
-                                                                    <TextBlock Text="{Binding Initials}"
-                                                                               Foreground="White"
-                                                                               FontSize="22"
-                                                                               FontWeight="Bold"
-                                                                               HorizontalAlignment="Center"
-                                                                               VerticalAlignment="Center">
-                                                                        <TextBlock.Style>
-                                                                            <Style TargetType="TextBlock">
-                                                                                <Setter Property="Visibility" Value="Visible"/>
-                                                                                <Style.Triggers>
-                                                                                    <DataTrigger Binding="{Binding HasAvatarDisplayUrl}" Value="True">
-                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                                                    </DataTrigger>
-                                                                                </Style.Triggers>
-                                                                            </Style>
-                                                                        </TextBlock.Style>
-                                                                    </TextBlock>
-                                                                </Grid>
-                                                                <TextBlock Text="{Binding DisplayName}"
-                                                                           Foreground="{StaticResource Text}"
-                                                                           FontSize="13"
-                                                                           FontWeight="SemiBold"
-                                                                           TextAlignment="Center"
-                                                                           TextWrapping="Wrap"
-                                                                           Margin="0,8,0,0"
-                                                                           Width="112"
-                                                                           HorizontalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <Grid Grid.Row="2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="18"/>
+                                                <ColumnDefinition Width="360"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <Border Grid.Column="0" Style="{StaticResource WelcomePanelCard}" Padding="22">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="20"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <StackPanel>
+                                                        <TextBlock Text="Welcome to Workstation" Foreground="#FFF4F7FB" FontSize="48" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="Punch in, open work, or print released documents."
+                                                                   Foreground="#FFAAB6C8"
+                                                                   FontSize="18"
+                                                                   Margin="0,10,0,0"/>
+                                                    </StackPanel>
+                                                    <UniformGrid Grid.Row="2" Columns="4">
+                                                        <Button Style="{StaticResource WelcomeActionCardButton}"
+                                                                Command="{Binding LaunchWelcomeFlowCommand}"
+                                                                CommandParameter="timeclock"
+                                                                Margin="0,0,12,0">
+                                                            <StackPanel VerticalAlignment="Center">
+                                                                <TextBlock Text="◷" Foreground="#FF38D5FF" FontSize="54" HorizontalAlignment="Center"/>
+                                                                <TextBlock Text="PUNCH IN / OUT" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0"/>
+                                                                <TextBlock Text="Clock in, clock out, lunch, or break" Foreground="#FFAAB6C8" FontSize="14" TextAlignment="Center" TextWrapping="Wrap" Margin="12,12,12,0"/>
                                                             </StackPanel>
                                                         </Button>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
-                                            </StackPanel>
-                                        </ScrollViewer>
+                                                        <Button Style="{StaticResource WelcomeActionCardButton}"
+                                                                Command="{Binding LaunchWelcomeFlowCommand}"
+                                                                CommandParameter="workorders"
+                                                                Margin="0,0,12,0">
+                                                            <StackPanel VerticalAlignment="Center">
+                                                                <TextBlock Text="☑" Foreground="#FF2BD576" FontSize="52" HorizontalAlignment="Center"/>
+                                                                <TextBlock Text="WORK ORDERS" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0"/>
+                                                                <TextBlock Text="View ready work and active operations" Foreground="#FFAAB6C8" FontSize="14" TextAlignment="Center" TextWrapping="Wrap" Margin="12,12,12,0"/>
+                                                            </StackPanel>
+                                                        </Button>
+                                                        <Button Style="{StaticResource WelcomeActionCardButton}"
+                                                                Command="{Binding LaunchWelcomeFlowCommand}"
+                                                                CommandParameter="drawings"
+                                                                Margin="0,0,12,0">
+                                                            <StackPanel VerticalAlignment="Center">
+                                                                <TextBlock Text="▣" Foreground="#FF78A6E8" FontSize="52" HorizontalAlignment="Center"/>
+                                                                <TextBlock Text="DRAWINGS" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0"/>
+                                                                <TextBlock Text="Find and print released drawings" Foreground="#FFAAB6C8" FontSize="14" TextAlignment="Center" TextWrapping="Wrap" Margin="12,12,12,0"/>
+                                                            </StackPanel>
+                                                        </Button>
+                                                        <Button Style="{StaticResource WelcomeActionCardButton}"
+                                                                Command="{Binding LaunchWelcomeFlowCommand}"
+                                                                CommandParameter="inspection">
+                                                            <StackPanel VerticalAlignment="Center">
+                                                                <TextBlock Text="☍" Foreground="#FFB07AF5" FontSize="52" HorizontalAlignment="Center"/>
+                                                                <TextBlock Text="INSPECTION REPORTS" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0"/>
+                                                                <TextBlock Text="Open or print inspection documents" Foreground="#FFAAB6C8" FontSize="14" TextAlignment="Center" TextWrapping="Wrap" Margin="12,12,12,0"/>
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </UniformGrid>
+                                                </Grid>
+                                            </Border>
+
+                                            <Border Grid.Column="2" Style="{StaticResource WelcomePanelCard}" Padding="20">
+                                                <StackPanel>
+                                                    <TextBlock Text="STATION STATUS" Foreground="#FF78A6E8" FontSize="14" FontWeight="SemiBold"/>
+                                                    <Grid Margin="0,20,0,0">
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="14"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="14"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="14"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="Service Connection" Foreground="#FFF4F7FB" FontSize="14"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding ServiceStatusHeadline}" Foreground="{Binding ServiceStatusAccentBrush}" FontSize="14" FontWeight="SemiBold"/>
+                                                        <TextBlock Grid.Row="2" Text="Workstation" Foreground="#FFF4F7FB" FontSize="14"/>
+                                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding WorkstationOnlineStatusText}" Foreground="#FF2BD576" FontSize="14" FontWeight="SemiBold"/>
+                                                        <TextBlock Grid.Row="4" Text="Runtime Authority" Foreground="#FFF4F7FB" FontSize="14"/>
+                                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding RuntimeAuthorityStatusText}" Foreground="{Binding ServiceStatusAccentBrush}" FontSize="14" FontWeight="SemiBold"/>
+                                                        <TextBlock Grid.Row="6" Text="Last Sync" Foreground="#FFF4F7FB" FontSize="14"/>
+                                                        <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding LastSyncDisplayText}" Foreground="#FFAAB6C8" FontSize="14" FontWeight="SemiBold"/>
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding OfflineStatus}" Foreground="#FF6F7C8F" FontSize="12" TextWrapping="Wrap" Margin="0,18,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+
+                                        <Grid Grid.Row="4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="1.55*"/>
+                                                <ColumnDefinition Width="18"/>
+                                                <ColumnDefinition Width="0.72*"/>
+                                                <ColumnDefinition Width="18"/>
+                                                <ColumnDefinition Width="0.56*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <Border Grid.Column="0" Style="{StaticResource WelcomePanelCard}">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="14"/>
+                                                        <RowDefinition Height="*"/>
+                                                        <RowDefinition Height="14"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <TextBlock Text="RECENT EMPLOYEES" Foreground="#FF78A6E8" FontSize="14" FontWeight="SemiBold"/>
+                                                    <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                                        <ItemsControl ItemsSource="{Binding RecentRosterEmployees}">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <StackPanel Orientation="Horizontal"/>
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Button Command="{Binding DataContext.OpenRosterEmployeeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}"
+                                                                            Style="{StaticResource RosterEmployeeButtonStyle}"
+                                                                            Margin="0,0,18,0">
+                                                                        <StackPanel Width="102">
+                                                                            <Grid Width="72" Height="72" HorizontalAlignment="Center">
+                                                                                <Ellipse Fill="{Binding AvatarBrush}" Stroke="{Binding AccentBrush}" StrokeThickness="2"/>
+                                                                                <Ellipse Margin="2">
+                                                                                    <Ellipse.Style>
+                                                                                        <Style TargetType="Ellipse">
+                                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding HasAvatarDisplayUrl}" Value="True">
+                                                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </Ellipse.Style>
+                                                                                    <Ellipse.Fill>
+                                                                                        <ImageBrush ImageSource="{Binding AvatarDisplayUrl}" Stretch="UniformToFill"/>
+                                                                                    </Ellipse.Fill>
+                                                                                </Ellipse>
+                                                                                <TextBlock Text="{Binding Initials}"
+                                                                                           Foreground="White"
+                                                                                           FontSize="20"
+                                                                                           FontWeight="Bold"
+                                                                                           HorizontalAlignment="Center"
+                                                                                           VerticalAlignment="Center">
+                                                                                    <TextBlock.Style>
+                                                                                        <Style TargetType="TextBlock">
+                                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding HasAvatarDisplayUrl}" Value="True">
+                                                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </TextBlock.Style>
+                                                                                </TextBlock>
+                                                                            </Grid>
+                                                                            <TextBlock Text="{Binding DisplayName}" Foreground="#FFF4F7FB" FontSize="13" FontWeight="SemiBold" TextAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                                                                            <Border Padding="8,4"
+                                                                                    CornerRadius="999"
+                                                                                    Background="{Binding StatusChipBackground}"
+                                                                                    BorderBrush="{Binding StatusChipBorder}"
+                                                                                    BorderThickness="1"
+                                                                                    Margin="0,10,0,0">
+                                                                                <TextBlock Text="{Binding StatusChipText}" Foreground="{Binding StatusChipForeground}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                                                            </Border>
+                                                                        </StackPanel>
+                                                                    </Button>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </ScrollViewer>
+                                                    <TextBlock Grid.Row="2"
+                                                               Text="{Binding RecentEmployeeEmptyText}"
+                                                               Foreground="#FF6F7C8F"
+                                                               FontSize="13"
+                                                               Visibility="{Binding ShowRecentEmployeeEmptyState, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                    <Button Grid.Row="4"
+                                                            Content="View All Employees"
+                                                            Command="{Binding OpenEmployeeBrowserCommand}"
+                                                            Style="{StaticResource WelcomeSearchButton}"
+                                                            Width="220"
+                                                            HorizontalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+
+                                            <Border Grid.Column="2" Style="{StaticResource WelcomePanelCard}">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="16"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="14"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <TextBlock Text="QUICK SEARCH" Foreground="#FF38D5FF" FontSize="14" FontWeight="SemiBold"/>
+                                                    <Grid Grid.Row="2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="52"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBox Text="{Binding EmployeeQuickSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Height="48"
+                                                                 VerticalContentAlignment="Center"
+                                                                 Background="#FF0D1520"
+                                                                 BorderBrush="#FF243246"
+                                                                 BorderThickness="1"
+                                                                 Foreground="#FFF4F7FB"
+                                                                 CaretBrush="#FF38D5FF"
+                                                                 FontSize="15"
+                                                                 Padding="12,0"/>
+                                                        <Button Grid.Column="1"
+                                                                Command="{Binding SubmitEmployeeQuickSearchCommand}"
+                                                                Style="{StaticResource WelcomeSearchButton}"
+                                                                Margin="8,0,0,0"
+                                                                Content="›"
+                                                                FontSize="24"/>
+                                                    </Grid>
+                                                    <UniformGrid Grid.Row="4" Columns="2">
+                                                        <Button Content="More Employees"
+                                                                Command="{Binding OpenEmployeeBrowserCommand}"
+                                                                Style="{StaticResource WelcomeSearchButton}"
+                                                                Margin="0,0,8,0"/>
+                                                        <Button Grid.Column="1"
+                                                                Content="Other Employee"
+                                                                Command="{Binding OpenEmployeeBrowserCommand}"
+                                                                Style="{StaticResource WelcomeSearchButton}"
+                                                                Margin="8,0,0,0"/>
+                                                    </UniformGrid>
+                                                </Grid>
+                                            </Border>
+
+                                            <Border Grid.Column="4" Style="{StaticResource WelcomePanelCard}">
+                                                <StackPanel>
+                                                    <TextBlock Text="SHORTCUTS" Foreground="#FF38D5FF" FontSize="14" FontWeight="SemiBold"/>
+                                                    <Button Content="Time Clock"
+                                                            Command="{Binding LaunchWelcomeFlowCommand}"
+                                                            CommandParameter="timeclock"
+                                                            Style="{StaticResource WelcomeShortcutButton}"
+                                                            Margin="0,18,0,8"/>
+                                                    <Button Content="My Active Operation"
+                                                            Command="{Binding ResumeCurrentJobCommand}"
+                                                            Style="{StaticResource WelcomeShortcutButton}"
+                                                            IsEnabled="{Binding HasMyActiveOperationShortcut}"/>
+                                                    <Button Content="My Assignments"
+                                                            Command="{Binding LaunchWelcomeFlowCommand}"
+                                                            CommandParameter="workorders"
+                                                            Style="{StaticResource WelcomeShortcutButton}"/>
+                                                    <Button Content="Announcements (not wired yet)"
+                                                            Style="{StaticResource WelcomeShortcutButton}"
+                                                            IsEnabled="False"
+                                                            Opacity="0.7"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+
+                                        <Border Grid.Row="6" Style="{StaticResource WelcomePanelCard}" Padding="14,12">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="TIP" Foreground="#FF38D5FF" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="Select an option above to get started."
+                                                           Foreground="#FFAAB6C8"
+                                                           FontSize="14"
+                                                           VerticalAlignment="Center"
+                                                           Margin="18,0,0,0"/>
+                                                <TextBlock Grid.Column="2"
+                                                           Text="Need help? See your supervisor."
+                                                           Foreground="#FFAAB6C8"
+                                                           FontSize="14"
+                                                           VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
                                     </Grid>
                                 </Border>
+                                <Grid Visibility="{Binding IsEmployeeBrowserOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Rectangle Fill="#96050B14"/>
+                                    <Border MaxWidth="980"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            CornerRadius="24"
+                                            Padding="22"
+                                            Background="#F20B111A"
+                                            BorderBrush="#FF243246"
+                                            BorderThickness="1">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="16"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="16"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Select Employee" Foreground="#FFF4F7FB" FontSize="30" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding AuthCacheStatus}" Foreground="#FFAAB6C8" FontSize="13" Margin="0,6,0,0"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="1"
+                                                        Content="Close"
+                                                        Command="{Binding CloseEmployeeBrowserCommand}"
+                                                        Style="{StaticResource RB.Button.Ghost}"
+                                                        Width="110"
+                                                        Height="40"/>
+                                            </Grid>
+                                            <TextBox Grid.Row="2"
+                                                     Text="{Binding EmployeeQuickSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                     Height="42"
+                                                     VerticalContentAlignment="Center"
+                                                     Background="#FF0D1520"
+                                                     BorderBrush="#FF243246"
+                                                     BorderThickness="1"
+                                                     Foreground="#FFF4F7FB"/>
+                                            <ScrollViewer Grid.Row="4"
+                                                          VerticalScrollBarVisibility="Auto"
+                                                          HorizontalScrollBarVisibility="Disabled"
+                                                          CanContentScroll="False">
+                                                <ItemsControl ItemsSource="{Binding EmployeeBrowserEmployees}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <WrapPanel Orientation="Horizontal" ItemWidth="170" ItemHeight="156"/>
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Button Command="{Binding DataContext.OpenRosterEmployeeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Style="{StaticResource RosterEmployeeButtonStyle}">
+                                                                <Border Width="152" Padding="12" CornerRadius="16" Background="#FF101824" BorderBrush="#FF243246" BorderThickness="1">
+                                                                    <StackPanel>
+                                                                        <Grid Width="68" Height="68" HorizontalAlignment="Center">
+                                                                            <Ellipse Fill="{Binding AvatarBrush}" Stroke="{Binding AccentBrush}" StrokeThickness="2"/>
+                                                                            <Ellipse Margin="2">
+                                                                                <Ellipse.Style>
+                                                                                    <Style TargetType="Ellipse">
+                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding HasAvatarDisplayUrl}" Value="True">
+                                                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </Ellipse.Style>
+                                                                                <Ellipse.Fill>
+                                                                                    <ImageBrush ImageSource="{Binding AvatarDisplayUrl}" Stretch="UniformToFill"/>
+                                                                                </Ellipse.Fill>
+                                                                            </Ellipse>
+                                                                            <TextBlock Text="{Binding Initials}" Foreground="White" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding HasAvatarDisplayUrl}" Value="True">
+                                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                        </Grid>
+                                                                        <TextBlock Text="{Binding DisplayName}" Foreground="#FFF4F7FB" FontSize="13" FontWeight="SemiBold" TextAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                                                                        <TextBlock Text="{Binding EmployeeCode}" Foreground="#FF6F7C8F" FontSize="11" TextAlignment="Center" Margin="0,4,0,0"/>
+                                                                        <Border Padding="8,4" CornerRadius="999" Background="{Binding StatusChipBackground}" BorderBrush="{Binding StatusChipBorder}" BorderThickness="1" Margin="0,10,0,0">
+                                                                            <TextBlock Text="{Binding StatusChipText}" Foreground="{Binding StatusChipForeground}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                                                        </Border>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </Button>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </ScrollViewer>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
                                 <Grid Visibility="{Binding IsPasscodeDialogOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Rectangle Fill="#8A07101A"/>
                                     <Border MaxWidth="470"

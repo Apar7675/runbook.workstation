@@ -82,8 +82,11 @@ namespace RunBook.Workstation.ViewModels
         private string _timeOffEndDate = "";
         private string _timeOffHoursText = "";
         private string _timeOffNote = "";
+        private string _employeeQuickSearchText = "";
+        private string _pendingWelcomeModuleKey = "";
         private bool _isPasscodeDialogOpen;
         private bool _isSupervisorDialogOpen;
+        private bool _isEmployeeBrowserOpen;
         private bool _isRunBookAlertOpen;
         private string _runBookAlertTitle = "";
         private string _runBookAlertBody = "";
@@ -250,6 +253,10 @@ namespace RunBook.Workstation.ViewModels
             RemoveMaterialHeatLotCommand = new RelayCommand<WorkstationMaterialHeatLotEntry>(RemoveMaterialHeatLot, row => row != null && MaterialHeatLots.Count > 1 && !IsBusy);
             PrimaryOperatorActionCommand = new RelayCommand(ExecutePrimaryOperatorAction, () => !IsBusy && (IsLoggedIn || RosterEmployees.Count > 0));
             OpenRosterEmployeeCommand = new RelayCommand<WorkstationRosterEmployee>(OpenRosterEmployee, employee => employee != null && !IsBusy);
+            LaunchWelcomeFlowCommand = new RelayCommand<string>(LaunchWelcomeFlow, key => !IsBusy && !string.IsNullOrWhiteSpace(key));
+            OpenEmployeeBrowserCommand = new RelayCommand(OpenEmployeeBrowser, () => !IsBusy && RosterEmployees.Count > 0);
+            CloseEmployeeBrowserCommand = new RelayCommand(CloseEmployeeBrowser, () => !IsBusy && IsEmployeeBrowserOpen);
+            SubmitEmployeeQuickSearchCommand = new RelayCommand(async () => await SubmitEmployeeQuickSearchAsync(), () => !IsBusy);
             AppendPasscodeDigitCommand = new RelayCommand<string>(AppendPasscodeDigit, digit => !IsBusy && IsPasscodeDialogOpen && !string.IsNullOrWhiteSpace(digit));
             BackspacePasscodeCommand = new RelayCommand(RemovePasscodeDigit, () => !IsBusy && IsPasscodeDialogOpen && _passcode.Length > 0);
             ClearPasscodeCommand = new RelayCommand(ClearPasscode, () => !IsBusy && IsPasscodeDialogOpen && _passcode.Length > 0);
@@ -380,6 +387,10 @@ namespace RunBook.Workstation.ViewModels
         public ICommand RemoveMaterialHeatLotCommand { get; }
         public ICommand PrimaryOperatorActionCommand { get; }
         public ICommand OpenRosterEmployeeCommand { get; }
+        public ICommand LaunchWelcomeFlowCommand { get; }
+        public ICommand OpenEmployeeBrowserCommand { get; }
+        public ICommand CloseEmployeeBrowserCommand { get; }
+        public ICommand SubmitEmployeeQuickSearchCommand { get; }
         public ICommand AppendPasscodeDigitCommand { get; }
         public ICommand BackspacePasscodeCommand { get; }
         public ICommand ClearPasscodeCommand { get; }
@@ -392,6 +403,8 @@ namespace RunBook.Workstation.ViewModels
             {
                 _settings = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(StationAreaLabel));
+                OnPropertyChanged(nameof(StationSubtitle));
                 OnPropertyChanged(nameof(WorkstationIdentityLine));
                 OnPropertyChanged(nameof(ConnectivityLine));
                 RefreshConnectionStatuses();
@@ -413,10 +426,15 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(SessionRole));
                 OnPropertyChanged(nameof(LoginHeadline));
                 OnPropertyChanged(nameof(LoginInstructionLine));
+                OnPropertyChanged(nameof(StationAreaLabel));
+                OnPropertyChanged(nameof(StationSubtitle));
                 OnPropertyChanged(nameof(CurrentOperatorLine));
                 OnPropertyChanged(nameof(CurrentOperatorStatusLine));
                 OnPropertyChanged(nameof(PrimaryOperatorActionText));
                 OnPropertyChanged(nameof(SessionModulesLine));
+                OnPropertyChanged(nameof(ShowRecentEmployeeEmptyState));
+                OnPropertyChanged(nameof(RecentEmployeeEmptyText));
+                OnPropertyChanged(nameof(HasMyActiveOperationShortcut));
                 OnPropertyChanged(nameof(ShowIdleLogoutBadge));
                 OnPropertyChanged(nameof(IdleLogoutBadgeText));
                 OnPropertyChanged(nameof(HasTimeClockAccess));
@@ -433,6 +451,11 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(IsHomeSelected));
                 OnPropertyChanged(nameof(IsWorkOrdersSelected));
                 OnPropertyChanged(nameof(IsDrawingsSelected));
+                OnPropertyChanged(nameof(ServiceStatusHeadline));
+                OnPropertyChanged(nameof(ServiceStatusDetail));
+                OnPropertyChanged(nameof(RuntimeAuthorityStatusText));
+                OnPropertyChanged(nameof(LastSyncDisplayText));
+                RefreshRosterEmployeeStatuses();
                 RefreshConnectionStatuses();
                 RaiseCommandStates();
             }
@@ -446,6 +469,8 @@ namespace RunBook.Workstation.ViewModels
                 _registration = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(ConnectivityLine));
+                OnPropertyChanged(nameof(WorkstationOnlineStatusText));
+                OnPropertyChanged(nameof(LastSyncDisplayText));
                 RefreshConnectionStatuses();
             }
         }
@@ -778,8 +803,8 @@ namespace RunBook.Workstation.ViewModels
         public string SettingsBaseUrl { get => _settingsBaseUrl; set { _settingsBaseUrl = value ?? ""; OnPropertyChanged(); } }
         public string SettingsDesktopBaseUrl { get => _settingsDesktopBaseUrl; set { _settingsDesktopBaseUrl = value ?? ""; OnPropertyChanged(); } }
         public string SettingsShopId { get => _settingsShopId; set { _settingsShopId = value ?? ""; OnPropertyChanged(); } }
-        public string SettingsShopName { get => _settingsShopName; set { _settingsShopName = value ?? ""; OnPropertyChanged(); } }
-        public string SettingsWorkstationName { get => _settingsWorkstationName; set { _settingsWorkstationName = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(WorkstationIdentityLine)); } }
+        public string SettingsShopName { get => _settingsShopName; set { _settingsShopName = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(StationAreaLabel)); } }
+        public string SettingsWorkstationName { get => _settingsWorkstationName; set { _settingsWorkstationName = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(StationSubtitle)); OnPropertyChanged(nameof(WorkstationIdentityLine)); } }
         public string SettingsPairingCode { get => _settingsPairingCode; set { _settingsPairingCode = value ?? ""; OnPropertyChanged(); } }
         public string SettingsControlEmail { get => _settingsControlEmail; set { _settingsControlEmail = value ?? ""; OnPropertyChanged(); } }
         public string SettingsControlPassword { get => _settingsControlPassword; set { _settingsControlPassword = value ?? ""; OnPropertyChanged(); } }
@@ -790,6 +815,8 @@ namespace RunBook.Workstation.ViewModels
         public string WorkOrdersStatus { get => _workOrdersStatus; private set { _workOrdersStatus = value ?? ""; OnPropertyChanged(); } }
         public string HeaderDateText => _headerDateText;
         public string HeaderTimeText => _headerTimeText;
+        public string StationAreaLabel => string.IsNullOrWhiteSpace(Settings.ShopName) ? "WORKSTATION AREA" : Settings.ShopName.ToUpperInvariant();
+        public string StationSubtitle => string.IsNullOrWhiteSpace(Settings.WorkstationName) ? "Workstation" : Settings.WorkstationName;
         public string RefreshConnectionsButtonText => "Refresh Employee Avatars";
         public bool HasSupervisorSession => ControlSessionService.HasSession();
         public bool ShowSupervisorSignInFields => !HasSupervisorSession;
@@ -986,6 +1013,74 @@ namespace RunBook.Workstation.ViewModels
             : "Status: Waiting for operator sign-in";
         public string PrimaryOperatorActionText => IsLoggedIn ? "Go to Work" : "Select Operator";
         public string WorkstationIdentityLine => $"{Settings.WorkstationName}  |  {Settings.WorkstationId}";
+        public IReadOnlyList<WorkstationRosterEmployee> RecentRosterEmployees => RosterEmployees.Take(8).ToList();
+        public bool HasMoreRosterEmployees => RosterEmployees.Count > RecentRosterEmployees.Count;
+        public bool ShowRecentEmployeeEmptyState => RosterEmployees.Count == 0;
+        public string RecentEmployeeEmptyText => RosterEmployees.Count == 0
+            ? "No workstation-ready employees are loaded yet."
+            : "Select a recent employee to continue into passcode sign-in.";
+        public string EmployeeQuickSearchText
+        {
+            get => _employeeQuickSearchText;
+            set
+            {
+                var normalized = value ?? "";
+                if (string.Equals(_employeeQuickSearchText, normalized, StringComparison.Ordinal))
+                    return;
+                _employeeQuickSearchText = normalized;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(EmployeeQuickSearchHint));
+                OnPropertyChanged(nameof(EmployeeBrowserEmployees));
+                RaiseCommandStates();
+            }
+        }
+        public string EmployeeQuickSearchHint => string.IsNullOrWhiteSpace(EmployeeQuickSearchText)
+            ? "Search employee by name or badge..."
+            : EmployeeQuickSearchText.Trim();
+        public bool IsEmployeeBrowserOpen
+        {
+            get => _isEmployeeBrowserOpen;
+            private set
+            {
+                if (_isEmployeeBrowserOpen == value)
+                    return;
+                _isEmployeeBrowserOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
+        public IReadOnlyList<WorkstationRosterEmployee> EmployeeBrowserEmployees
+        {
+            get
+            {
+                var query = (EmployeeQuickSearchText ?? "").Trim();
+                if (query.Length == 0)
+                    return RosterEmployees.ToList();
+
+                return RosterEmployees
+                    .Where(employee =>
+                        employee.DisplayName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        employee.EmployeeCode.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                    .ToList();
+            }
+        }
+        public string ServiceStatusHeadline => _serviceWriteBlocked ? "SERVICE ATTENTION" : "SERVICE READY";
+        public string ServiceStatusDetail => _serviceWriteBlocked
+            ? "Workstation writes are paused until RunBook.Service is healthy."
+            : "Connected to RunBook Service";
+        public string ServiceStatusAccentBrush => _serviceWriteBlocked ? "#FF5A6A" : "#2BD576";
+        public string ServiceStatusBackgroundBrush => _serviceWriteBlocked ? "#22FF5A6A" : "#182BD576";
+        public string WorkstationOnlineStatusText => Registration?.IsActive == true ? "Online" : "Not paired";
+        public string RuntimeAuthorityStatusText => _serviceWriteBlocked ? "Blocked" : "Healthy";
+        public string LastSyncDisplayText
+        {
+            get
+            {
+                var raw = FirstNonBlank(_timeclockSnapshot?.LastSyncUtc, Registration?.LastSyncUtc, _authCache?.LastRefreshSuccessUtc);
+                return string.IsNullOrWhiteSpace(raw) ? "Not synced" : FormatDisplayDateTime(raw);
+            }
+        }
+        public bool HasMyActiveOperationShortcut => CurrentJob != null && CurrentJob.WorkOrderId > 0 && CurrentJob.OperationId > 0;
         public string ConnectivityLine
         {
             get
@@ -1504,19 +1599,28 @@ namespace RunBook.Workstation.ViewModels
                 var buildModulesStopwatch = Stopwatch.StartNew();
                 BuildVisibleModules();
                 LogUnlockTrace(unlockTrace, "build_visible_modules_complete", $"duration_ms={buildModulesStopwatch.ElapsedMilliseconds};module_count={VisibleModules.Count}");
-                SelectedModule = VisibleModules.FirstOrDefault();
+                var desiredModuleKey = string.Equals(_pendingWelcomeModuleKey, "inspection", StringComparison.OrdinalIgnoreCase) ? "workorders" : _pendingWelcomeModuleKey;
+                SelectedModule = VisibleModules.FirstOrDefault(module => string.Equals(module.Key, desiredModuleKey, StringComparison.OrdinalIgnoreCase))
+                    ?? VisibleModules.FirstOrDefault();
                 LogUnlockTrace(unlockTrace, "shell_transition_ready", $"selected_module={SelectedModule?.Key ?? ""}");
                 StatusText = $"Signed in as {SessionEmployeeName}.";
                 OfflineStatus = "Local workstation session is active.";
                 _passcode = "";
                 IsPasscodeDialogOpen = false;
+                CloseEmployeeBrowser();
                 SelectedRosterEmployee = null;
                 OnPropertyChanged(nameof(PasscodeMaskDisplay));
                 UpdateSessionCountdown();
             });
 
             if (CurrentSession != null)
+            {
+                var openInspectionAfterHydrate = string.Equals(_pendingWelcomeModuleKey, "inspection", StringComparison.OrdinalIgnoreCase);
                 _ = HydrateSignedInShellAsync(CurrentSession.Token);
+                if (openInspectionAfterHydrate)
+                    OpenInspectionReportsExperience();
+                _pendingWelcomeModuleKey = "";
+            }
         }
 
         private async Task RefreshRegistrationAsync()
@@ -1619,6 +1723,9 @@ namespace RunBook.Workstation.ViewModels
         private void Logout()
         {
             CurrentSession = null;
+            _pendingWelcomeModuleKey = "";
+            EmployeeQuickSearchText = "";
+            CloseEmployeeBrowser();
             WorkstationStorageService.SaveSession(null);
             VisibleModules.Clear();
             WorkOrders.Clear();
@@ -1715,6 +1822,73 @@ namespace RunBook.Workstation.ViewModels
 
             if (targetModule != null)
                 SelectModule(targetModule);
+        }
+
+        private void LaunchWelcomeFlow(string? key)
+        {
+            var normalized = (key ?? "").Trim().ToLowerInvariant();
+            if (normalized.Length == 0)
+                return;
+
+            _pendingWelcomeModuleKey = normalized;
+
+            if (!IsLoggedIn)
+            {
+                if (RosterEmployees.Count > 0)
+                {
+                    OpenEmployeeBrowser();
+                    StatusText = normalized switch
+                    {
+                        "timeclock" => "Select an employee to continue into Time Clock.",
+                        "workorders" => "Select an employee to continue into Work Orders.",
+                        "drawings" => "Select an employee to continue into Drawings.",
+                        "inspection" => "Select an employee to continue into Inspection Reports.",
+                        _ => "Select an employee to continue."
+                    };
+                }
+                else
+                {
+                    StatusText = "No workstation-ready employees are loaded yet.";
+                }
+                return;
+            }
+
+            SelectModuleByKey(string.Equals(_pendingWelcomeModuleKey, "inspection", StringComparison.OrdinalIgnoreCase) ? "workorders" : _pendingWelcomeModuleKey);
+            if (normalized == "inspection")
+                OpenInspectionReportsExperience();
+        }
+
+        private async Task SubmitEmployeeQuickSearchAsync()
+        {
+            var query = (EmployeeQuickSearchText ?? "").Trim();
+            if (query.Length == 0)
+            {
+                OpenEmployeeBrowser();
+                StatusText = "Search by employee name or badge, or choose from the employee list.";
+                return;
+            }
+
+            var match = EmployeeBrowserEmployees.FirstOrDefault();
+            if (match == null)
+            {
+                OpenEmployeeBrowser();
+                StatusText = $"No employee matched \"{query}\".";
+                return;
+            }
+
+            OpenRosterEmployee(match);
+            await Task.CompletedTask;
+        }
+
+        private void OpenEmployeeBrowser()
+        {
+            IsEmployeeBrowserOpen = true;
+            OnPropertyChanged(nameof(EmployeeBrowserEmployees));
+        }
+
+        private void CloseEmployeeBrowser()
+        {
+            IsEmployeeBrowserOpen = false;
         }
 
         private void SaveSettings()
@@ -1920,6 +2094,7 @@ namespace RunBook.Workstation.ViewModels
 
             _unlockTimingTrace = UnlockTimingTrace.Start(employee);
             LogUnlockTrace(_unlockTimingTrace, "roster_tile_click");
+            CloseEmployeeBrowser();
             SelectedRosterEmployee = employee;
             _passcode = "";
             IsPasscodeDialogOpen = true;
@@ -1964,8 +2139,27 @@ namespace RunBook.Workstation.ViewModels
             _passcode = "";
             IsPasscodeDialogOpen = false;
             SelectedRosterEmployee = null;
+            _pendingWelcomeModuleKey = "";
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
             StatusText = "Workstation ready.";
+        }
+
+        private void OpenInspectionReportsExperience()
+        {
+            if (!HasWorkOrdersAccess)
+            {
+                StatusText = "Inspection reports are not available for this employee.";
+                return;
+            }
+
+            SelectModuleByKey("workorders");
+            if (HasOperationInspection)
+            {
+                OpenOperationInspection();
+                return;
+            }
+
+            StatusText = "Inspection reports open from Work Orders when an operation has linked inspection documents.";
         }
 
         private void OpenSupervisorDialog()
@@ -4046,6 +4240,8 @@ namespace RunBook.Workstation.ViewModels
                 WorkstationStorageService.SaveTimeclockState(snapshot);
 
             OnPropertyChanged(nameof(SupportsLunch));
+            OnPropertyChanged(nameof(LastSyncDisplayText));
+            RefreshRosterEmployeeStatuses();
             RebuildLocalProjection();
         }
 
@@ -5284,6 +5480,12 @@ namespace RunBook.Workstation.ViewModels
             LoadRosterFromAuthCache();
             OnPropertyChanged(nameof(RosterDiagnosticLine));
             OnPropertyChanged(nameof(RosterAvatarStatusLine));
+            OnPropertyChanged(nameof(RecentRosterEmployees));
+            OnPropertyChanged(nameof(HasMoreRosterEmployees));
+            OnPropertyChanged(nameof(ShowRecentEmployeeEmptyState));
+            OnPropertyChanged(nameof(RecentEmployeeEmptyText));
+            OnPropertyChanged(nameof(EmployeeBrowserEmployees));
+            RaiseCommandStates();
             if (RosterEmployees.Count == 0)
             {
                 StatusText = _authCache?.Package == null
@@ -5340,6 +5542,8 @@ namespace RunBook.Workstation.ViewModels
             foreach (var employee in employees)
                 RosterEmployees.Add(employee);
 
+            RefreshRosterEmployeeStatuses();
+
             foreach (var employee in employees.Take(3))
             {
                 var imageSourceResolves = DoesAvatarImageSourceResolve(employee.AvatarDisplayUrl);
@@ -5349,6 +5553,64 @@ namespace RunBook.Workstation.ViewModels
 
             OnPropertyChanged(nameof(RosterDiagnosticLine));
             OnPropertyChanged(nameof(RosterAvatarStatusLine));
+        }
+
+        private void RefreshRosterEmployeeStatuses()
+        {
+            var activeEmployeeId = CurrentSession?.Employee?.EmployeeId ?? "";
+            var activeRemoteEmployeeId = CurrentSession?.Employee?.RemoteEmployeeId ?? "";
+            var activeEmployeeCode = CurrentSession?.Employee?.EmployeeCode ?? "";
+
+            foreach (var employee in RosterEmployees)
+            {
+                var isCurrent = (!string.IsNullOrWhiteSpace(activeRemoteEmployeeId) && string.Equals(employee.RemoteEmployeeId, activeRemoteEmployeeId, StringComparison.OrdinalIgnoreCase)) ||
+                                (!string.IsNullOrWhiteSpace(activeEmployeeId) && string.Equals(employee.EmployeeId, activeEmployeeId, StringComparison.OrdinalIgnoreCase)) ||
+                                (!string.IsNullOrWhiteSpace(activeEmployeeCode) && string.Equals(employee.EmployeeCode, activeEmployeeCode, StringComparison.OrdinalIgnoreCase));
+
+                if (isCurrent)
+                {
+                    ApplyEmployeeStatusChip(employee, TimeClockStateKey switch
+                    {
+                        "working" => "CLOCKED IN",
+                        "break" => "ON BREAK",
+                        "lunch" => "AT LUNCH",
+                        _ => "SIGNED IN"
+                    });
+                }
+                else
+                {
+                    ApplyEmployeeStatusChip(employee, "AVAILABLE");
+                }
+            }
+        }
+
+        private static void ApplyEmployeeStatusChip(WorkstationRosterEmployee employee, string state)
+        {
+            employee.StatusChipText = state;
+            switch (state)
+            {
+                case "CLOCKED IN":
+                    employee.StatusChipForeground = "#2BD576";
+                    employee.StatusChipBackground = "#142BD576";
+                    employee.StatusChipBorder = "#4A2BD576";
+                    break;
+                case "ON BREAK":
+                case "AT LUNCH":
+                    employee.StatusChipForeground = "#F5B642";
+                    employee.StatusChipBackground = "#19F5B642";
+                    employee.StatusChipBorder = "#52F5B642";
+                    break;
+                case "SIGNED IN":
+                    employee.StatusChipForeground = "#38D5FF";
+                    employee.StatusChipBackground = "#1838D5FF";
+                    employee.StatusChipBorder = "#4A38D5FF";
+                    break;
+                default:
+                    employee.StatusChipForeground = "#AAB6C8";
+                    employee.StatusChipBackground = "#151C2836";
+                    employee.StatusChipBorder = "#2F425B";
+                    break;
+            }
         }
 
         private static string ResolveRosterAvatarDisplayUrl(string avatarDisplayUrl, WorkstationAvatarRef? avatarRef)
@@ -6774,6 +7036,10 @@ namespace RunBook.Workstation.ViewModels
             if (RefreshOperationAttachmentsCommand is RelayCommand refreshOperationAttachments) refreshOperationAttachments.RaiseCanExecuteChanged();
             if (PrimaryOperatorActionCommand is RelayCommand primaryOperatorAction) primaryOperatorAction.RaiseCanExecuteChanged();
             if (OpenRosterEmployeeCommand is RelayCommand<WorkstationRosterEmployee> openRoster) openRoster.RaiseCanExecuteChanged();
+            if (LaunchWelcomeFlowCommand is RelayCommand<string> launchWelcomeFlow) launchWelcomeFlow.RaiseCanExecuteChanged();
+            if (OpenEmployeeBrowserCommand is RelayCommand openEmployeeBrowser) openEmployeeBrowser.RaiseCanExecuteChanged();
+            if (CloseEmployeeBrowserCommand is RelayCommand closeEmployeeBrowser) closeEmployeeBrowser.RaiseCanExecuteChanged();
+            if (SubmitEmployeeQuickSearchCommand is RelayCommand submitEmployeeQuickSearch) submitEmployeeQuickSearch.RaiseCanExecuteChanged();
             if (AppendPasscodeDigitCommand is RelayCommand<string> append) append.RaiseCanExecuteChanged();
             if (BackspacePasscodeCommand is RelayCommand backspace) backspace.RaiseCanExecuteChanged();
             if (ClearPasscodeCommand is RelayCommand clear) clear.RaiseCanExecuteChanged();
