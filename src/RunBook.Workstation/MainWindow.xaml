@@ -214,6 +214,40 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="CompactStatusBadgeBorderStyle" TargetType="Border">
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="MinHeight" Value="24"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="PasscodeDotStyle" TargetType="Ellipse">
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Margin" Value="9,0"/>
+            <Setter Property="Stroke" Value="#FF344154"/>
+            <Setter Property="StrokeThickness" Value="2"/>
+            <Setter Property="Fill" Value="#140D1520"/>
+        </Style>
+        <Style x:Key="TimeClockWeekNavButton" TargetType="Button" BasedOn="{StaticResource RB.Button.Ghost}">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Background" Value="#FF101824"/>
+            <Setter Property="BorderBrush" Value="#FF243246"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style x:Key="TimeClockWeekCurrentButton" TargetType="Button" BasedOn="{StaticResource RB.Button.Ghost}">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Background" Value="#FF101824"/>
+            <Setter Property="BorderBrush" Value="#FF243246"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
     </Window.Resources>
     <Grid>
         <Grid.Background>
@@ -243,6 +277,9 @@
                                     <Setter Property="Visibility" Value="Visible"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ShowLoginPanel}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsHomeSelected}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed"/>
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -430,7 +467,7 @@
                                                 </StackPanel>
                                                 <Border Grid.Column="3"
                                                         Padding="18,12"
-                                                        CornerRadius="14"
+                                                        CornerRadius="8"
                                                         Background="{Binding ServiceStatusBackgroundBrush}"
                                                         BorderBrush="#FF243246"
                                                         BorderThickness="1"
@@ -705,7 +742,7 @@
                                                                                     </TextBlock>
                                                                                 </Grid>
                                                                                 <TextBlock Text="{Binding DisplayName}" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold" TextAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap"/>
-                                                                                <Border Padding="8,4" CornerRadius="999" Background="{Binding StatusChipBackground}" BorderBrush="{Binding StatusChipBorder}" BorderThickness="1" Margin="0,10,0,0">
+                                                                                <Border Style="{StaticResource CompactStatusBadgeBorderStyle}" Background="{Binding StatusChipBackground}" BorderBrush="{Binding StatusChipBorder}" Margin="0,10,0,0">
                                                                                     <TextBlock Text="{Binding StatusChipText}" Foreground="{Binding StatusChipForeground}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                                                                                 </Border>
                                                                             </StackPanel>
@@ -966,7 +1003,7 @@
                                                                         </Grid>
                                                                         <TextBlock Text="{Binding DisplayName}" Foreground="#FFF4F7FB" FontSize="13" FontWeight="SemiBold" TextAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap"/>
                                                                         <TextBlock Text="{Binding EmployeeCode}" Foreground="#FF6F7C8F" FontSize="11" TextAlignment="Center" Margin="0,4,0,0"/>
-                                                                        <Border Padding="8,4" CornerRadius="999" Background="{Binding StatusChipBackground}" BorderBrush="{Binding StatusChipBorder}" BorderThickness="1" Margin="0,10,0,0">
+                                                                        <Border Style="{StaticResource CompactStatusBadgeBorderStyle}" Background="{Binding StatusChipBackground}" BorderBrush="{Binding StatusChipBorder}" Margin="0,10,0,0">
                                                                             <TextBlock Text="{Binding StatusChipText}" Foreground="{Binding StatusChipForeground}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                                                                         </Border>
                                                                     </StackPanel>
@@ -981,11 +1018,14 @@
                                 </Grid>
                                 <Grid Visibility="{Binding IsPasscodeDialogOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Rectangle Fill="#B2070A0F"/>
-                                    <Border MaxWidth="560"
+                                    <Border Width="820"
+                                            MaxWidth="860"
+                                            MaxHeight="600"
                                             HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
+                                            Margin="0,0,0,24"
                                             CornerRadius="30"
-                                            Padding="28"
+                                            Padding="20"
                                             Background="#F40B111A"
                                             BorderBrush="#FF243246"
                                             BorderThickness="1">
@@ -993,24 +1033,30 @@
                                             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Color="#443F6EB7"/>
                                         </Border.Effect>
                                         <Grid>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="20"/>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="18"/>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="20"/>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="20"/>
-                                                <RowDefinition Height="Auto"/>
-                                            </Grid.RowDefinitions>
-                                            <Border CornerRadius="22"
-                                                    Padding="22"
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="290"/>
+                                                <ColumnDefinition Width="20"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <Border Grid.Column="0"
+                                                    CornerRadius="22"
+                                                    Padding="18"
+                                                    VerticalAlignment="Top"
                                                     Background="#F0101824"
                                                     BorderBrush="#FF243246"
                                                     BorderThickness="1">
-                                                <StackPanel>
-                                                    <Grid Width="106" Height="106" HorizontalAlignment="Center">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="14"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="10"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="10"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <Grid Width="104" Height="104" HorizontalAlignment="Center">
                                                         <Ellipse Fill="{Binding SelectedRosterEmployee.AvatarBrush}"
                                                                  Stroke="{Binding SelectedRosterEmployee.AccentBrush}"
                                                                  StrokeThickness="3"/>
@@ -1034,7 +1080,7 @@
                                                         </Ellipse>
                                                         <TextBlock Text="{Binding SelectedRosterEmployee.Initials}"
                                                                    Foreground="White"
-                                                                   FontSize="30"
+                                                                   FontSize="34"
                                                                    FontWeight="Bold"
                                                                    HorizontalAlignment="Center"
                                                                    VerticalAlignment="Center">
@@ -1050,158 +1096,174 @@
                                                             </TextBlock.Style>
                                                         </TextBlock>
                                                     </Grid>
-                                                    <TextBlock Text="{Binding PasscodeDialogTitle}" Foreground="#FFF4F7FB" FontSize="30" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0"/>
-                                                    <Border Padding="10,4"
-                                                            CornerRadius="999"
-                                                            Background="{Binding PasscodeDialogEmployeeStatusBackground}"
-                                                            BorderBrush="{Binding PasscodeDialogEmployeeStatusBorder}"
-                                                            BorderThickness="1"
-                                                            HorizontalAlignment="Center"
-                                                            Margin="0,10,0,0"
-                                                            Visibility="{Binding ShowPasscodeDialogEmployeeStatus, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                        <TextBlock Text="{Binding PasscodeDialogEmployeeStatusText}"
-                                                                   Foreground="{Binding PasscodeDialogEmployeeStatusForeground}"
-                                                                   FontSize="11"
-                                                                   FontWeight="SemiBold"/>
-                                                    </Border>
-                                                    <TextBlock Text="Enter PIN" Foreground="#FFF4F7FB" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,18,0,0"/>
-                                                    <TextBlock Text="{Binding PasscodeDialogActionTitle}" Foreground="#FFAAB6C8" FontSize="15" HorizontalAlignment="Center" Margin="0,8,0,0"/>
-                                                    <TextBlock Text="{Binding PasscodeDialogSubtitle}" Foreground="#FF6F7C8F" FontSize="13" HorizontalAlignment="Center" Margin="0,6,0,0"/>
-                                                </StackPanel>
+                                                    <StackPanel Grid.Row="2">
+                                                        <TextBlock Text="{Binding PasscodeDialogTitle}" Foreground="#FFF4F7FB" FontSize="28" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"/>
+                                                        <Border Style="{StaticResource CompactStatusBadgeBorderStyle}"
+                                                                Background="{Binding PasscodeDialogEmployeeStatusBackground}"
+                                                                BorderBrush="{Binding PasscodeDialogEmployeeStatusBorder}"
+                                                                Margin="0,10,0,0"
+                                                                Visibility="{Binding ShowPasscodeDialogEmployeeStatus, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                            <TextBlock Text="{Binding PasscodeDialogEmployeeStatusText}"
+                                                                       Foreground="{Binding PasscodeDialogEmployeeStatusForeground}"
+                                                                       FontSize="11"
+                                                                       FontWeight="SemiBold"/>
+                                                        </Border>
+                                                        <TextBlock Text="{Binding PasscodeDialogActionTitle}" Foreground="#FFAAB6C8" FontSize="15" TextAlignment="Center" Margin="0,12,0,0" TextWrapping="Wrap"/>
+                                                        <TextBlock Text="{Binding PasscodeDialogSubtitle}" Foreground="#FF6F7C8F" FontSize="12" TextAlignment="Center" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                    <Button Grid.Row="6"
+                                                            Content="Cancel"
+                                                            Command="{Binding CancelPasscodeCommand}"
+                                                            Style="{StaticResource WelcomeSearchButton}"
+                                                            Height="54"
+                                                            FontSize="17"
+                                                            Margin="0,4,0,0"
+                                                            Background="#FF101824"
+                                                            BorderBrush="#FF243246"/>
+                                                </Grid>
                                             </Border>
-                                            <Border Grid.Row="2"
-                                                    CornerRadius="20"
-                                                    Padding="18,16"
-                                                    Background="#FF101824"
-                                                    BorderBrush="#FF243246"
-                                                    BorderThickness="1">
+
+                                            <Grid Grid.Column="2" Margin="0,0,0,4">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="8"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="8"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="8"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="8"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="24"/>
+                                                </Grid.RowDefinitions>
+
                                                 <StackPanel>
-                                                    <UniformGrid Columns="6" HorizontalAlignment="Center" Margin="0,0,0,6">
-                                                        <Ellipse Width="16" Height="16" Margin="10,0" Stroke="#FF38D5FF" StrokeThickness="2" Fill="#FF38D5FF">
-                                                            <Ellipse.Style>
-                                                                <Style TargetType="Ellipse">
-                                                                    <Setter Property="Fill" Value="#00000000"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding PasscodeDigitOneFilled}" Value="True">
-                                                                            <Setter Property="Fill" Value="#FF38D5FF"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Ellipse.Style>
-                                                        </Ellipse>
-                                                        <Ellipse Width="16" Height="16" Margin="10,0" Stroke="#FF38D5FF" StrokeThickness="2" Fill="#FF38D5FF">
-                                                            <Ellipse.Style>
-                                                                <Style TargetType="Ellipse">
-                                                                    <Setter Property="Fill" Value="#00000000"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding PasscodeDigitTwoFilled}" Value="True">
-                                                                            <Setter Property="Fill" Value="#FF38D5FF"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Ellipse.Style>
-                                                        </Ellipse>
-                                                        <Ellipse Width="16" Height="16" Margin="10,0" Stroke="#FF38D5FF" StrokeThickness="2" Fill="#FF38D5FF">
-                                                            <Ellipse.Style>
-                                                                <Style TargetType="Ellipse">
-                                                                    <Setter Property="Fill" Value="#00000000"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding PasscodeDigitThreeFilled}" Value="True">
-                                                                            <Setter Property="Fill" Value="#FF38D5FF"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Ellipse.Style>
-                                                        </Ellipse>
-                                                        <Ellipse Width="16" Height="16" Margin="10,0" Stroke="#FF38D5FF" StrokeThickness="2" Fill="#FF38D5FF">
-                                                            <Ellipse.Style>
-                                                                <Style TargetType="Ellipse">
-                                                                    <Setter Property="Fill" Value="#00000000"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding PasscodeDigitFourFilled}" Value="True">
-                                                                            <Setter Property="Fill" Value="#FF38D5FF"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Ellipse.Style>
-                                                        </Ellipse>
-                                                        <Ellipse Width="16" Height="16" Margin="10,0" Stroke="#FF38D5FF" StrokeThickness="2" Fill="#FF38D5FF">
-                                                            <Ellipse.Style>
-                                                                <Style TargetType="Ellipse">
-                                                                    <Setter Property="Fill" Value="#00000000"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding PasscodeDigitFiveFilled}" Value="True">
-                                                                            <Setter Property="Fill" Value="#FF38D5FF"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Ellipse.Style>
-                                                        </Ellipse>
-                                                        <Ellipse Width="16" Height="16" Margin="10,0" Stroke="#FF38D5FF" StrokeThickness="2" Fill="#FF38D5FF">
-                                                            <Ellipse.Style>
-                                                                <Style TargetType="Ellipse">
-                                                                    <Setter Property="Fill" Value="#00000000"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding PasscodeDigitSixFilled}" Value="True">
-                                                                            <Setter Property="Fill" Value="#FF38D5FF"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Ellipse.Style>
-                                                        </Ellipse>
-                                                    </UniformGrid>
-                                                    <TextBlock Text="{Binding PasscodeMaskDisplay}" Foreground="#FFAAB6C8" FontSize="15" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,8,0,0"/>
-                                                    <TextBlock Text="Enter 4 to 6 digits" Foreground="#FF6F7C8F" FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                                    <TextBlock Text="Enter PIN" Foreground="#FFF4F7FB" FontSize="30" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding PasscodeDialogInstruction}" Foreground="#FFAAB6C8" FontSize="15" Margin="0,4,0,0" TextWrapping="Wrap"/>
                                                 </StackPanel>
-                                            </Border>
-                                            <Border Grid.Row="4"
-                                                    CornerRadius="16"
-                                                    Padding="14,10"
-                                                    Background="{Binding StatusTextBackgroundBrush}"
-                                                    BorderBrush="{Binding StatusTextBorderBrush}"
-                                                    BorderThickness="1"
-                                                    Visibility="{Binding ShowPasscodeDialogMessage, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <TextBlock Text="{Binding PasscodeDialogMessageText}"
-                                                           Foreground="{Binding StatusTextBrush}"
-                                                           FontSize="13"
-                                                           FontWeight="SemiBold"
-                                                           TextWrapping="Wrap"
-                                                           TextAlignment="Center"
-                                                           HorizontalAlignment="Center"/>
-                                            </Border>
-                                            <UniformGrid Grid.Row="6" Columns="3" Rows="4">
-                                                <Button Content="1" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="1" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,12" Background="#FF101824" BorderBrush="#FF243246"/>
-                                                <Button Content="2" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="2" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,12" Background="#FF101824" BorderBrush="#FF243246"/>
-                                                <Button Content="3" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="3" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,0,12" Background="#FF101824" BorderBrush="#FF243246"/>
-                                                <Button Content="4" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="4" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,12" Background="#FF101824" BorderBrush="#FF243246"/>
-                                                <Button Content="5" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="5" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,12" Background="#FF101824" BorderBrush="#FF243246"/>
-                                                <Button Content="6" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="6" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,0,12" Background="#FF101824" BorderBrush="#FF243246"/>
-                                                <Button Content="7" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="7" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,12" Background="#FF101824" BorderBrush="#FF243246"/>
-                                                <Button Content="8" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="8" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,12" Background="#FF101824" BorderBrush="#FF243246"/>
-                                                <Button Content="9" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="9" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,0,12" Background="#FF101824" BorderBrush="#FF243246"/>
-                                                <Button Content="Clear" Command="{Binding ClearPasscodeCommand}" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="20" Margin="0,0,12,0" Background="#FF101824" BorderBrush="#FF243246"/>
-                                                <Button Content="0" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="0" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,0" Background="#FF101824" BorderBrush="#FF243246"/>
-                                                <Button Content="Back" Command="{Binding BackspacePasscodeCommand}" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="20" Margin="0,0,0,0" Background="#FF101824" BorderBrush="#FF243246"/>
-                                            </UniformGrid>
-                                            <Grid Grid.Row="8">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="12"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Button Grid.Column="0"
-                                                        Content="Cancel"
-                                                        Command="{Binding CancelPasscodeCommand}"
-                                                        Style="{StaticResource WelcomeSearchButton}"
-                                                        Height="60"
-                                                        FontSize="18"
+
+                                                <Border Grid.Row="2"
+                                                        CornerRadius="20"
+                                                        Padding="14,12"
                                                         Background="#FF101824"
-                                                        BorderBrush="#FF243246"/>
-                                                <Button Grid.Column="2"
+                                                        BorderBrush="#FF243246"
+                                                        BorderThickness="1">
+                                                    <StackPanel>
+                                                        <UniformGrid Columns="6" HorizontalAlignment="Center" Margin="0,0,0,2">
+                                                            <Ellipse>
+                                                                <Ellipse.Style>
+                                                                    <Style TargetType="Ellipse" BasedOn="{StaticResource PasscodeDotStyle}">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding PasscodeDigitOneFilled}" Value="True">
+                                                                                <Setter Property="Fill" Value="#FF38D5FF"/>
+                                                                                <Setter Property="Stroke" Value="#FF38D5FF"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Ellipse.Style>
+                                                            </Ellipse>
+                                                            <Ellipse>
+                                                                <Ellipse.Style>
+                                                                    <Style TargetType="Ellipse" BasedOn="{StaticResource PasscodeDotStyle}">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding PasscodeDigitTwoFilled}" Value="True">
+                                                                                <Setter Property="Fill" Value="#FF38D5FF"/>
+                                                                                <Setter Property="Stroke" Value="#FF38D5FF"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Ellipse.Style>
+                                                            </Ellipse>
+                                                            <Ellipse>
+                                                                <Ellipse.Style>
+                                                                    <Style TargetType="Ellipse" BasedOn="{StaticResource PasscodeDotStyle}">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding PasscodeDigitThreeFilled}" Value="True">
+                                                                                <Setter Property="Fill" Value="#FF38D5FF"/>
+                                                                                <Setter Property="Stroke" Value="#FF38D5FF"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Ellipse.Style>
+                                                            </Ellipse>
+                                                            <Ellipse>
+                                                                <Ellipse.Style>
+                                                                    <Style TargetType="Ellipse" BasedOn="{StaticResource PasscodeDotStyle}">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding PasscodeDigitFourFilled}" Value="True">
+                                                                                <Setter Property="Fill" Value="#FF38D5FF"/>
+                                                                                <Setter Property="Stroke" Value="#FF38D5FF"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Ellipse.Style>
+                                                            </Ellipse>
+                                                            <Ellipse>
+                                                                <Ellipse.Style>
+                                                                    <Style TargetType="Ellipse" BasedOn="{StaticResource PasscodeDotStyle}">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding PasscodeDigitFiveFilled}" Value="True">
+                                                                                <Setter Property="Fill" Value="#FF38D5FF"/>
+                                                                                <Setter Property="Stroke" Value="#FF38D5FF"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Ellipse.Style>
+                                                            </Ellipse>
+                                                            <Ellipse>
+                                                                <Ellipse.Style>
+                                                                    <Style TargetType="Ellipse" BasedOn="{StaticResource PasscodeDotStyle}">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding PasscodeDigitSixFilled}" Value="True">
+                                                                                <Setter Property="Fill" Value="#FF38D5FF"/>
+                                                                                <Setter Property="Stroke" Value="#FF38D5FF"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Ellipse.Style>
+                                                            </Ellipse>
+                                                        </UniformGrid>
+                                                        <TextBlock Text="{Binding PasscodeMaskDisplay}" Foreground="#FFAAB6C8" FontSize="14" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,4,0,0"/>
+                                                        <TextBlock Text="Enter 4 to 6 digits" Foreground="#FF6F7C8F" FontSize="12" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Grid.Row="4"
+                                                        CornerRadius="16"
+                                                        Padding="10,6"
+                                                        Background="{Binding StatusTextBackgroundBrush}"
+                                                        BorderBrush="{Binding StatusTextBorderBrush}"
+                                                        BorderThickness="1"
+                                                        Visibility="{Binding ShowPasscodeDialogMessage, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <TextBlock Text="{Binding PasscodeDialogMessageText}"
+                                                               Foreground="{Binding StatusTextBrush}"
+                                                               FontSize="12"
+                                                               FontWeight="SemiBold"
+                                                               TextWrapping="Wrap"
+                                                               TextAlignment="Center"
+                                                               HorizontalAlignment="Center"/>
+                                                </Border>
+
+                                                <UniformGrid Grid.Row="6" Columns="3" Rows="4">
+                                                    <Button Content="1" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="1" Style="{StaticResource WelcomeSearchButton}" Height="56" FontSize="24" Margin="0,0,6,4" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                    <Button Content="2" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="2" Style="{StaticResource WelcomeSearchButton}" Height="56" FontSize="24" Margin="0,0,6,4" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                    <Button Content="3" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="3" Style="{StaticResource WelcomeSearchButton}" Height="56" FontSize="24" Margin="0,0,0,4" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                    <Button Content="4" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="4" Style="{StaticResource WelcomeSearchButton}" Height="56" FontSize="24" Margin="0,0,6,4" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                    <Button Content="5" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="5" Style="{StaticResource WelcomeSearchButton}" Height="56" FontSize="24" Margin="0,0,6,4" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                    <Button Content="6" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="6" Style="{StaticResource WelcomeSearchButton}" Height="56" FontSize="24" Margin="0,0,0,4" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                    <Button Content="7" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="7" Style="{StaticResource WelcomeSearchButton}" Height="56" FontSize="24" Margin="0,0,6,4" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                    <Button Content="8" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="8" Style="{StaticResource WelcomeSearchButton}" Height="56" FontSize="24" Margin="0,0,6,4" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                    <Button Content="9" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="9" Style="{StaticResource WelcomeSearchButton}" Height="56" FontSize="24" Margin="0,0,0,4" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                    <Button Content="Clear" Command="{Binding ClearPasscodeCommand}" Style="{StaticResource WelcomeSearchButton}" Height="56" FontSize="17" Margin="0,0,6,0" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                    <Button Content="0" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="0" Style="{StaticResource WelcomeSearchButton}" Height="56" FontSize="24" Margin="0,0,6,0" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                    <Button Content="Back" Command="{Binding BackspacePasscodeCommand}" Style="{StaticResource WelcomeSearchButton}" Height="56" FontSize="17" Margin="0,0,0,0" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                </UniformGrid>
+
+                                                <Button Grid.Row="8"
                                                         Content="Continue"
                                                         Command="{Binding LoginCommand}"
                                                         Style="{StaticResource WelcomeSearchButton}"
-                                                        Height="60"
+                                                        Height="52"
                                                         FontSize="18"
                                                         Background="#FF0F2234"
                                                         BorderBrush="#FF38D5FF"
@@ -1445,6 +1507,178 @@
                                         </Grid>
                                     </Border>
                                 </Grid>
+                                <Grid Visibility="{Binding IsTimeOffRequestsDialogOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                      Panel.ZIndex="40">
+                                    <Rectangle Fill="#98070A0F"/>
+                                    <Border Width="760"
+                                            MaxWidth="820"
+                                            MaxHeight="720"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Margin="0,0,0,28"
+                                            CornerRadius="28"
+                                            Padding="24"
+                                            Background="#F40B111A"
+                                            BorderBrush="#FF243246"
+                                            BorderThickness="1">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Color="#443F6EB7"/>
+                                        </Border.Effect>
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="16"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="18"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="My Time Off Requests" Foreground="#FFF4F7FB" FontSize="26" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="Showing the requests currently loaded for this employee." Foreground="#FFAAB6C8" FontSize="13" Margin="0,6,0,0"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="1"
+                                                        Content="Close"
+                                                        Command="{Binding CloseTimeOffRequestsDialogCommand}"
+                                                        Style="{StaticResource RB.Button.Ghost}"
+                                                        Width="120"
+                                                        Height="40"/>
+                                            </Grid>
+                                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="0,0,4,8">
+                                                <StackPanel>
+                                                    <ItemsControl ItemsSource="{Binding RecentTimeOffRequests}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Style="{StaticResource TimeClockActivityCard}" Margin="0,0,0,10">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="Auto"/>
+                                                                            <ColumnDefinition Width="12"/>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <Ellipse Width="10" Height="10" Fill="#F5B642" VerticalAlignment="Top" Margin="0,5,0,0"/>
+                                                                        <StackPanel Grid.Column="2">
+                                                                            <TextBlock Text="{Binding RequestType}" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold"/>
+                                                                            <TextBlock Text="{Binding StartDate, StringFormat=Start {0}}" Foreground="#FFAAB6C8" FontSize="12.5" Margin="0,5,0,0"/>
+                                                                            <TextBlock Text="{Binding EndDate, StringFormat=End {0}}" Foreground="#FFAAB6C8" FontSize="12.5" Margin="0,2,0,0"/>
+                                                                            <TextBlock Text="{Binding Status}" Foreground="#FF38D5FF" FontSize="11.5" FontWeight="SemiBold" Margin="0,7,0,0"/>
+                                                                            <TextBlock Text="{Binding EmployeeNote}" Foreground="#FF6F7C8F" FontSize="12" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <Border Style="{StaticResource TimeClockActivityCard}"
+                                                            Padding="16,14"
+                                                            Visibility="{Binding ShowEmptyTimeOffRequestsDialog, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <StackPanel>
+                                                            <TextBlock Text="No time off requests loaded." Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="Submitted requests will appear here when request history is available." Foreground="#FFAAB6C8" FontSize="12.5" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </StackPanel>
+                                            </ScrollViewer>
+                                            <Button Grid.Row="4"
+                                                    Content="Close"
+                                                    Command="{Binding CloseTimeOffRequestsDialogCommand}"
+                                                    Style="{StaticResource RB.Button.Ghost}"
+                                                    Height="42"
+                                                    Width="120"
+                                                    HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                                <Grid Visibility="{Binding IsTimeClockActivityDialogOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                      Panel.ZIndex="40">
+                                    <Rectangle Fill="#98070A0F"/>
+                                    <Border Width="820"
+                                            MaxWidth="880"
+                                            MaxHeight="760"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Margin="0,0,0,28"
+                                            CornerRadius="28"
+                                            Padding="24"
+                                            Background="#F40B111A"
+                                            BorderBrush="#FF243246"
+                                            BorderThickness="1">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Color="#443F6EB7"/>
+                                        </Border.Effect>
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="16"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="18"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="Recent Activity" Foreground="#FFF4F7FB" FontSize="26" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="Showing all currently loaded timeclock activity for this employee." Foreground="#FFAAB6C8" FontSize="13" Margin="0,6,0,0"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="1"
+                                                        Content="Close"
+                                                        Command="{Binding CloseTimeClockActivityDialogCommand}"
+                                                        Style="{StaticResource RB.Button.Ghost}"
+                                                        Width="120"
+                                                        Height="40"/>
+                                            </Grid>
+                                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="0,0,4,8">
+                                                <StackPanel>
+                                                    <ItemsControl ItemsSource="{Binding AllTimeClockActivityRows}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Style="{StaticResource TimeClockActivityCard}" Margin="0,0,0,10">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="Auto"/>
+                                                                            <ColumnDefinition Width="12"/>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="12"/>
+                                                                            <ColumnDefinition Width="Auto"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <Ellipse Width="10" Height="10" Fill="{Binding AccentBrush}" VerticalAlignment="Top" Margin="0,5,0,0"/>
+                                                                        <StackPanel Grid.Column="2">
+                                                                            <TextBlock Text="{Binding Title}" Foreground="{Binding AccentBrush}" FontSize="14" FontWeight="SemiBold"/>
+                                                                            <TextBlock Text="{Binding DetailText}" Foreground="#FFAAB6C8" FontSize="12.5" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                                                                        </StackPanel>
+                                                                        <StackPanel Grid.Column="4" HorizontalAlignment="Right">
+                                                                            <TextBlock Text="{Binding TimeText}" Foreground="#FFF4F7FB" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                                                            <TextBlock Text="{Binding StateText}" Foreground="#FFAAB6C8" FontSize="11.5" Margin="0,5,0,0" HorizontalAlignment="Right"/>
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <Border Style="{StaticResource TimeClockActivityCard}"
+                                                            Padding="16,14"
+                                                            Visibility="{Binding ShowEmptyTimeClockActivityDialog, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <TextBlock Text="No recent punch activity is loaded." Foreground="#FFAAB6C8" FontSize="12.5"/>
+                                                    </Border>
+                                                </StackPanel>
+                                            </ScrollViewer>
+                                            <Button Grid.Row="4"
+                                                    Content="Close"
+                                                    Command="{Binding CloseTimeClockActivityDialogCommand}"
+                                                    Style="{StaticResource RB.Button.Ghost}"
+                                                    Height="42"
+                                                    Width="120"
+                                                    HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
                             </Grid>
                             <Grid Grid.Row="1"
                                   Visibility="{Binding ShowNoAccessAssigned, Converter={StaticResource BooleanToVisibilityConverter}}"
@@ -1471,8 +1705,8 @@
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="*"/>
-                                            <RowDefinition Height="12"/>
-                                            <RowDefinition Height="38"/>
+                                            <RowDefinition Height="14"/>
+                                            <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -1492,18 +1726,20 @@
                                                     <RowDefinition Height="*"/>
                                                 </Grid.RowDefinitions>
 
-                                                <Border Style="{StaticResource RunBook.Style.TimeClockHeroCard}">
+                                                <Border Style="{StaticResource RunBook.Style.TimeClockHeroCard}"
+                                                        Background="{Binding TimeClockHeroGradientBrush}"
+                                                        BorderBrush="{Binding TimeClockHeroBorderBrush}">
                                                     <Border.Effect>
-                                                        <DropShadowEffect Color="#58E58B" BlurRadius="24" ShadowDepth="0" Opacity="0.2"/>
+                                                        <DropShadowEffect Color="{Binding TimeClockHeroAccentBrush}" BlurRadius="24" ShadowDepth="0" Opacity="0.2"/>
                                                     </Border.Effect>
                                                     <Grid>
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="158"/>
                                                             <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="250"/>
+                                                            <ColumnDefinition Width="340"/>
                                                         </Grid.ColumnDefinitions>
                                                         <Border Grid.ColumnSpan="3"
-                                                                Background="{StaticResource RunBook.Brush.TimeClock.Glow.HeroWash}"
+                                                                Background="{Binding TimeClockHeroGlowWashBrush}"
                                                                 CornerRadius="18"
                                                                 Margin="-16"/>
 
@@ -1511,20 +1747,20 @@
                                                             <Grid.RenderTransform>
                                                                 <ScaleTransform ScaleX="0.75" ScaleY="0.75"/>
                                                             </Grid.RenderTransform>
-                                                            <Ellipse Fill="#180E2F25" Stroke="#5058E58B" StrokeThickness="8" Opacity="0.36"/>
-                                                            <Ellipse Width="126" Height="126" Fill="#200E2F25" Stroke="{StaticResource RunBook.Brush.TimeClock.Success}" StrokeThickness="3" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <Ellipse Fill="{Binding TimeClockHeroBackgroundBrush}" Stroke="{Binding TimeClockHeroBorderBrush}" StrokeThickness="8" Opacity="0.36"/>
+                                                            <Ellipse Width="126" Height="126" Fill="{Binding TimeClockHeroBackgroundBrush}" Stroke="{Binding TimeClockHeroAccentBrush}" StrokeThickness="3" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                                 <Ellipse.Effect>
-                                                                    <DropShadowEffect Color="#58E58B" BlurRadius="36" ShadowDepth="0" Opacity="0.82"/>
+                                                                    <DropShadowEffect Color="{Binding TimeClockHeroAccentBrush}" BlurRadius="36" ShadowDepth="0" Opacity="0.82"/>
                                                                 </Ellipse.Effect>
                                                             </Ellipse>
-                                                            <Ellipse Width="100" Height="100" Fill="#260E2F25" Stroke="#9958E58B" StrokeThickness="1.4" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                            <Line X1="70" Y1="20" X2="70" Y2="28" Stroke="{StaticResource RunBook.Brush.TimeClock.Success}" StrokeThickness="2" Opacity="0.72" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                                            <Line X1="70" Y1="112" X2="70" Y2="120" Stroke="{StaticResource RunBook.Brush.TimeClock.Success}" StrokeThickness="2" Opacity="0.72" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                                            <Line X1="20" Y1="70" X2="28" Y2="70" Stroke="{StaticResource RunBook.Brush.TimeClock.Success}" StrokeThickness="2" Opacity="0.72" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                                            <Line X1="112" Y1="70" X2="120" Y2="70" Stroke="{StaticResource RunBook.Brush.TimeClock.Success}" StrokeThickness="2" Opacity="0.72" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                                            <Line X1="70" Y1="70" X2="70" Y2="40" Stroke="{StaticResource RunBook.Brush.TimeClock.Success}" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                                            <Line X1="70" Y1="70" X2="94" Y2="90" Stroke="{StaticResource RunBook.Brush.TimeClock.Success}" StrokeThickness="4.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                                            <Ellipse Width="12" Height="12" Fill="{StaticResource RunBook.Brush.TimeClock.Success}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            <Ellipse Width="100" Height="100" Fill="{Binding TimeClockHeroBackgroundBrush}" Stroke="{Binding TimeClockHeroBorderBrush}" StrokeThickness="1.4" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.82"/>
+                                                            <Line X1="70" Y1="20" X2="70" Y2="28" Stroke="{Binding TimeClockHeroAccentBrush}" StrokeThickness="2" Opacity="0.72" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                                            <Line X1="70" Y1="112" X2="70" Y2="120" Stroke="{Binding TimeClockHeroAccentBrush}" StrokeThickness="2" Opacity="0.72" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                                            <Line X1="20" Y1="70" X2="28" Y2="70" Stroke="{Binding TimeClockHeroAccentBrush}" StrokeThickness="2" Opacity="0.72" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                                            <Line X1="112" Y1="70" X2="120" Y2="70" Stroke="{Binding TimeClockHeroAccentBrush}" StrokeThickness="2" Opacity="0.72" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                                            <Line X1="70" Y1="70" X2="70" Y2="40" Stroke="{Binding TimeClockHeroAccentBrush}" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                                            <Line X1="70" Y1="70" X2="94" Y2="90" Stroke="{Binding TimeClockHeroAccentBrush}" StrokeThickness="4.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                                            <Ellipse Width="12" Height="12" Fill="{Binding TimeClockHeroAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                         </Grid>
 
                                                         <Grid Grid.Column="1" Margin="16,0,18,0" VerticalAlignment="Center">
@@ -1541,61 +1777,58 @@
                                                                 <Ellipse Width="10" Height="10" Fill="{Binding TimeClockHeroAccentBrush}" Margin="0,0,10,0" VerticalAlignment="Center"/>
                                                                 <TextBlock Text="CURRENT STATUS" Style="{StaticResource TimeClockHeroEyebrow}" VerticalAlignment="Center"/>
                                                             </StackPanel>
-                                                            <TextBlock Grid.Row="2" Text="{Binding TimeClockHeroTitle}" Style="{StaticResource TimeClockHeroTitle}"/>
-                                                            <TextBlock Grid.Row="4" Text="{Binding TimeClockHeroSinceLine}" Style="{StaticResource TimeClockHeroStatus}"/>
-                                                            <Border Grid.Row="6" Style="{StaticResource TimeClockStatusPill}" HorizontalAlignment="Left" MaxWidth="360">
-                                                                <StackPanel Orientation="Horizontal">
-                                                                    <TextBlock Text="SHIFT:" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="12" FontWeight="SemiBold" Margin="0,0,6,0"/>
-                                                                    <TextBlock Text="Not assigned" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis">
-                                                                        <TextBlock.Style>
-                                                                            <Style TargetType="TextBlock">
-                                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                                                <Style.Triggers>
-                                                                                    <DataTrigger Binding="{Binding TimeClockHeroShiftLine}" Value="Current shift">
-                                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                                    </DataTrigger>
-                                                                                </Style.Triggers>
-                                                                            </Style>
-                                                                        </TextBlock.Style>
-                                                                    </TextBlock>
-                                                                    <TextBlock Text="{Binding TimeClockHeroShiftLine}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis">
-                                                                        <TextBlock.Style>
-                                                                            <Style TargetType="TextBlock">
-                                                                                <Setter Property="Visibility" Value="Visible"/>
-                                                                                <Style.Triggers>
-                                                                                    <DataTrigger Binding="{Binding TimeClockHeroShiftLine}" Value="Current shift">
-                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                                                    </DataTrigger>
-                                                                                </Style.Triggers>
-                                                                            </Style>
-                                                                        </TextBlock.Style>
-                                                                    </TextBlock>
-                                                                </StackPanel>
-                                                            </Border>
+                                                            <TextBlock Grid.Row="2" Text="{Binding TimeClockHeroTitle}" Style="{StaticResource TimeClockHeroTitle}" Foreground="{Binding TimeClockHeroAccentBrush}"/>
+                                                            <TextBlock Grid.Row="4" Text="{Binding TimeClockHeroSinceLine}" Style="{StaticResource TimeClockHeroStatus}" Foreground="{Binding TimeClockHeroAccentBrush}"/>
+                                                            <TextBlock Grid.Row="6"
+                                                                       Text="{Binding TimeClockHeroShiftDisplay}"
+                                                                       Foreground="{Binding TimeClockStatusPillForegroundBrush}"
+                                                                       FontSize="12"
+                                                                       FontWeight="SemiBold"
+                                                                       TextTrimming="CharacterEllipsis"/>
                                                         </Grid>
 
                                                         <Grid Grid.Column="2" VerticalAlignment="Center">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="1"/>
-                                                                <ColumnDefinition Width="*"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <StackPanel Margin="0,0,20,0">
-                                                                <TextBlock Text="CLOCK IN" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Muted}" FontSize="11" FontWeight="SemiBold"/>
-                                                                <TextBlock Text="{Binding TimeClockHeroClockInTime}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="28" FontWeight="SemiBold" Margin="0,6,0,0"/>
-                                                                <TextBlock Text="{Binding TimeClockHeroClockInDate}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="13" Margin="0,4,0,0"/>
-                                                            </StackPanel>
-                                                            <Border Grid.Column="1" Background="{StaticResource RunBook.Brush.TimeClock.Border.Default}" Width="1" Opacity="0.9"/>
-                                                            <StackPanel Grid.Column="2" Margin="20,0,0,0">
-                                                                <TextBlock Text="ELAPSED TIME" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Muted}" FontSize="11" FontWeight="SemiBold"/>
-                                                                <TextBlock Text="{Binding TimeClockHeroElapsedValue}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="28" FontWeight="SemiBold" Margin="0,6,0,0"/>
-                                                                <TextBlock Text="{Binding TimeClockHeroElapsedCaption}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="13" Margin="0,4,0,0"/>
-                                                            </StackPanel>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="14"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                            </Grid.RowDefinitions>
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="1"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <StackPanel Margin="0,0,20,0">
+                                                                    <TextBlock Text="CLOCK IN" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Muted}" FontSize="11" FontWeight="SemiBold"/>
+                                                                    <TextBlock Text="{Binding TimeClockHeroClockInTime}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="28" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                                                    <TextBlock Text="{Binding TimeClockHeroClockInDate}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="13" Margin="0,4,0,0"/>
+                                                                </StackPanel>
+                                                                <Border Grid.Column="1" Background="{StaticResource RunBook.Brush.TimeClock.Border.Default}" Width="1" Opacity="0.9"/>
+                                                                <StackPanel Grid.Column="2" Margin="20,0,0,0">
+                                                                    <TextBlock Text="ELAPSED TIME" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Muted}" FontSize="11" FontWeight="SemiBold"/>
+                                                                    <TextBlock Text="{Binding TimeClockHeroElapsedValue}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="28" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                                                    <TextBlock Text="{Binding TimeClockHeroElapsedCaption}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="13" Margin="0,4,0,0"/>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                            <Border Grid.Row="2"
+                                                                    Background="{Binding TimeClockHeroBackgroundBrush}"
+                                                                    BorderBrush="{Binding TimeClockHeroBorderBrush}"
+                                                                    BorderThickness="1"
+                                                                    CornerRadius="8"
+                                                                    Padding="16,12"
+                                                                    HorizontalAlignment="Stretch"
+                                                                    MinHeight="60"
+                                                                    MaxWidth="440"
+                                                                    Opacity="0.9">
+                                                                <TextBlock Text="{Binding TimeClockHeroHelperText}"
+                                                                           Foreground="{Binding TimeClockHeroAccentBrush}"
+                                                                           FontSize="12"
+                                                                           FontWeight="SemiBold"
+                                                                           TextWrapping="Wrap"
+                                                                           LineHeight="19"/>
+                                                            </Border>
                                                         </Grid>
-
-                                                        <Border Grid.ColumnSpan="3" VerticalAlignment="Bottom" Margin="0,162,0,-10" Background="#900E2F25" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Success.Border}" BorderThickness="1" CornerRadius="10" Padding="12,6">
-                                                            <TextBlock Text="{Binding TimeClockHeroHelperText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="11.5" FontWeight="SemiBold"/>
-                                                        </Border>
                                                     </Grid>
                                                 </Border>
 
@@ -1629,14 +1862,14 @@
                                                             <Button Grid.Column="0" Command="{Binding BreakStartCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" Visibility="{Binding ShowWorkingActions, Converter={StaticResource BooleanToVisibilityConverter}}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.WarningTile}">
                                                                 <Grid Margin="12,10"><Grid.ColumnDefinitions><ColumnDefinition Width="78"/><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/></Grid.ColumnDefinitions>
                                                                     <Border Width="66" Height="66" CornerRadius="33" HorizontalAlignment="Left" Margin="-2,0,0,0" Background="{StaticResource RunBook.Brush.TimeClock.Warning.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning}" BorderThickness="2"><Border.Effect><DropShadowEffect Color="#F5A623" BlurRadius="18" ShadowDepth="0" Opacity="0.48"/></Border.Effect><Viewbox Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M4,8 L15,8 L15,14 C15,16.2 13.2,18 11,18 L8,18 C5.8,18 4,16.2 4,14 Z M15,10 L17,10 C18.7,10 20,11.3 20,13 C20,14.7 18.7,16 17,16 L15,16 M6,21 L17,21" Stroke="{StaticResource RunBook.Brush.TimeClock.Warning}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox></Border>
-                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Start Break" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="19.5" FontWeight="Bold"/><TextBlock Text="Take a short break." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.2" Margin="0,4,0,0"/><Border Background="{StaticResource RunBook.Brush.TimeClock.Warning.Subtle}" CornerRadius="999" Padding="8,2" HorizontalAlignment="Left" Margin="0,7,0,0"><TextBlock Text="PAID" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="10.5" FontWeight="SemiBold"/></Border></StackPanel>
+                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Start Break" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="19.5" FontWeight="Bold"/><TextBlock Text="Take a short break." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.2" Margin="0,4,0,0"/><Border Background="{StaticResource RunBook.Brush.TimeClock.Warning.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" BorderThickness="1" CornerRadius="6" Padding="8,3" MinHeight="24" HorizontalAlignment="Left" Margin="0,7,0,0"><TextBlock Text="PAID" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="10.5" FontWeight="SemiBold"/></Border></StackPanel>
                                                                     <TextBlock Grid.Column="2" Text=">" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                                                 </Grid>
                                                             </Button>
                                                             <Button Grid.Column="2" Command="{Binding LunchStartCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" Visibility="{Binding ShowLunchStartAction, Converter={StaticResource BooleanToVisibilityConverter}}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Info.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.InfoTile}">
                                                                 <Grid Margin="12,10"><Grid.ColumnDefinitions><ColumnDefinition Width="78"/><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/></Grid.ColumnDefinitions>
                                                                     <Border Width="66" Height="66" CornerRadius="33" HorizontalAlignment="Left" Margin="-2,0,0,0" Background="{StaticResource RunBook.Brush.TimeClock.Info.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Info}" BorderThickness="2"><Border.Effect><DropShadowEffect Color="#49A7FF" BlurRadius="18" ShadowDepth="0" Opacity="0.48"/></Border.Effect><Viewbox Width="30" Height="30" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M6,3 L6,10 M9,3 L9,10 M12,3 L12,10 M6,10 C6,12 12,12 12,10 M9,12 L9,21 M17,3 C15.4,4.8 15,7.1 15,10 L15,13 L19,13 M19,3 L19,21" Stroke="{StaticResource RunBook.Brush.TimeClock.Info}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox></Border>
-                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Start Lunch" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="19.5" FontWeight="Bold"/><TextBlock Text="Take your lunch break." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.2" Margin="0,4,0,0"/><Border Background="{StaticResource RunBook.Brush.TimeClock.Info.Subtle}" CornerRadius="999" Padding="8,2" HorizontalAlignment="Left" Margin="0,7,0,0"><TextBlock Text="UNPAID" Foreground="{StaticResource RunBook.Brush.TimeClock.Info}" FontSize="10.5" FontWeight="SemiBold"/></Border></StackPanel>
+                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Start Lunch" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="19.5" FontWeight="Bold"/><TextBlock Text="Take your lunch break." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.2" Margin="0,4,0,0"/><Border Background="{StaticResource RunBook.Brush.TimeClock.Info.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Info.Border}" BorderThickness="1" CornerRadius="6" Padding="8,3" MinHeight="24" HorizontalAlignment="Left" Margin="0,7,0,0"><TextBlock Text="UNPAID" Foreground="{StaticResource RunBook.Brush.TimeClock.Info}" FontSize="10.5" FontWeight="SemiBold"/></Border></StackPanel>
                                                                     <TextBlock Grid.Column="2" Text=">" Foreground="{StaticResource RunBook.Brush.TimeClock.Info}" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                                                 </Grid>
                                                             </Button>
@@ -1661,45 +1894,120 @@
                                                     <Grid>
                                                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="14"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                                         <StackPanel><TextBlock Text="TODAY'S SHIFT FLOW" Style="{StaticResource TimeClockSectionTitle}"/><TextBlock Text="Track your progress through today's shift." Style="{StaticResource TimeClockSectionBody}" Margin="0,4,0,0"/></StackPanel>
-                                                        <Grid Grid.Row="2" Margin="28,4,28,0" MinHeight="108">
-                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                                            <Border Height="3" Background="{StaticResource RunBook.Brush.TimeClock.Neutral.Border}" Grid.ColumnSpan="4" VerticalAlignment="Top" Margin="72,25,72,0" Opacity="0.55"/>
-                                                            <Border Height="5" Background="{StaticResource RunBook.Brush.TimeClock.Success.Subtle}" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="72,24,0,0" Opacity="0.8">
-                                                                <Border.Effect><DropShadowEffect Color="#58E58B" BlurRadius="14" ShadowDepth="0" Opacity="0.24"/></Border.Effect>
+                                                        <Grid Grid.Row="2">
+                                                            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                                                          VerticalScrollBarVisibility="Disabled"
+                                                                          Padding="0,2,0,4"
+                                                                          Visibility="{Binding HasTodayShiftTimeline, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <ItemsControl ItemsSource="{Binding TodayShiftTimelineEntries}">
+                                                                    <ItemsControl.ItemsPanel>
+                                                                        <ItemsPanelTemplate>
+                                                                            <StackPanel Orientation="Horizontal"/>
+                                                                        </ItemsPanelTemplate>
+                                                                    </ItemsControl.ItemsPanel>
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Grid Width="172" Margin="0">
+                                                                                <Grid.RowDefinitions>
+                                                                                    <RowDefinition Height="56"/>
+                                                                                    <RowDefinition Height="Auto"/>
+                                                                                </Grid.RowDefinitions>
+                                                                                <Grid Grid.Row="0" VerticalAlignment="Center" ClipToBounds="False">
+                                                                                    <Rectangle x:Name="PART_LeftConnector"
+                                                                                               Height="4"
+                                                                                               Fill="{Binding LeftConnectorBrush}"
+                                                                                               Opacity="{Binding LeftConnectorOpacity}"
+                                                                                               VerticalAlignment="Center"
+                                                                                               HorizontalAlignment="Stretch"
+                                                                                               Margin="0,0,83,0"
+                                                                                               RadiusX="2"
+                                                                                               RadiusY="2"
+                                                                                               Panel.ZIndex="0"/>
+                                                                                    <Rectangle x:Name="PART_RightConnector"
+                                                                                               Height="4"
+                                                                                               Fill="{Binding RightConnectorBrush}"
+                                                                                               Opacity="{Binding RightConnectorOpacity}"
+                                                                                               VerticalAlignment="Center"
+                                                                                               HorizontalAlignment="Stretch"
+                                                                                               Margin="83,0,0,0"
+                                                                                               RadiusX="2"
+                                                                                               RadiusY="2"
+                                                                                               Panel.ZIndex="0"/>
+                                                                                    <Border x:Name="PART_Node"
+                                                                                            Width="56"
+                                                                                            Height="56"
+                                                                                            CornerRadius="28"
+                                                                                            Background="{Binding BackgroundBrush}"
+                                                                                            BorderBrush="{Binding BorderBrush}"
+                                                                                            BorderThickness="1.6"
+                                                                                            HorizontalAlignment="Center"
+                                                                                            Margin="0"
+                                                                                            Panel.ZIndex="2">
+                                                                                        <Border.Effect>
+                                                                                            <DropShadowEffect Color="{Binding AccentBrush}" BlurRadius="12" ShadowDepth="0" Opacity="0.14"/>
+                                                                                        </Border.Effect>
+                                                                                        <TextBlock Text="{Binding SequenceNumber}"
+                                                                                                   Foreground="{Binding AccentBrush}"
+                                                                                                   FontSize="20"
+                                                                                                   FontWeight="SemiBold"
+                                                                                                   HorizontalAlignment="Center"
+                                                                                                   VerticalAlignment="Center"/>
+                                                                                    </Border>
+                                                                                </Grid>
+                                                                                <StackPanel Grid.Row="1" Margin="8,10,8,0">
+                                                                                    <TextBlock Text="{Binding Title}"
+                                                                                               Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}"
+                                                                                               FontSize="14.5"
+                                                                                               FontWeight="SemiBold"
+                                                                                               HorizontalAlignment="Center"
+                                                                                               TextAlignment="Center"
+                                                                                               TextWrapping="Wrap"/>
+                                                                                    <TextBlock Text="{Binding TimestampDisplay}"
+                                                                                               Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}"
+                                                                                               FontSize="11.5"
+                                                                                               Margin="0,6,0,0"
+                                                                                               HorizontalAlignment="Center"
+                                                                                               TextAlignment="Center"/>
+                                                                                    <TextBlock Text="{Binding Subtitle}"
+                                                                                               Foreground="{Binding AccentBrush}"
+                                                                                               FontSize="11.5"
+                                                                                               FontWeight="SemiBold"
+                                                                                               Margin="0,6,0,0"
+                                                                                               HorizontalAlignment="Center"
+                                                                                               TextAlignment="Center"/>
+                                                                                </StackPanel>
+                                                                            </Grid>
+                                                                            <DataTemplate.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsFirst}" Value="True">
+                                                                                    <Setter TargetName="PART_LeftConnector" Property="Visibility" Value="Collapsed"/>
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding IsLast}" Value="True">
+                                                                                    <Setter TargetName="PART_RightConnector" Property="Visibility" Value="Collapsed"/>
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                                                                    <Setter TargetName="PART_Node" Property="BorderThickness" Value="2"/>
+                                                                                    <Setter TargetName="PART_Node" Property="Effect">
+                                                                                        <Setter.Value>
+                                                                                            <DropShadowEffect Color="{Binding AccentBrush}" BlurRadius="18" ShadowDepth="0" Opacity="0.32"/>
+                                                                                        </Setter.Value>
+                                                                                    </Setter>
+                                                                                </DataTrigger>
+                                                                            </DataTemplate.Triggers>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </ScrollViewer>
+                                                            <Border Padding="14,12"
+                                                                    CornerRadius="12"
+                                                                    Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}"
+                                                                    BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}"
+                                                                    BorderThickness="1"
+                                                                    Visibility="{Binding ShowEmptyTodayShiftTimeline, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <StackPanel>
+                                                                    <TextBlock Text="No shift events loaded for today." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="14" FontWeight="SemiBold"/>
+                                                                    <TextBlock Text="Clock in or refresh the timeclock feed to see today&apos;s real event timeline." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                                                </StackPanel>
                                                             </Border>
-                                                            <Border Height="2" Background="{StaticResource RunBook.Brush.TimeClock.Success}" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="72,26,0,0" Opacity="0.95">
-                                                                <Border.Effect><DropShadowEffect Color="#58E58B" BlurRadius="12" ShadowDepth="0" Opacity="0.42"/></Border.Effect>
-                                                            </Border>
-                                                            <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                                                                <Border Style="{StaticResource RunBook.Style.TimeClockTimelineStep}" Width="52" Height="52" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Success}" Background="{StaticResource RunBook.Brush.TimeClock.Success.Subtle}" BorderThickness="1.5">
-                                                                    <Border.Effect><DropShadowEffect Color="#58E58B" BlurRadius="14" ShadowDepth="0" Opacity="0.36"/></Border.Effect>
-                                                                    <TextBlock Text="OK" Foreground="{StaticResource RunBook.Brush.TimeClock.Success}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                                </Border>
-                                                                <TextBlock Text="Clock In" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="14.5" FontWeight="SemiBold" Margin="0,9,0,0" HorizontalAlignment="Center"/>
-                                                                <TextBlock Text="{Binding TimeClockTimelineClockInText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Success}" FontSize="12" HorizontalAlignment="Center"/>
-                                                            </StackPanel>
-                                                            <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                                                                <Border Style="{StaticResource RunBook.Style.TimeClockTimelineStep}" Width="56" Height="56" BorderBrush="{Binding TimeClockHeroBorderBrush}" Background="{Binding TimeClockHeroBackgroundBrush}" BorderThickness="1.6">
-                                                                    <Border.Effect><DropShadowEffect Color="#58E58B" BlurRadius="18" ShadowDepth="0" Opacity="0.4"/></Border.Effect>
-                                                                    <TextBlock Text="2" Foreground="{Binding TimeClockHeroAccentBrush}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                                </Border>
-                                                                <TextBlock Text="Working" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="14.5" FontWeight="SemiBold" Margin="0,7,0,0" HorizontalAlignment="Center"/>
-                                                                <TextBlock Text="{Binding TimeClockTimelineWorkingText}" Foreground="{Binding TimeClockHeroAccentBrush}" FontSize="12" HorizontalAlignment="Center"/>
-                                                            </StackPanel>
-                                                            <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                                                                <Border Style="{StaticResource RunBook.Style.TimeClockTimelineStep}" Width="50" Height="50" Opacity="0.9">
-                                                                    <TextBlock Text="3" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Muted}" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                                </Border>
-                                                                <TextBlock Text="Lunch" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="14.5" FontWeight="SemiBold" Margin="0,9,0,0" HorizontalAlignment="Center"/>
-                                                                <TextBlock Text="{Binding TimeClockTimelineLunchText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Muted}" FontSize="12" HorizontalAlignment="Center"/>
-                                                            </StackPanel>
-                                                            <StackPanel Grid.Column="3" HorizontalAlignment="Center">
-                                                                <Border Style="{StaticResource RunBook.Style.TimeClockTimelineStep}" Width="50" Height="50" Opacity="0.9">
-                                                                    <TextBlock Text="4" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Muted}" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                                </Border>
-                                                                <TextBlock Text="Clock Out" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="14.5" FontWeight="SemiBold" Margin="0,9,0,0" HorizontalAlignment="Center"/>
-                                                                <TextBlock Text="{Binding TimeClockTimelineClockOutText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Muted}" FontSize="12" HorizontalAlignment="Center"/>
-                                                            </StackPanel>
                                                         </Grid>
                                                     </Grid>
                                                 </Border>
@@ -1707,7 +2015,7 @@
                                                 <Border Grid.Row="6" Style="{StaticResource TimeClockPanelCard}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.PurplePanel}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Purple.Border}" MinHeight="198" Padding="14,12">
                                                     <Grid>
                                                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="10"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                                                        <Grid><StackPanel><StackPanel Orientation="Horizontal"><Viewbox Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M9,6 L9,4 L15,4 L15,6 M4,9 L20,9 M5,6 L19,6 C20.1,6 21,6.9 21,8 L21,18 C21,19.1 20.1,20 19,20 L5,20 C3.9,20 3,19.1 3,18 L3,8 C3,6.9 3.9,6 5,6 Z" Stroke="{StaticResource RunBook.Brush.TimeClock.Purple}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox><TextBlock Text="TIME OFF REQUEST" Style="{StaticResource TimeClockSectionTitle}"/></StackPanel><TextBlock Text="{Binding TimeOffSectionSubtitle}" Style="{StaticResource TimeClockSectionBody}" Margin="0,4,0,0"/></StackPanel><Button Content="View My Requests" Style="{StaticResource RB.Button.Ghost}" HorizontalAlignment="Right" Width="150" Height="34"/></Grid>
+                                                    <Grid><StackPanel><StackPanel Orientation="Horizontal"><Viewbox Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M9,6 L9,4 L15,4 L15,6 M4,9 L20,9 M5,6 L19,6 C20.1,6 21,6.9 21,8 L21,18 C21,19.1 20.1,20 19,20 L5,20 C3.9,20 3,19.1 3,18 L3,8 C3,6.9 3.9,6 5,6 Z" Stroke="{StaticResource RunBook.Brush.TimeClock.Purple}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox><TextBlock Text="TIME OFF REQUEST" Style="{StaticResource TimeClockSectionTitle}"/></StackPanel><TextBlock Text="{Binding TimeOffSectionSubtitle}" Style="{StaticResource TimeClockSectionBody}" Margin="0,4,0,0"/></StackPanel><Button Content="{Binding TimeOffRequestsButtonText}" Command="{Binding OpenTimeOffRequestsDialogCommand}" Style="{StaticResource RB.Button.Ghost}" HorizontalAlignment="Right" Width="150" Height="34"/></Grid>
                                                         <Grid Grid.Row="2">
                                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="170"/></Grid.ColumnDefinitions>
                                                             <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="12"/><RowDefinition Height="44"/></Grid.RowDefinitions>
@@ -1742,8 +2050,66 @@
                                                     </Grid>
                                                 </Border>
                                                 <Border Grid.Row="2" Style="{StaticResource TimeClockSummaryGroupCard}">
-                                                    <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="14"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid><TextBlock Text="THIS WEEK" Style="{StaticResource TimeClockSectionTitle}"/><TextBlock Text="{Binding TimeClockWeeklyDateRange}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" HorizontalAlignment="Right" FontSize="12"/></Grid>
-                                                        <ItemsControl Grid.Row="2" ItemsSource="{Binding WeeklySummaryRows}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Style="{StaticResource RunBook.Style.TimeClockMetricCard}"><StackPanel><TextBlock Text="{Binding Label}" Style="{StaticResource TimeClockMetricLabel}"/><TextBlock Text="{Binding Value}" Style="{StaticResource TimeClockMetricValue}" Margin="0,8,0,0"/><TextBlock Text="{Binding DetailText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12"/><ProgressBar Value="{Binding ProgressValue}" Maximum="100" Style="{StaticResource RunBook.Style.TimeClockProgressBar}" Margin="0,12,0,0" Foreground="{Binding AccentBrush}"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                                    <Grid>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="14"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="10"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="THIS WEEK" Style="{StaticResource TimeClockSectionTitle}"/>
+                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <Button Content="‹"
+                                                                        Command="{Binding PreviousTimeClockWeekCommand}"
+                                                                        Style="{StaticResource TimeClockWeekNavButton}"
+                                                                        Margin="0,0,8,0"/>
+                                                                <TextBlock Text="{Binding TimeClockWeeklyDateRange}"
+                                                                           Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}"
+                                                                           VerticalAlignment="Center"
+                                                                           FontSize="12.5"
+                                                                           FontWeight="SemiBold"/>
+                                                                <Button Content="›"
+                                                                        Command="{Binding NextTimeClockWeekCommand}"
+                                                                        Style="{StaticResource TimeClockWeekNavButton}"
+                                                                        Margin="8,0,0,0"/>
+                                                                <Button Content="Current Week"
+                                                                        Command="{Binding CurrentTimeClockWeekCommand}"
+                                                                        Style="{StaticResource TimeClockWeekCurrentButton}"
+                                                                        Margin="10,0,0,0"
+                                                                        Visibility="{Binding ShowCurrentTimeClockWeekButton, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                        <ItemsControl Grid.Row="2" ItemsSource="{Binding WeeklySummaryRows}">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <UniformGrid Columns="4"/>
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Border Style="{StaticResource RunBook.Style.TimeClockMetricCard}">
+                                                                        <StackPanel>
+                                                                            <TextBlock Text="{Binding Label}" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                            <TextBlock Text="{Binding Value}" Style="{StaticResource TimeClockMetricValue}" Margin="0,8,0,0"/>
+                                                                            <TextBlock Text="{Binding DetailText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12"/>
+                                                                            <ProgressBar Value="{Binding ProgressValue}" Maximum="100" Style="{StaticResource RunBook.Style.TimeClockProgressBar}" Margin="0,12,0,0" Foreground="{Binding AccentBrush}"/>
+                                                                        </StackPanel>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <TextBlock Grid.Row="4"
+                                                                   Text="{Binding TimeClockWeeklyHelperText}"
+                                                                   Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}"
+                                                                   FontSize="12"
+                                                                   TextWrapping="Wrap"
+                                                                   Visibility="{Binding ShowEmptyTimeClockWeek, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                                     </Grid>
                                                 </Border>
                                                 <Border Grid.Row="4" Style="{StaticResource TimeClockSummaryGroupCard}">
@@ -1752,8 +2118,8 @@
                                                     </Grid>
                                                 </Border>
                                                 <Border Grid.Row="6" Style="{StaticResource TimeClockSummaryGroupCard}" Margin="0">
-                                                    <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="12"/><RowDefinition Height="*"/></Grid.RowDefinitions><Grid><StackPanel Orientation="Horizontal"><Viewbox Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M4,7 L20,7 M4,12 L20,12 M4,17 L20,17 M4,7 L4,7 M4,12 L4,12 M4,17 L4,17" Stroke="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas></Viewbox><TextBlock Text="RECENT ACTIVITY" Style="{StaticResource TimeClockSectionTitle}"/></StackPanel><Button Content="View All" Command="{Binding RefreshTimeClockCommand}" Style="{StaticResource RB.Button.Ghost}" HorizontalAlignment="Right" Width="90" Height="30"/></Grid>
-                                                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="0,0,4,2">
+                                                    <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="12"/><RowDefinition Height="*"/></Grid.RowDefinitions><Grid><StackPanel Orientation="Horizontal"><Viewbox Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M4,7 L20,7 M4,12 L20,12 M4,17 L20,17 M4,7 L4,7 M4,12 L4,12 M4,17 L4,17" Stroke="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas></Viewbox><TextBlock Text="RECENT ACTIVITY" Style="{StaticResource TimeClockSectionTitle}"/></StackPanel><Button Content="{Binding TimeClockActivityViewAllButtonText}" Command="{Binding OpenTimeClockActivityDialogCommand}" IsEnabled="{Binding HasMoreTimeClockActivity}" Style="{StaticResource RB.Button.Ghost}" HorizontalAlignment="Right" Width="128" Height="30"/></Grid>
+                                                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="0,0,4,18">
                                                             <StackPanel>
                                                                 <ItemsControl ItemsSource="{Binding TimeClockActivityRows}">
                                                                     <ItemsControl.ItemTemplate>
@@ -1793,7 +2159,7 @@
                                                 </Border>
                                             </Grid>
                                         </Grid>
-                                        <Border Grid.Row="2" Background="{StaticResource RunBook.Brush.TimeClock.Surface.Panel}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="16" Padding="14,0">
+                                        <Border Grid.Row="2" Background="{StaticResource RunBook.Brush.TimeClock.Surface.Panel}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="16" Padding="14,10" Margin="0,0,0,8">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
@@ -2181,121 +2547,568 @@
                                     </Grid>
                                 </Grid>
                                 <Grid Visibility="{Binding IsHomeSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="14"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="14"/>
-                                        <RowDefinition Height="*"/>
-                                    </Grid.RowDefinitions>
-                                    <Border Style="{StaticResource ModuleCard}" Padding="20">
-                                        <StackPanel>
-                                            <TextBlock Text="Workstation Home" Style="{StaticResource H1}"/>
-                                            <TextBlock Text="Desktop filters the floor modules for this employee. Use the authorized entry points below to stay in the safe workstation flow."
-                                                       Style="{StaticResource Sub}"
-                                                       Margin="0,8,0,0"
-                                                       TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                    </Border>
-                                    <UniformGrid Grid.Row="2" Columns="3">
-                                        <Button Visibility="{Binding HasTimeClockAccess, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                Content="Time Clock"
-                                                Command="{Binding SelectModuleKeyCommand}"
-                                                CommandParameter="timeclock"
-                                                Style="{StaticResource RB.Button.Primary}"
-                                                Margin="0,0,12,0"
-                                                Height="110"
-                                                FontSize="20"/>
-                                        <Button Visibility="{Binding HasWorkOrdersAccess, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                Content="Work Orders"
-                                                Command="{Binding SelectModuleKeyCommand}"
-                                                CommandParameter="workorders"
-                                                Style="{StaticResource RB.Button.Ghost}"
-                                                Margin="0,0,12,0"
-                                                Height="110"
-                                                FontSize="20"/>
-                                        <Button Visibility="{Binding HasDrawingsAccess, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                Content="Drawings"
-                                                Command="{Binding SelectModuleKeyCommand}"
-                                                CommandParameter="drawings"
-                                                Style="{StaticResource RB.Button.Ghost}"
-                                                Height="110"
-                                                FontSize="20"/>
-                                    </UniformGrid>
-                                    <Grid Grid.Row="4">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="0.92*"/>
-                                            <ColumnDefinition Width="14"/>
-                                            <ColumnDefinition Width="0.92*"/>
-                                            <ColumnDefinition Width="14"/>
-                                            <ColumnDefinition Width="0.96*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Border Grid.Column="0" Style="{StaticResource ModuleCard}">
-                                            <StackPanel>
-                                                <TextBlock Text="Current Operator" Style="{StaticResource H2}"/>
-                                                <TextBlock Text="{Binding CurrentOperatorLine}" Foreground="{StaticResource Text}" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
-                                                <TextBlock Text="{Binding CurrentOperatorStatusLine}" Style="{StaticResource Sub}" Margin="0,4,0,0"/>
-                                                <TextBlock Text="{Binding SessionRole}" Style="{StaticResource Sub}" Margin="0,4,0,0"/>
-                                                <TextBlock Text="{Binding SessionModulesLine}" Style="{StaticResource Sub}" Margin="0,10,0,0" TextWrapping="Wrap"/>
-                                                <TextBlock Text="{Binding CurrentJobTitle}" Foreground="{StaticResource Text}" FontSize="18" FontWeight="SemiBold" Margin="0,12,0,0"/>
-                                                <TextBlock Text="{Binding CurrentJobSummary}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                                                <TextBlock Text="{Binding CurrentJobHint}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                                                <Button Content="Go to Work"
-                                                        Command="{Binding PrimaryOperatorActionCommand}"
-                                                        Style="{StaticResource RB.Button.Primary}"
-                                                        Height="44"
-                                                        Margin="0,12,0,0"/>
-                                                <Button Content="Resume Current Job"
-                                                        Command="{Binding ResumeCurrentJobCommand}"
-                                                        Style="{StaticResource RB.Button.Primary}"
-                                                        Height="44"
-                                                        Margin="0,10,0,0"
-                                                        Visibility="{Binding HasCurrentJob, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                                <TextBlock Text="{Binding RecentJobTitle}" Foreground="{StaticResource Text}" FontSize="16" FontWeight="SemiBold" Margin="0,12,0,0"
-                                                           Visibility="{Binding HasRecentJob, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                                <TextBlock Text="{Binding RecentJobSummary}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                                           Visibility="{Binding HasRecentJob, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                                <Button Content="Resume Recent Job"
-                                                        Command="{Binding ResumeRecentJobCommand}"
-                                                        Style="{StaticResource RB.Button.Ghost}"
-                                                        Height="40"
-                                                        Margin="0,10,0,0"
-                                                        Visibility="{Binding HasRecentJob, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                                <TextBlock Text="{Binding ActiveWorkContextLine}" Style="{StaticResource Sub}" Margin="0,10,0,0" TextWrapping="Wrap"/>
-                                                <TextBlock Text="{Binding SessionCountdown}" Style="{StaticResource Sub}" Margin="0,10,0,0"/>
-                                            </StackPanel>
-                                        </Border>
-                                        <Border Grid.Column="2" Style="{StaticResource ModuleCard}">
-                                            <StackPanel>
-                                                <TextBlock Text="Shop Awareness" Style="{StaticResource H2}"/>
-                                                <TextBlock Text="{Binding ShopSummaryLine}" Style="{StaticResource Sub}" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                                                <TextBlock Text="{Binding ShopSummaryCountsLine}" Style="{StaticResource Sub}" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                                                <TextBlock Text="{Binding ShopOperatorAwarenessLine}" Style="{StaticResource Sub}" Margin="0,12,0,0" TextWrapping="Wrap"/>
-                                                <TextBlock Text="{Binding ShopActiveOperatorCountLine}" Style="{StaticResource Sub}" Margin="0,6,0,10" TextWrapping="Wrap"/>
-                                                <ItemsControl ItemsSource="{Binding ShopOperators}">
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <Border Style="{StaticResource SectionCard}" Margin="0,0,0,8">
-                                                                <StackPanel>
-                                                                    <TextBlock Text="{Binding OperatorName}" Foreground="{StaticResource Text}" FontSize="14" FontWeight="SemiBold"/>
-                                                                    <TextBlock Text="{Binding ContextLine}" Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                                                                    <TextBlock Text="{Binding WorkstationLine}" Style="{StaticResource Sub}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                    <Border CornerRadius="26"
+                                            Padding="22,20,22,18"
+                                            Background="#FF070A0F"
+                                            BorderBrush="#FF1C2735"
+                                            BorderThickness="1">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="22"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="22"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+
+                                            <Border Grid.Row="0" Style="{StaticResource WelcomePanelCard}" Padding="20,16">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="22"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="24"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="18"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="12"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="12"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Image Source="pack://application:,,,/Assets/Images/logo.png"
+                                                               Width="64"
+                                                               Height="64"
+                                                               Stretch="Uniform"
+                                                               Margin="0,0,18,0"/>
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="RUNBOOK" Foreground="#FFF4F7FB" FontSize="27" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="WORKSTATION" Foreground="#FF38D5FF" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding StationAreaLabel}" Foreground="#FFF4F7FB" FontSize="20" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding StationSubtitle}" Foreground="#FFAAB6C8" FontSize="14" Margin="0,4,0,0"/>
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding SessionEmployeeName}" Foreground="#FFF4F7FB" FontSize="20" FontWeight="SemiBold"/>
+                                                        <Border Style="{StaticResource CompactStatusBadgeBorderStyle}"
+                                                                HorizontalAlignment="Left"
+                                                                Margin="0,6,0,0"
+                                                                Background="{Binding OperatorShiftChipBackground}"
+                                                                BorderBrush="{Binding OperatorShiftChipBorder}">
+                                                            <TextBlock Text="{Binding OperatorShiftChipText}" Foreground="{Binding OperatorShiftChipForeground}" FontSize="11" FontWeight="SemiBold"/>
+                                                        </Border>
+                                                    </StackPanel>
+
+                                                    <Border Grid.Column="6"
+                                                            Padding="18,12"
+                                                            CornerRadius="8"
+                                                            Background="{Binding ServiceStatusBackgroundBrush}"
+                                                            BorderBrush="#FF243246"
+                                                            BorderThickness="1"
+                                                            VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Ellipse Width="14" Height="14" Fill="{Binding ServiceStatusAccentBrush}" VerticalAlignment="Top" Margin="0,3,10,0"/>
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding ServiceStatusHeadline}" Foreground="{Binding ServiceStatusAccentBrush}" FontSize="14" FontWeight="SemiBold"/>
+                                                                <TextBlock Text="{Binding ServiceStatusDetail}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,3,0,0"/>
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <StackPanel Grid.Column="8" VerticalAlignment="Center" Margin="0,0,2,0">
+                                                        <TextBlock Text="{Binding HeaderTimeText}" Foreground="#FFF4F7FB" FontSize="31" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                                        <TextBlock Text="{Binding HeaderDateText}" Foreground="#FFAAB6C8" FontSize="13" Margin="0,4,0,0" HorizontalAlignment="Right"/>
+                                                    </StackPanel>
+
+                                                    <Button Grid.Column="10"
+                                                            Command="{Binding LogoutCommand}"
+                                                            Style="{StaticResource WelcomeSearchButton}"
+                                                            Padding="20,0"
+                                                            MinWidth="162"
+                                                            Height="56"
+                                                            VerticalAlignment="Center">
+                                                        <TextBlock Text="SWITCH USER" Foreground="#FFF4F7FB" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                                    </Button>
+
+                                                    <Button Grid.Column="12"
+                                                            Command="{Binding OpenSupervisorDialogCommand}"
+                                                            Style="{StaticResource WelcomeSearchButton}"
+                                                            Padding="20,0"
+                                                            MinWidth="198"
+                                                            Height="56"
+                                                            VerticalAlignment="Center">
+                                                        <Grid VerticalAlignment="Center">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="10"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="&#xE72E;"
+                                                                       FontFamily="Segoe MDL2 Assets"
+                                                                       Foreground="#FF38D5FF"
+                                                                       FontSize="20"
+                                                                       VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="2"
+                                                                       Text="SUPERVISOR ACCESS"
+                                                                       Foreground="#FF38D5FF"
+                                                                       FontSize="12"
+                                                                       FontWeight="SemiBold"
+                                                                       VerticalAlignment="Center"/>
+                                                        </Grid>
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+
+                                            <Border Grid.Row="2" Style="{StaticResource WelcomePanelCard}" Padding="28,28,28,24" Background="#F30B111A">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="30"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <StackPanel MaxWidth="820">
+                                                        <TextBlock Text="{Binding OperatorLauncherTitle}" Foreground="#FFF4F7FB" FontSize="56" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding OperatorLauncherSubtitle}"
+                                                                   Foreground="#FFAAB6C8"
+                                                                   FontSize="20"
+                                                                   Margin="0,12,0,0"/>
+                                                    </StackPanel>
+                                                    <UniformGrid Grid.Row="2" Columns="4">
+                                                        <Button Style="{StaticResource WelcomeActionCardButton}"
+                                                                Command="{Binding SelectModuleKeyCommand}"
+                                                                CommandParameter="timeclock"
+                                                                Visibility="{Binding HasTimeClockAccess, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                Margin="0,0,14,0"
+                                                                Background="#FF0D1725"
+                                                                BorderBrush="#FF38D5FF">
+                                                            <Button.Effect>
+                                                                <DropShadowEffect BlurRadius="24" ShadowDepth="0" Color="#4A38D5FF"/>
+                                                            </Button.Effect>
+                                                            <Grid Margin="18,14,18,14">
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="18"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="12"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="*"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                </Grid.RowDefinitions>
+                                                                <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" Foreground="#FF38D5FF" FontSize="56" HorizontalAlignment="Center"/>
+                                                                <TextBlock Grid.Row="2" Text="TIME CLOCK" Foreground="#FFF4F7FB" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                                                <TextBlock Grid.Row="4" Text="Clock in, clock out, lunch, or break" Foreground="#FFAAB6C8" FontSize="15" TextAlignment="Center" TextWrapping="Wrap" Margin="10,0,10,0"/>
+                                                                <Border Grid.Row="6"
+                                                                        HorizontalAlignment="Stretch"
+                                                                        Padding="0"
+                                                                        Background="Transparent">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="Auto"/>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="Auto"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <Border Style="{StaticResource CompactStatusBadgeBorderStyle}"
+                                                                                Background="{Binding OperatorShiftChipBackground}"
+                                                                                BorderBrush="{Binding OperatorShiftChipBorder}">
+                                                                            <TextBlock Text="{Binding OperatorShiftChipText}" Foreground="{Binding OperatorShiftChipForeground}" FontSize="11" FontWeight="SemiBold"/>
+                                                                        </Border>
+                                                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                                            <TextBlock Text="{Binding OperatorTimeClockActionText}" Foreground="#FF78A6E8" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                                            <TextBlock Text="&#x203A;" Foreground="#FF78A6E8" FontSize="16" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </Border>
+                                                            </Grid>
+                                                        </Button>
+
+                                                        <Button Style="{StaticResource WelcomeActionCardButton}"
+                                                                Command="{Binding SelectModuleKeyCommand}"
+                                                                CommandParameter="workorders"
+                                                                Visibility="{Binding HasWorkOrdersAccess, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                Margin="0,0,14,0"
+                                                                BorderBrush="#FF2BD576">
+                                                            <Button.Effect>
+                                                                <DropShadowEffect BlurRadius="16" ShadowDepth="0" Color="#1F2BD576"/>
+                                                            </Button.Effect>
+                                                            <Grid Margin="18,14,18,14">
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="18"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="12"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="*"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                </Grid.RowDefinitions>
+                                                                <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" Foreground="#FF2BD576" FontSize="52" HorizontalAlignment="Center"/>
+                                                                <TextBlock Grid.Row="2" Text="WORK ORDERS" Foreground="#FFF4F7FB" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                                                <TextBlock Grid.Row="4" Text="View ready work and active operations" Foreground="#FFAAB6C8" FontSize="15" TextAlignment="Center" TextWrapping="Wrap" Margin="10,0,10,0"/>
+                                                                <TextBlock Grid.Row="6" Text="Open module  &#x203A;" Foreground="#FF2BD576" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                                                            </Grid>
+                                                        </Button>
+
+                                                        <Button Style="{StaticResource WelcomeActionCardButton}"
+                                                                Command="{Binding SelectModuleKeyCommand}"
+                                                                CommandParameter="drawings"
+                                                                Visibility="{Binding HasDrawingsAccess, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                Margin="0,0,14,0"
+                                                                BorderBrush="#FF78A6E8">
+                                                            <Button.Effect>
+                                                                <DropShadowEffect BlurRadius="20" ShadowDepth="0" Color="#3378A6E8"/>
+                                                            </Button.Effect>
+                                                            <Grid Margin="18,14,18,14">
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="18"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="12"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="*"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                </Grid.RowDefinitions>
+                                                                <TextBlock Text="&#xE160;" FontFamily="Segoe MDL2 Assets" Foreground="#FF78A6E8" FontSize="52" HorizontalAlignment="Center"/>
+                                                                <TextBlock Grid.Row="2" Text="DRAWINGS" Foreground="#FFF4F7FB" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                                                <TextBlock Grid.Row="4" Text="Find and print released drawings" Foreground="#FFAAB6C8" FontSize="15" TextAlignment="Center" TextWrapping="Wrap" Margin="10,0,10,0"/>
+                                                                <TextBlock Grid.Row="6" Text="Open module  &#x203A;" Foreground="#FF78A6E8" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                                                            </Grid>
+                                                        </Button>
+
+                                                        <Button Style="{StaticResource WelcomeActionCardButton}"
+                                                                Command="{Binding LaunchWelcomeFlowCommand}"
+                                                                CommandParameter="inspection"
+                                                                Visibility="{Binding HasWorkOrdersAccess, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                BorderBrush="#FFA970FF">
+                                                            <Button.Effect>
+                                                                <DropShadowEffect BlurRadius="20" ShadowDepth="0" Color="#33A970FF"/>
+                                                            </Button.Effect>
+                                                            <Grid Margin="18,14,18,14">
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="18"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="12"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="*"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                </Grid.RowDefinitions>
+                                                                <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" Foreground="#FFA970FF" FontSize="52" HorizontalAlignment="Center"/>
+                                                                <TextBlock Grid.Row="2" Text="INSPECTION REPORTS" Foreground="#FFF4F7FB" FontSize="21" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                                                <TextBlock Grid.Row="4" Text="Open or print inspection documents" Foreground="#FFAAB6C8" FontSize="15" TextAlignment="Center" TextWrapping="Wrap" Margin="10,0,10,0"/>
+                                                                <TextBlock Grid.Row="6" Text="Open route  &#x203A;" Foreground="#FFA970FF" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                                                            </Grid>
+                                                        </Button>
+                                                    </UniformGrid>
+                                                </Grid>
+                                            </Border>
+
+                                            <Grid Grid.Row="4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="0.95*"/>
+                                                    <ColumnDefinition Width="20"/>
+                                                    <ColumnDefinition Width="1.05*"/>
+                                                    <ColumnDefinition Width="20"/>
+                                                    <ColumnDefinition Width="0.9*"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <Border Grid.Column="0" Style="{StaticResource WelcomePanelCard}" Padding="22">
+                                                    <Grid>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="18"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="16"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="16"/>
+                                                            <RowDefinition Height="*"/>
+                                                        </Grid.RowDefinitions>
+                                                        <TextBlock Text="CURRENT OPERATOR" Foreground="#FF78A6E8" FontSize="15" FontWeight="SemiBold"/>
+                                                        <Border Grid.Row="2"
+                                                                Padding="18"
+                                                                CornerRadius="18"
+                                                                Background="#FF101824"
+                                                                BorderBrush="#FF243246"
+                                                                BorderThickness="1">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="16"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <Border Width="76"
+                                                                        Height="76"
+                                                                        CornerRadius="38"
+                                                                        Background="#1C3F6EB7"
+                                                                        BorderBrush="#FF78A6E8"
+                                                                        BorderThickness="1.5"
+                                                                        VerticalAlignment="Top">
+                                                                    <TextBlock Text="{Binding SessionEmployeeInitials}" Foreground="#FFF4F7FB" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                                    <TextBlock Text="{Binding SessionEmployeeName}" Foreground="#FFF4F7FB" FontSize="24" FontWeight="SemiBold"/>
+                                                                    <Border Style="{StaticResource CompactStatusBadgeBorderStyle}"
+                                                                            HorizontalAlignment="Left"
+                                                                            Margin="0,8,0,0"
+                                                                            Background="{Binding OperatorShiftChipBackground}"
+                                                                            BorderBrush="{Binding OperatorShiftChipBorder}">
+                                                                        <TextBlock Text="{Binding OperatorShiftChipText}" Foreground="{Binding OperatorShiftChipForeground}" FontSize="11" FontWeight="SemiBold"/>
+                                                                    </Border>
+                                                                    <TextBlock Text="{Binding OperatorTimeClockStatusLine}" Foreground="#FFAAB6C8" FontSize="13" Margin="0,10,0,0" TextWrapping="Wrap"/>
                                                                 </StackPanel>
-                                                            </Border>
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
-                                            </StackPanel>
-                                        </Border>
-                                        <Border Grid.Column="4" Style="{StaticResource ModuleCard}">
-                                            <StackPanel>
-                                                <TextBlock Text="Desktop Authority" Style="{StaticResource H2}"/>
-                                                <TextBlock Text="{Binding OfflineStatus}" Style="{StaticResource Sub}" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                                                <TextBlock Text="{Binding WorkOrdersStatus}" Style="{StaticResource Sub}" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                                                <TextBlock Text="{Binding PendingSyncSummary}" Style="{StaticResource Sub}" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                                            </StackPanel>
-                                        </Border>
-                                    </Grid>
+                                                            </Grid>
+                                                        </Border>
+                                                        <Border Grid.Row="4"
+                                                                Padding="12,10"
+                                                                CornerRadius="14"
+                                                                Background="#FF101824"
+                                                                BorderBrush="#FF243246"
+                                                                BorderThickness="1"
+                                                                Visibility="{Binding ShowOperatorSessionCountdown, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                            <TextBlock Text="{Binding OperatorSessionCountdownLabel}" Foreground="#FFAAB6C8" FontSize="13" FontWeight="SemiBold"/>
+                                                        </Border>
+                                                        <StackPanel Grid.Row="6">
+                                                            <Button Command="{Binding SelectModuleKeyCommand}" CommandParameter="timeclock" Style="{StaticResource WelcomeShortcutButton}" Visibility="{Binding HasTimeClockAccess, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="12"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" Foreground="#FF38D5FF" FontSize="18" VerticalAlignment="Center"/>
+                                                                    <TextBlock Grid.Column="2" Text="Time Clock" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                                    <TextBlock Grid.Column="3" Text="&#x203A;" Foreground="#FF78A6E8" FontSize="18" VerticalAlignment="Center"/>
+                                                                </Grid>
+                                                            </Button>
+                                                            <Button Command="{Binding SelectModuleKeyCommand}" CommandParameter="workorders" Style="{StaticResource WelcomeShortcutButton}" Visibility="{Binding HasWorkOrdersAccess, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="12"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" Foreground="#FF2BD576" FontSize="18" VerticalAlignment="Center"/>
+                                                                    <TextBlock Grid.Column="2" Text="Work Orders" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                                    <TextBlock Grid.Column="3" Text="&#x203A;" Foreground="#FF2BD576" FontSize="18" VerticalAlignment="Center"/>
+                                                                </Grid>
+                                                            </Button>
+                                                            <Button Command="{Binding SelectModuleKeyCommand}" CommandParameter="drawings" Style="{StaticResource WelcomeShortcutButton}" Margin="0,0,0,0" Visibility="{Binding HasDrawingsAccess, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="12"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <TextBlock Text="&#xE160;" FontFamily="Segoe MDL2 Assets" Foreground="#FF78A6E8" FontSize="18" VerticalAlignment="Center"/>
+                                                                    <TextBlock Grid.Column="2" Text="Drawings" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                                    <TextBlock Grid.Column="3" Text="&#x203A;" Foreground="#FF78A6E8" FontSize="18" VerticalAlignment="Center"/>
+                                                                </Grid>
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+
+                                                <Border Grid.Column="2" Style="{StaticResource WelcomePanelCard}" Padding="22">
+                                                    <Grid>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="18"/>
+                                                            <RowDefinition Height="*"/>
+                                                        </Grid.RowDefinitions>
+                                                        <TextBlock Text="MY WORK" Foreground="#FF78A6E8" FontSize="15" FontWeight="SemiBold"/>
+
+                                                        <Grid Grid.Row="2">
+                                                            <Grid Visibility="{Binding ShowOperatorCurrentJobCard, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="12"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="10"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="16"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                </Grid.RowDefinitions>
+                                                                <Border Padding="18"
+                                                                        CornerRadius="18"
+                                                                        Background="#FF101824"
+                                                                        BorderBrush="#FF243246"
+                                                                        BorderThickness="1">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="{Binding CurrentJobTitle}" Foreground="#FFF4F7FB" FontSize="24" FontWeight="SemiBold"/>
+                                                                        <TextBlock Text="{Binding CurrentJobSummary}" Foreground="#FFAAB6C8" FontSize="15" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                                        <TextBlock Text="{Binding CurrentJobHint}" Foreground="#FF6F7C8F" FontSize="13" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                                <Border Grid.Row="2"
+                                                                        Padding="12,10"
+                                                                        CornerRadius="14"
+                                                                        Background="#FF101824"
+                                                                        BorderBrush="#FF243246"
+                                                                        BorderThickness="1">
+                                                                    <TextBlock Text="{Binding ActiveWorkContextLine}" Foreground="#FFAAB6C8" FontSize="13" TextWrapping="Wrap"/>
+                                                                </Border>
+                                                                <Button Grid.Row="6"
+                                                                        Command="{Binding ResumeCurrentJobCommand}"
+                                                                        Style="{StaticResource WelcomeSearchButton}"
+                                                                        Width="210"
+                                                                        Height="56"
+                                                                        HorizontalAlignment="Left">
+                                                                    <TextBlock Text="RESUME / OPEN" Foreground="#FFF4F7FB" FontSize="12" FontWeight="SemiBold"/>
+                                                                </Button>
+                                                            </Grid>
+
+                                                            <Grid Visibility="{Binding ShowOperatorRecentJobCard, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="16"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                </Grid.RowDefinitions>
+                                                                <Border Padding="18"
+                                                                        CornerRadius="18"
+                                                                        Background="#FF101824"
+                                                                        BorderBrush="#FF243246"
+                                                                        BorderThickness="1">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="{Binding RecentJobTitle}" Foreground="#FFF4F7FB" FontSize="22" FontWeight="SemiBold"/>
+                                                                        <TextBlock Text="{Binding RecentJobSummary}" Foreground="#FFAAB6C8" FontSize="15" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                                        <TextBlock Text="Recent work is ready to reopen from the workstation session." Foreground="#FF6F7C8F" FontSize="13" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                                <Button Grid.Row="2"
+                                                                        Command="{Binding ResumeRecentJobCommand}"
+                                                                        Style="{StaticResource WelcomeSearchButton}"
+                                                                        Width="210"
+                                                                        Height="56"
+                                                                        HorizontalAlignment="Left">
+                                                                    <TextBlock Text="RESUME RECENT JOB" Foreground="#FFF4F7FB" FontSize="12" FontWeight="SemiBold"/>
+                                                                </Button>
+                                                            </Grid>
+
+                                                            <Grid Visibility="{Binding ShowOperatorEmptyWorkState, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="16"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                </Grid.RowDefinitions>
+                                                                <Border Padding="20"
+                                                                        CornerRadius="18"
+                                                                        Background="#FF101824"
+                                                                        BorderBrush="#FF243246"
+                                                                        BorderThickness="1">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="No active operation" Foreground="#FFF4F7FB" FontSize="24" FontWeight="SemiBold"/>
+                                                                        <TextBlock Text="Open Work Orders to begin assigned work." Foreground="#FFAAB6C8" FontSize="15" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                                        <TextBlock Text="{Binding WorkOrdersStatus}" Foreground="#FF6F7C8F" FontSize="13" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                                <Button Grid.Row="2"
+                                                                        Command="{Binding SelectModuleKeyCommand}"
+                                                                        CommandParameter="workorders"
+                                                                        Style="{StaticResource WelcomeSearchButton}"
+                                                                        Width="210"
+                                                                        Height="56"
+                                                                        HorizontalAlignment="Left"
+                                                                        Visibility="{Binding HasWorkOrdersAccess, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                    <TextBlock Text="GO TO WORK ORDERS" Foreground="#FFF4F7FB" FontSize="12" FontWeight="SemiBold"/>
+                                                                </Button>
+                                                            </Grid>
+                                                        </Grid>
+                                                    </Grid>
+                                                </Border>
+
+                                                <Border Grid.Column="4" Style="{StaticResource WelcomePanelCard}" Padding="20,20,20,18">
+                                                    <Grid>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="18"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="10"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="10"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="10"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="18"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+                                                        <TextBlock Text="STATION STATUS" Foreground="#FF78A6E8" FontSize="15" FontWeight="SemiBold"/>
+
+                                                        <Grid Grid.Row="2">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="10"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Ellipse Width="8" Height="8" Fill="{Binding ServiceStatusAccentBrush}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="2" Text="Service Connection" Foreground="#FFAAB6C8" FontSize="14" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding ServiceStatusHeadline}" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                        </Grid>
+
+                                                        <Grid Grid.Row="4">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="10"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Ellipse Width="8" Height="8" Fill="{Binding WorkstationOnlineStatusBrush}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="2" Text="Workstation" Foreground="#FFAAB6C8" FontSize="14" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding WorkstationOnlineStatusText}" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                        </Grid>
+
+                                                        <Grid Grid.Row="6">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="10"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Ellipse Width="8" Height="8" Fill="{Binding RuntimeAuthorityStatusBrush}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="2" Text="RunBook Service" Foreground="#FFAAB6C8" FontSize="14" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding RuntimeAuthorityStatusText}" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                        </Grid>
+
+                                                        <Grid Grid.Row="8">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="10"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Ellipse Width="8" Height="8" Fill="#FF78A6E8" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="2" Text="Last Sync" Foreground="#FFAAB6C8" FontSize="14" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding LastSyncDisplayText}" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                        </Grid>
+
+                                                        <TextBlock Grid.Row="10" Text="{Binding ServiceStatusNote}" Foreground="#FFAAB6C8" FontSize="12.5" TextWrapping="Wrap"/>
+                                                        <TextBlock Grid.Row="11" Text="{Binding StationStatusDetailText}" Foreground="#FF6F7C8F" FontSize="12.5" Margin="0,8,0,0" TextWrapping="Wrap">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding StationStatusDetailText}" Value="">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Grid>
+                                                </Border>
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
                                 </Grid>
                                 <Grid Visibility="{Binding IsWorkOrdersSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid.RowDefinitions>

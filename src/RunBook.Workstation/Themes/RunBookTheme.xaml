@@ -417,8 +417,9 @@
         <Setter Property="Background" Value="{StaticResource RunBook.Brush.TimeClock.Neutral.Fill}"/>
         <Setter Property="BorderBrush" Value="{StaticResource RunBook.Brush.TimeClock.Neutral.Border}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="CornerRadius" Value="6"/>
         <Setter Property="Padding" Value="10,4"/>
+        <Setter Property="MinHeight" Value="24"/>
     </Style>
     <Style x:Key="TimeClockHeroEyebrow" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}"/>
@@ -602,7 +603,7 @@
         <Setter Property="Background" Value="#66111A2A"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderSoft}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="14"/>
+        <Setter Property="CornerRadius" Value="8"/>
         <Setter Property="Padding" Value="13,8"/>
         <Setter Property="Margin" Value="0,0,10,0"/>
     </Style>
@@ -618,7 +619,7 @@
         <Setter Property="Background" Value="#ED0A111B"/>
         <Setter Property="BorderBrush" Value="#2C4F647C"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="17"/>
+        <Setter Property="CornerRadius" Value="8"/>
         <Setter Property="MinHeight" Value="32"/>
         <Setter Property="Padding" Value="12,6"/>
         <Setter Property="Margin" Value="0,0,8,0"/>
@@ -1362,11 +1363,110 @@
             </Setter.Value>
         </Setter>
     </Style>
-    <Style x:Key="TimeOffCalendarStyle" TargetType="Calendar">
-        <Setter Property="Background" Value="{StaticResource SurfaceDark}"/>
-        <Setter Property="Foreground" Value="{StaticResource Text}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderSoft}"/>
+    <Style x:Key="TimeOffCalendarDayButtonStyle" TargetType="{x:Type CalendarDayButton}">
+        <Setter Property="MinWidth" Value="46"/>
+        <Setter Property="MinHeight" Value="40"/>
+        <Setter Property="Margin" Value="2"/>
+        <Setter Property="FontSize" Value="17"/>
+        <Setter Property="Foreground" Value="#FFF4F7FB"/>
+        <Setter Property="Background" Value="#00101824"/>
+        <Setter Property="BorderBrush" Value="#00243246"/>
         <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type CalendarDayButton}">
+                    <Border x:Name="Outer"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="10"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Outer" Property="Background" Value="#FF142033"/>
+                            <Setter TargetName="Outer" Property="BorderBrush" Value="#FF3F6EB7"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Outer" Property="BorderBrush" Value="#FF38D5FF"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Outer" Property="Background" Value="#FF0F2234"/>
+                            <Setter TargetName="Outer" Property="BorderBrush" Value="#FF38D5FF"/>
+                            <Setter Property="Foreground" Value="#FFF4F7FB"/>
+                        </Trigger>
+                        <Trigger Property="IsInactive" Value="True">
+                            <Setter Property="Foreground" Value="#FF6F7C8F"/>
+                            <Setter TargetName="Outer" Property="Opacity" Value="0.72"/>
+                        </Trigger>
+                        <Trigger Property="IsToday" Value="True">
+                            <Setter TargetName="Outer" Property="BorderBrush" Value="#FF2BD576"/>
+                            <Setter TargetName="Outer" Property="Background" Value="#160D2A1B"/>
+                        </Trigger>
+                        <Trigger Property="IsBlackedOut" Value="True">
+                            <Setter Property="Foreground" Value="#88505D70"/>
+                            <Setter TargetName="Outer" Property="Opacity" Value="0.42"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="TimeOffCalendarButtonStyle" TargetType="{x:Type CalendarButton}">
+        <Setter Property="MinWidth" Value="44"/>
+        <Setter Property="MinHeight" Value="36"/>
+        <Setter Property="Margin" Value="2"/>
+        <Setter Property="FontSize" Value="15"/>
+        <Setter Property="Foreground" Value="#FFF4F7FB"/>
+        <Setter Property="Background" Value="#00101824"/>
+        <Setter Property="BorderBrush" Value="#00243246"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type CalendarButton}">
+                    <Border x:Name="Outer"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="10"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Outer" Property="Background" Value="#FF142033"/>
+                            <Setter TargetName="Outer" Property="BorderBrush" Value="#FF3F6EB7"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Outer" Property="Background" Value="#FF0B111A"/>
+                        </Trigger>
+                        <Trigger Property="IsInactive" Value="True">
+                            <Setter Property="Foreground" Value="#FF6F7C8F"/>
+                            <Setter TargetName="Outer" Property="Opacity" Value="0.72"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="TimeOffCalendarStyle" TargetType="Calendar">
+        <Setter Property="Background" Value="#FF0B111A"/>
+        <Setter Property="Foreground" Value="#FFF4F7FB"/>
+        <Setter Property="BorderBrush" Value="#FF243246"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Width" Value="392"/>
+        <Setter Property="Height" Value="348"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="Margin" Value="2"/>
+        <Setter Property="CalendarDayButtonStyle" Value="{StaticResource TimeOffCalendarDayButtonStyle}"/>
+        <Setter Property="CalendarButtonStyle" Value="{StaticResource TimeOffCalendarButtonStyle}"/>
     </Style>
     <Style x:Key="TimeOffDatePicker" TargetType="DatePicker">
         <Setter Property="Background" Value="{StaticResource SurfaceDark}"/>
@@ -1411,11 +1511,13 @@
                                AllowsTransparency="True"
                                Focusable="False"
                                PopupAnimation="Fade">
-                            <Border Background="{StaticResource SurfaceDark}"
-                                    BorderBrush="{StaticResource BorderSoft}"
+                            <Border Background="#FF0B111A"
+                                    BorderBrush="#FF243246"
                                     BorderThickness="1"
                                     CornerRadius="14"
-                                    Padding="8">
+                                    Padding="14"
+                                    MinWidth="392"
+                                    MinHeight="348">
                                 <Calendar x:Name="PART_Calendar"
                                           Style="{StaticResource TimeOffCalendarStyle}"/>
                             </Border>

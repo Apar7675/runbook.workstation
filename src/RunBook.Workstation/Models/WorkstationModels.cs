@@ -659,6 +659,25 @@ namespace RunBook.Workstation.Models
         public string AccentBrush { get; set; } = "#7EABD9";
     }
 
+    public sealed class WorkstationShiftTimelineEntry
+    {
+        public int SequenceNumber { get; set; }
+        public string Title { get; set; } = "";
+        public string TimestampDisplay { get; set; } = "";
+        public string Subtitle { get; set; } = "";
+        public string AccentBrush { get; set; } = "#38D5FF";
+        public string BackgroundBrush { get; set; } = "#101824";
+        public string BorderBrush { get; set; } = "#243246";
+        public string LeftConnectorBrush { get; set; } = "#243246";
+        public string RightConnectorBrush { get; set; } = "#243246";
+        public double LeftConnectorOpacity { get; set; } = 0.5;
+        public double RightConnectorOpacity { get; set; } = 0.5;
+        public bool IsFirst { get; set; }
+        public bool IsCurrent { get; set; }
+        public bool IsCompleted { get; set; }
+        public bool IsLast { get; set; }
+    }
+
     public sealed class WorkstationSyncQueueItem
     {
         public string QueueId { get; set; } = "";

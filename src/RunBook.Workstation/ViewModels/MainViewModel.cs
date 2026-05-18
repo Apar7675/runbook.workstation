@@ -18,6 +18,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Threading;
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace RunBook.Workstation.ViewModels
@@ -128,6 +129,9 @@ namespace RunBook.Workstation.ViewModels
         private string _inspectionResultNoteText = "";
         private bool _inspectionResultSubmissionAvailable;
         private bool _isMobileCaptureDialogOpen;
+        private bool _isTimeOffRequestsDialogOpen;
+        private bool _isTimeClockActivityDialogOpen;
+        private DateTime _selectedTimeClockWeekStart = GetWeekStart(DateTime.Now.Date);
         private string _selectedMobileCaptureType = "Damage Photo";
         private string _mobileCaptureUrl = "";
         private string _mobileCaptureExpiresText = "";
@@ -224,6 +228,13 @@ namespace RunBook.Workstation.ViewModels
             LunchEndCommand = new RelayCommand(async () => await SubmitPunchAsync("lunch_end", ""), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             SyncPendingCommand = new RelayCommand(async () => await SyncPendingQueueAsync(true), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             SubmitTimeOffCommand = new RelayCommand(async () => await SubmitTimeOffAsync(), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
+            OpenTimeOffRequestsDialogCommand = new RelayCommand(OpenTimeOffRequestsDialog, () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
+            CloseTimeOffRequestsDialogCommand = new RelayCommand(CloseTimeOffRequestsDialog, () => IsTimeOffRequestsDialogOpen && !IsBusy);
+            OpenTimeClockActivityDialogCommand = new RelayCommand(OpenTimeClockActivityDialog, () => CurrentSession != null && HasTimeClockAccess && HasMoreTimeClockActivity && !IsBusy);
+            CloseTimeClockActivityDialogCommand = new RelayCommand(CloseTimeClockActivityDialog, () => IsTimeClockActivityDialogOpen && !IsBusy);
+            PreviousTimeClockWeekCommand = new RelayCommand(GoToPreviousTimeClockWeek, () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
+            NextTimeClockWeekCommand = new RelayCommand(GoToNextTimeClockWeek, () => CurrentSession != null && HasTimeClockAccess && CanGoToNextTimeClockWeek && !IsBusy);
+            CurrentTimeClockWeekCommand = new RelayCommand(GoToCurrentTimeClockWeek, () => CurrentSession != null && HasTimeClockAccess && !IsViewingCurrentTimeClockWeek && !IsBusy);
             SelectModuleCommand = new RelayCommand<WorkstationModuleCard>(SelectModule);
             SelectModuleKeyCommand = new RelayCommand<string>(SelectModuleByKey, key => !string.IsNullOrWhiteSpace(key) && CurrentSession != null && !IsBusy);
             RefreshWorkOrdersCommand = new RelayCommand(async () => await RefreshWorkOrdersAsync(true), () => CurrentSession != null && HasWorkOrdersAccess && !IsBusy);
@@ -307,6 +318,8 @@ namespace RunBook.Workstation.ViewModels
         public ObservableCollection<WorkstationTimeClockSummaryRow> WeeklySummaryRows { get; } = new();
         public ObservableCollection<WorkstationTimeClockSummaryRow> CurrentStatusSummaryRows { get; } = new();
         public ObservableCollection<WorkstationTimeClockActivityRow> TimeClockActivityRows { get; } = new();
+        public ObservableCollection<WorkstationTimeClockActivityRow> AllTimeClockActivityRows { get; } = new();
+        public ObservableCollection<WorkstationShiftTimelineEntry> TodayShiftTimelineEntries { get; } = new();
         public ObservableCollection<WorkstationWorkOrderSummary> WorkOrders { get; } = new();
         public ObservableCollection<WorkstationWorkOrderSummary> AssignedWorkOrders { get; } = new();
         public ObservableCollection<WorkstationWorkOrderSummary> AvailableWorkOrders { get; } = new();
@@ -358,6 +371,13 @@ namespace RunBook.Workstation.ViewModels
         public ICommand LunchEndCommand { get; }
         public ICommand SyncPendingCommand { get; }
         public ICommand SubmitTimeOffCommand { get; }
+        public ICommand OpenTimeOffRequestsDialogCommand { get; }
+        public ICommand CloseTimeOffRequestsDialogCommand { get; }
+        public ICommand OpenTimeClockActivityDialogCommand { get; }
+        public ICommand CloseTimeClockActivityDialogCommand { get; }
+        public ICommand PreviousTimeClockWeekCommand { get; }
+        public ICommand NextTimeClockWeekCommand { get; }
+        public ICommand CurrentTimeClockWeekCommand { get; }
         public ICommand SelectModuleCommand { get; }
         public ICommand SelectModuleKeyCommand { get; }
         public ICommand RefreshWorkOrdersCommand { get; }
@@ -423,11 +443,26 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(ShowNoAccessAssigned));
                 OnPropertyChanged(nameof(ShowModulesShell));
                 OnPropertyChanged(nameof(SessionEmployeeName));
+                OnPropertyChanged(nameof(SessionEmployeeFirstName));
+                OnPropertyChanged(nameof(SessionEmployeeInitials));
                 OnPropertyChanged(nameof(SessionRole));
                 OnPropertyChanged(nameof(LoginHeadline));
                 OnPropertyChanged(nameof(LoginInstructionLine));
                 OnPropertyChanged(nameof(StationAreaLabel));
                 OnPropertyChanged(nameof(StationSubtitle));
+                OnPropertyChanged(nameof(OperatorLauncherTitle));
+                OnPropertyChanged(nameof(OperatorLauncherSubtitle));
+                OnPropertyChanged(nameof(OperatorShiftChipText));
+                OnPropertyChanged(nameof(OperatorShiftChipForeground));
+                OnPropertyChanged(nameof(OperatorShiftChipBackground));
+                OnPropertyChanged(nameof(OperatorShiftChipBorder));
+                OnPropertyChanged(nameof(OperatorTimeClockActionText));
+                OnPropertyChanged(nameof(OperatorTimeClockStatusLine));
+                OnPropertyChanged(nameof(ShowOperatorSessionCountdown));
+                OnPropertyChanged(nameof(OperatorSessionCountdownLabel));
+                OnPropertyChanged(nameof(ShowOperatorCurrentJobCard));
+                OnPropertyChanged(nameof(ShowOperatorRecentJobCard));
+                OnPropertyChanged(nameof(ShowOperatorEmptyWorkState));
                 OnPropertyChanged(nameof(CurrentOperatorLine));
                 OnPropertyChanged(nameof(CurrentOperatorStatusLine));
                 OnPropertyChanged(nameof(PrimaryOperatorActionText));
@@ -654,6 +689,7 @@ namespace RunBook.Workstation.ViewModels
                 _selectedRosterEmployee = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(PasscodeDialogTitle));
+                OnPropertyChanged(nameof(PasscodeDialogInstruction));
                 OnPropertyChanged(nameof(PasscodeDialogSubtitle));
                 OnPropertyChanged(nameof(PasscodeDialogModuleSummary));
                 OnPropertyChanged(nameof(PasscodeDialogActionTitle));
@@ -707,6 +743,34 @@ namespace RunBook.Workstation.ViewModels
                     return;
 
                 _isSupervisorDialogOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
+
+        public bool IsTimeOffRequestsDialogOpen
+        {
+            get => _isTimeOffRequestsDialogOpen;
+            private set
+            {
+                if (_isTimeOffRequestsDialogOpen == value)
+                    return;
+
+                _isTimeOffRequestsDialogOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
+
+        public bool IsTimeClockActivityDialogOpen
+        {
+            get => _isTimeClockActivityDialogOpen;
+            private set
+            {
+                if (_isTimeClockActivityDialogOpen == value)
+                    return;
+
+                _isTimeClockActivityDialogOpen = value;
                 OnPropertyChanged();
                 RaiseCommandStates();
             }
@@ -813,7 +877,17 @@ namespace RunBook.Workstation.ViewModels
         private bool IsSuccessStatusText => ContainsStatusText("saved") || ContainsStatusText("complete") || ContainsStatusText("ready") || ContainsStatusText("operational") || ContainsStatusText("connected");
         private bool ContainsStatusText(string value)
             => (_statusText ?? "").IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
-        public string SessionCountdown { get => _sessionCountdown; private set { _sessionCountdown = value ?? ""; OnPropertyChanged(); } }
+        public string SessionCountdown
+        {
+            get => _sessionCountdown;
+            private set
+            {
+                _sessionCountdown = value ?? "";
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ShowOperatorSessionCountdown));
+                OnPropertyChanged(nameof(OperatorSessionCountdownLabel));
+            }
+        }
         public string TimeClockStatus { get => _timeClockStatus; private set { _timeClockStatus = value ?? ""; OnPropertyChanged(); } }
         public string OfflineStatus
         {
@@ -835,14 +909,49 @@ namespace RunBook.Workstation.ViewModels
         public string SettingsControlEmail { get => _settingsControlEmail; set { _settingsControlEmail = value ?? ""; OnPropertyChanged(); } }
         public string SettingsControlPassword { get => _settingsControlPassword; set { _settingsControlPassword = value ?? ""; OnPropertyChanged(); } }
         public string ControlSessionStatus { get => _controlSessionStatus; private set { _controlSessionStatus = value ?? ""; OnPropertyChanged(); } }
-        public string CurrentShiftStatus { get => _currentShiftStatus; private set { _currentShiftStatus = value ?? ""; OnPropertyChanged(); } }
-        public string CurrentShiftDetail { get => _currentShiftDetail; private set { _currentShiftDetail = value ?? ""; OnPropertyChanged(); } }
+        public string CurrentShiftStatus
+        {
+            get => _currentShiftStatus;
+            private set
+            {
+                _currentShiftStatus = value ?? "";
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(OperatorLauncherSubtitle));
+                OnPropertyChanged(nameof(OperatorShiftChipText));
+                OnPropertyChanged(nameof(OperatorShiftChipForeground));
+                OnPropertyChanged(nameof(OperatorShiftChipBackground));
+                OnPropertyChanged(nameof(OperatorShiftChipBorder));
+                OnPropertyChanged(nameof(OperatorTimeClockActionText));
+                OnPropertyChanged(nameof(OperatorTimeClockStatusLine));
+            }
+        }
+        public string CurrentShiftDetail
+        {
+            get => _currentShiftDetail;
+            private set
+            {
+                _currentShiftDetail = value ?? "";
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(OperatorTimeClockStatusLine));
+            }
+        }
         public string PendingSyncSummary { get => _pendingSyncSummary; private set { _pendingSyncSummary = value ?? ""; OnPropertyChanged(); } }
         public string WorkOrdersStatus { get => _workOrdersStatus; private set { _workOrdersStatus = value ?? ""; OnPropertyChanged(); } }
         public string HeaderDateText => _headerDateText;
         public string HeaderTimeText => _headerTimeText;
         public string StationAreaLabel => string.IsNullOrWhiteSpace(Settings.ShopName) ? "WORKSTATION AREA" : Settings.ShopName.ToUpperInvariant();
         public string StationSubtitle => string.IsNullOrWhiteSpace(Settings.WorkstationName) ? "Workstation" : Settings.WorkstationName;
+        public string SessionEmployeeFirstName => BuildFirstName(SessionEmployeeName);
+        public string SessionEmployeeInitials => BuildInitials(SessionEmployeeName);
+        public string OperatorLauncherTitle => $"Welcome, {SessionEmployeeFirstName}";
+        public string OperatorLauncherSubtitle => TimeClockStateKey switch
+        {
+            "out" => "Clock in to begin work.",
+            "working" => "Open work, enter progress, or print released documents.",
+            "break" => "End break or open work when you are ready to resume.",
+            "lunch" => "Return from lunch or open work when you are ready.",
+            _ => "Choose what you want to do next."
+        };
         public string RefreshConnectionsButtonText => "Refresh Employee Avatars";
         public bool HasSupervisorSession => ControlSessionService.HasSession();
         public bool ShowSupervisorSignInFields => !HasSupervisorSession;
@@ -855,6 +964,43 @@ namespace RunBook.Workstation.ViewModels
         public string IdleLogoutBadgeText => CurrentSession == null ? "" : FormatIdleLogoutRemaining(GetIdleSecondsRemaining());
         public bool ShowIdleLogoutBadge => CurrentSession != null && !IsWorkOrdersSelected;
         public string TimeClockStateKey => GetShiftStateKey(CurrentShiftStatus);
+        public string OperatorShiftChipText => TimeClockStateKey switch
+        {
+            "working" => "CLOCKED IN",
+            "break" => "ON BREAK",
+            "lunch" => "AT LUNCH",
+            _ => "CLOCKED OUT"
+        };
+        public string OperatorShiftChipForeground => TimeClockStateKey switch
+        {
+            "working" => "#FF2BD576",
+            "break" => "#FFF5B642",
+            "lunch" => "#FF78A6E8",
+            _ => "#FFFF5A6A"
+        };
+        public string OperatorShiftChipBackground => TimeClockStateKey switch
+        {
+            "working" => "#182BD576",
+            "break" => "#18F5B642",
+            "lunch" => "#1878A6E8",
+            _ => "#18FF5A6A"
+        };
+        public string OperatorShiftChipBorder => TimeClockStateKey switch
+        {
+            "working" => "#662BD576",
+            "break" => "#66F5B642",
+            "lunch" => "#6678A6E8",
+            _ => "#66FF5A6A"
+        };
+        public string OperatorTimeClockActionText => TimeClockStateKey switch
+        {
+            "out" => "Punch In",
+            "working" => "Clock Out / Break",
+            _ => "Open Time Clock"
+        };
+        public string OperatorTimeClockStatusLine => string.IsNullOrWhiteSpace(CurrentShiftDetail) ? OperatorShiftChipText : CurrentShiftDetail;
+        public bool ShowOperatorSessionCountdown => IsLoggedIn && !string.IsNullOrWhiteSpace(SessionCountdown) && !string.Equals(SessionCountdown, "Signed out", StringComparison.OrdinalIgnoreCase);
+        public string OperatorSessionCountdownLabel => SessionCountdown;
         public string TimeClockHeroTitle => TimeClockStateKey switch
         {
             "working" => "You Are Clocked In",
@@ -878,14 +1024,27 @@ namespace RunBook.Workstation.ViewModels
         public string TimeClockHeroElapsedValue => BuildHeroElapsedValue();
         public string TimeClockHeroElapsedCaption => TimeClockStateKey == "out" ? "not currently running" : $"as of {DateTime.Now.ToString("h:mm tt", CultureInfo.InvariantCulture)}";
         public string TimeClockHeroShiftLine => BuildHeroShiftLine();
+        public string TimeClockHeroShiftDisplay => TimeClockHeroShiftLine == "Current shift" ? "Shift: Not assigned" : $"Shift: {TimeClockHeroShiftLine}";
         public string TimeClockWeeklyDateRange => BuildWeeklyDateRange();
+        public bool IsViewingCurrentTimeClockWeek => _selectedTimeClockWeekStart.Date == GetWeekStart(DateTime.Now.Date);
+        public bool CanGoToNextTimeClockWeek => _selectedTimeClockWeekStart.Date < GetWeekStart(DateTime.Now.Date);
+        public bool ShowCurrentTimeClockWeekButton => !IsViewingCurrentTimeClockWeek;
+        public bool HasLoadedTimeClockWeekActivity => BuildSelectedWeekSummary().HasActivity;
+        public bool ShowEmptyTimeClockWeek => !HasLoadedTimeClockWeekActivity;
+        public string TimeClockWeeklyHelperText => "No loaded punch activity for this week.";
         public string TimeClockPendingApprovalCount => RecentTimeOffRequests.Count.ToString(CultureInfo.InvariantCulture);
         public string TimeClockPendingApprovalText => HasRecentTimeOffRequests ? "Pending requests loaded" : "No pending requests";
+        public string TimeOffRequestsButtonText => "View My Requests";
         public string TimeClockFooterStatusLine => string.IsNullOrWhiteSpace(TimeClockStatus) ? $"Loaded service timeclock state for {SessionEmployeeName}." : TimeClockStatus;
         public string TimeClockSyncStatusLabel => HasPendingSyncItems ? "Pending Sync" : "Synced";
         public string TimeClockSyncDetailText => BuildSyncSummaryValue();
         public string WorkstationVersionLabel => $"v{typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"}";
         public string TimeClockTimelineClockInText => TimeClockStateKey == "out" ? "Ready" : BuildStatusTimeValue();
+        public string TimeClockTimelineClockInAccentBrush => TimeClockStateKey == "out" ? "#38D5FF" : "#2BD576";
+        public string TimeClockTimelineClockInBackgroundBrush => TimeClockStateKey == "out" ? "#112D45" : "#0E2F25";
+        public string TimeClockTimelineClockInBorderBrush => TimeClockStateKey == "out" ? "#1F82C7" : "#1F6A4C";
+        public string TimeClockTimelineConnectorBackgroundBrush => TimeClockHeroBackgroundBrush;
+        public string TimeClockTimelineConnectorAccentBrush => TimeClockHeroAccentBrush;
         public string TimeClockTimelineWorkingText => TimeClockStateKey switch
         {
             "working" => "In Progress",
@@ -895,26 +1054,49 @@ namespace RunBook.Workstation.ViewModels
         };
         public string TimeClockTimelineLunchText => TimeClockStateKey == "lunch" ? "In Progress" : "Upcoming";
         public string TimeClockTimelineClockOutText => TimeClockStateKey == "out" ? "Completed" : "Upcoming";
+        public string TimeClockStatusPillBackgroundBrush => TimeClockStateKey switch
+        {
+            "working" => "#182BD576",
+            "break" => "#18F5B642",
+            "lunch" => "#18F5B642",
+            _ => "#2A1015"
+        };
+        public string TimeClockStatusPillBorderBrush => TimeClockStateKey switch
+        {
+            "working" => "#662BD576",
+            "break" => "#66F5B642",
+            "lunch" => "#66F5B642",
+            _ => "#9E2F3E"
+        };
+        public string TimeClockStatusPillForegroundBrush => TimeClockStateKey switch
+        {
+            "working" => "#FF2BD576",
+            "break" => "#FFF5B642",
+            "lunch" => "#FFF5B642",
+            _ => "#FFFF5A6A"
+        };
         public string TimeClockHeroAccentBrush => TimeClockStateKey switch
         {
-            "working" => "#58E58B",
-            "break" => "#F5A623",
-            "lunch" => "#49A7FF",
-            _ => "#FF5B6E"
+            "working" => "#FF2BD576",
+            "break" => "#FFF5B642",
+            "lunch" => "#FFF5B642",
+            _ => "#FFFF5A6A"
         };
+        public Brush TimeClockHeroGradientBrush => BuildTimeClockHeroGradientBrush();
+        public Brush TimeClockHeroGlowWashBrush => BuildTimeClockHeroGlowWashBrush();
         public string TimeClockHeroBorderBrush => TimeClockStateKey switch
         {
-            "working" => "#1F6A4C",
-            "break" => "#8A5A10",
-            "lunch" => "#2B6FB2",
-            _ => "#8E3140"
+            "working" => "#FF1F6A4C",
+            "break" => "#FF8A5A10",
+            "lunch" => "#FF8A5A10",
+            _ => "#FF9E2F3E"
         };
         public string TimeClockHeroBackgroundBrush => TimeClockStateKey switch
         {
-            "working" => "#0E2F25",
-            "break" => "#31230F",
-            "lunch" => "#112946",
-            _ => "#34151C"
+            "working" => "#FF0E2F25",
+            "break" => "#FF31230F",
+            "lunch" => "#FF31230F",
+            _ => "#FF2A1015"
         };
         public bool ShowClockInAction => TimeClockStateKey == "out";
         public bool ShowWorkingActions => TimeClockStateKey == "working";
@@ -925,6 +1107,13 @@ namespace RunBook.Workstation.ViewModels
         public bool ShowNoRecentTimeOffRequests => !HasRecentTimeOffRequests;
         public bool HasTimeClockActivity => TimeClockActivityRows.Count > 0;
         public bool ShowEmptyTimeClockActivity => !HasTimeClockActivity;
+        public bool HasTodayShiftTimeline => TodayShiftTimelineEntries.Count > 0;
+        public bool ShowEmptyTodayShiftTimeline => !HasTodayShiftTimeline;
+        public bool HasMoreTimeClockActivity => RecentPunches.Count > TimeClockActivityRows.Count;
+        public bool ShowTimeClockActivityViewAllButton => HasMoreTimeClockActivity;
+        public string TimeClockActivityViewAllButtonText => HasMoreTimeClockActivity ? "View All" : "All Activity Shown";
+        public bool ShowEmptyTimeOffRequestsDialog => RecentTimeOffRequests.Count == 0;
+        public bool ShowEmptyTimeClockActivityDialog => AllTimeClockActivityRows.Count == 0;
         public string TimeClockActivityTitle => "Recent Activity";
         public string TimeOffSectionSubtitle => HasRecentTimeOffRequests
             ? "Request time away without leaving the punch screen."
@@ -951,6 +1140,9 @@ namespace RunBook.Workstation.ViewModels
                 _currentJob = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HasCurrentJob));
+                OnPropertyChanged(nameof(ShowOperatorCurrentJobCard));
+                OnPropertyChanged(nameof(ShowOperatorRecentJobCard));
+                OnPropertyChanged(nameof(ShowOperatorEmptyWorkState));
                 OnPropertyChanged(nameof(CurrentOperatorStatusLine));
                 OnPropertyChanged(nameof(CurrentJobTitle));
                 OnPropertyChanged(nameof(CurrentJobSummary));
@@ -966,6 +1158,8 @@ namespace RunBook.Workstation.ViewModels
                 _recentJob = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HasRecentJob));
+                OnPropertyChanged(nameof(ShowOperatorRecentJobCard));
+                OnPropertyChanged(nameof(ShowOperatorEmptyWorkState));
                 OnPropertyChanged(nameof(RecentJobTitle));
                 OnPropertyChanged(nameof(RecentJobSummary));
                 RaiseCommandStates();
@@ -1027,6 +1221,9 @@ namespace RunBook.Workstation.ViewModels
         public bool IsDrawingsSelected => string.Equals(SelectedModule?.Key, "drawings", StringComparison.OrdinalIgnoreCase);
         public bool HasCurrentJob => CurrentJob != null && CurrentJob.WorkOrderId > 0;
         public bool HasRecentJob => !HasCurrentJob && RecentJob != null && RecentJob.WorkOrderId > 0;
+        public bool ShowOperatorCurrentJobCard => HasCurrentJob;
+        public bool ShowOperatorRecentJobCard => !HasCurrentJob && HasRecentJob;
+        public bool ShowOperatorEmptyWorkState => !HasCurrentJob && !HasRecentJob;
         public bool HasShopAwareness => ShopAwareness.Summary.VisibleJobs > 0 || ShopOperators.Count > 0;
         public bool CanConfirmPasscode => !IsBusy && IsPasscodeDialogOpen && SelectedRosterEmployee != null && _passcode.Length >= 4 && _passcode.Length <= 6;
         public string LoginHeadline => IsLoggedIn ? "Go to Work" : "Select Operator";
@@ -1480,6 +1677,7 @@ namespace RunBook.Workstation.ViewModels
             ? "Measured value entry will appear here."
             : $"{SelectedInspectionTask.FeatureText} - {SelectedInspectionTask.InputType}";
         public string PasscodeDialogTitle => SelectedRosterEmployee?.DisplayName ?? "Employee Sign In";
+        public string PasscodeDialogInstruction => SelectedRosterEmployee == null ? "Enter the PIN for the selected employee." : $"Enter the PIN for {SelectedRosterEmployee.DisplayName}.";
         public string PasscodeDialogSubtitle => SelectedRosterEmployee == null ? "Select an employee to continue." : SelectedRosterEmployee.Role;
         public string PasscodeDialogModuleSummary => SelectedRosterEmployee?.AccessSummary ?? "";
         public string PasscodeDialogActionTitle => _pendingWelcomeModuleKey switch
@@ -2170,9 +2368,7 @@ namespace RunBook.Workstation.ViewModels
             IsPasscodeDialogOpen = true;
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
             NotifyPasscodeEntryVisuals();
-            StatusText = employee.HasWorkstationPasscode
-                ? $"Enter the passcode for {employee.DisplayName}."
-                : $"{employee.DisplayName} may need an employee auth refresh if the passcode was just configured. Enter the passcode to try RunBook Service validation.";
+            StatusText = "Enter the passcode to continue.";
         }
 
         private void AppendPasscodeDigit(string? digit)
@@ -2260,6 +2456,32 @@ namespace RunBook.Workstation.ViewModels
         {
             ClearSupervisorCredentials();
             IsSupervisorDialogOpen = false;
+        }
+
+        private void OpenTimeOffRequestsDialog()
+        {
+            if (CurrentSession == null || !HasTimeClockAccess || IsBusy)
+                return;
+
+            IsTimeOffRequestsDialogOpen = true;
+        }
+
+        private void CloseTimeOffRequestsDialog()
+        {
+            IsTimeOffRequestsDialogOpen = false;
+        }
+
+        private void OpenTimeClockActivityDialog()
+        {
+            if (CurrentSession == null || !HasTimeClockAccess || IsBusy || !HasMoreTimeClockActivity)
+                return;
+
+            IsTimeClockActivityDialogOpen = true;
+        }
+
+        private void CloseTimeClockActivityDialog()
+        {
+            IsTimeClockActivityDialogOpen = false;
         }
 
         private void ShowRunBookAlert(string title, string body)
@@ -4524,9 +4746,16 @@ namespace RunBook.Workstation.ViewModels
             foreach (var row in BuildCurrentStatusSummaryRows())
                 CurrentStatusSummaryRows.Add(row);
 
+            TodayShiftTimelineEntries.Clear();
+            foreach (var entry in BuildTodayShiftTimelineEntries())
+                TodayShiftTimelineEntries.Add(entry);
+
             TimeClockActivityRows.Clear();
-            foreach (var row in BuildTimeClockActivityRows())
+            foreach (var row in BuildTimeClockActivityRows(8))
                 TimeClockActivityRows.Add(row);
+            AllTimeClockActivityRows.Clear();
+            foreach (var row in BuildTimeClockActivityRows())
+                AllTimeClockActivityRows.Add(row);
 
             OnPropertyChanged(nameof(TimeClockStateKey));
             OnPropertyChanged(nameof(TimeClockHeroTitle));
@@ -4540,17 +4769,40 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(TimeClockHeroElapsedValue));
             OnPropertyChanged(nameof(TimeClockHeroElapsedCaption));
             OnPropertyChanged(nameof(TimeClockHeroShiftLine));
+            OnPropertyChanged(nameof(TimeClockHeroShiftDisplay));
             OnPropertyChanged(nameof(TimeClockWeeklyDateRange));
+            OnPropertyChanged(nameof(IsViewingCurrentTimeClockWeek));
+            OnPropertyChanged(nameof(CanGoToNextTimeClockWeek));
+            OnPropertyChanged(nameof(ShowCurrentTimeClockWeekButton));
+            OnPropertyChanged(nameof(HasLoadedTimeClockWeekActivity));
+            OnPropertyChanged(nameof(ShowEmptyTimeClockWeek));
+            OnPropertyChanged(nameof(TimeClockWeeklyHelperText));
             OnPropertyChanged(nameof(TimeClockPendingApprovalCount));
             OnPropertyChanged(nameof(TimeClockPendingApprovalText));
+            OnPropertyChanged(nameof(TimeOffRequestsButtonText));
             OnPropertyChanged(nameof(TimeClockFooterStatusLine));
             OnPropertyChanged(nameof(TimeClockSyncStatusLabel));
             OnPropertyChanged(nameof(TimeClockSyncDetailText));
+            OnPropertyChanged(nameof(HasMoreTimeClockActivity));
+            OnPropertyChanged(nameof(ShowTimeClockActivityViewAllButton));
+            OnPropertyChanged(nameof(TimeClockActivityViewAllButtonText));
+            OnPropertyChanged(nameof(ShowEmptyTimeOffRequestsDialog));
+            OnPropertyChanged(nameof(ShowEmptyTimeClockActivityDialog));
             OnPropertyChanged(nameof(TimeClockTimelineClockInText));
+            OnPropertyChanged(nameof(TimeClockTimelineClockInAccentBrush));
+            OnPropertyChanged(nameof(TimeClockTimelineClockInBackgroundBrush));
+            OnPropertyChanged(nameof(TimeClockTimelineClockInBorderBrush));
+            OnPropertyChanged(nameof(TimeClockTimelineConnectorBackgroundBrush));
+            OnPropertyChanged(nameof(TimeClockTimelineConnectorAccentBrush));
             OnPropertyChanged(nameof(TimeClockTimelineWorkingText));
             OnPropertyChanged(nameof(TimeClockTimelineLunchText));
             OnPropertyChanged(nameof(TimeClockTimelineClockOutText));
+            OnPropertyChanged(nameof(TimeClockStatusPillBackgroundBrush));
+            OnPropertyChanged(nameof(TimeClockStatusPillBorderBrush));
+            OnPropertyChanged(nameof(TimeClockStatusPillForegroundBrush));
             OnPropertyChanged(nameof(TimeClockHeroAccentBrush));
+            OnPropertyChanged(nameof(TimeClockHeroGradientBrush));
+            OnPropertyChanged(nameof(TimeClockHeroGlowWashBrush));
             OnPropertyChanged(nameof(TimeClockHeroBorderBrush));
             OnPropertyChanged(nameof(TimeClockHeroBackgroundBrush));
             OnPropertyChanged(nameof(ShowClockInAction));
@@ -4562,6 +4814,8 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(ShowNoRecentTimeOffRequests));
             OnPropertyChanged(nameof(HasTimeClockActivity));
             OnPropertyChanged(nameof(ShowEmptyTimeClockActivity));
+            OnPropertyChanged(nameof(HasTodayShiftTimeline));
+            OnPropertyChanged(nameof(ShowEmptyTodayShiftTimeline));
             OnPropertyChanged(nameof(TimeOffSectionSubtitle));
             _lastTimeClockPresentationSignature = signature;
         }
@@ -4585,7 +4839,8 @@ namespace RunBook.Workstation.ViewModels
                 PendingSyncItems.Count(item => string.Equals(item.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase)).ToString(CultureInfo.InvariantCulture),
                 PendingSyncItems.Count(item => string.Equals(item.SyncStatus, "failed", StringComparison.OrdinalIgnoreCase)).ToString(CultureInfo.InvariantCulture),
                 CurrentShiftStatus ?? "",
-                CurrentShiftDetail ?? "");
+                CurrentShiftDetail ?? "",
+                _selectedTimeClockWeekStart.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
         }
 
         private void MaybeRefreshPassiveConnectionStatuses()
@@ -4633,7 +4888,7 @@ namespace RunBook.Workstation.ViewModels
                 Value = SupportsLunch ? FormatDuration(summary.LunchTotal) : "--",
                 DetailText = SupportsLunch ? "of 1h 00m" : "not enabled",
                 IconText = "L",
-                AccentBrush = "#49A7FF",
+                AccentBrush = "#F5B642",
                 ProgressValue = SupportsLunch ? GetProgressPercent(summary.LunchTotal, TimeSpan.FromHours(1)) : 0
             };
             yield return new WorkstationTimeClockSummaryRow
@@ -4649,9 +4904,7 @@ namespace RunBook.Workstation.ViewModels
 
         private IEnumerable<WorkstationTimeClockSummaryRow> BuildWeeklySummaryRows()
         {
-            var now = DateTime.Now;
-            var startOfWeek = now.Date.AddDays(-(int)now.DayOfWeek);
-            var summary = SummarizePunchRange(startOfWeek, startOfWeek.AddDays(7));
+            var summary = BuildSelectedWeekSummary();
 
             yield return new WorkstationTimeClockSummaryRow
             {
@@ -4659,7 +4912,7 @@ namespace RunBook.Workstation.ViewModels
                 Value = FormatDuration(summary.WorkTotal),
                 DetailText = "Target: 40h 00m",
                 IconText = "W",
-                AccentBrush = "#49A7FF",
+                AccentBrush = "#38D5FF",
                 ProgressValue = GetProgressPercent(summary.WorkTotal, TimeSpan.FromHours(40))
             };
             yield return new WorkstationTimeClockSummaryRow
@@ -4668,7 +4921,7 @@ namespace RunBook.Workstation.ViewModels
                 Value = summary.ClockInCount.ToString(CultureInfo.InvariantCulture),
                 DetailText = "of 5",
                 IconText = "D",
-                AccentBrush = "#49A7FF",
+                AccentBrush = "#38D5FF",
                 ProgressValue = Math.Min(100, summary.ClockInCount / 5.0 * 100)
             };
             yield return new WorkstationTimeClockSummaryRow
@@ -4686,7 +4939,7 @@ namespace RunBook.Workstation.ViewModels
                 Value = SupportsLunch ? FormatDuration(summary.LunchTotal) : "--",
                 DetailText = SupportsLunch ? "of 5h 00m" : "not enabled",
                 IconText = "L",
-                AccentBrush = "#49A7FF",
+                AccentBrush = "#F5B642",
                 ProgressValue = SupportsLunch ? GetProgressPercent(summary.LunchTotal, TimeSpan.FromHours(5)) : 0
             };
         }
@@ -4751,6 +5004,9 @@ namespace RunBook.Workstation.ViewModels
             foreach (var entry in orderedPunches)
             {
                 var eventTime = entry.LocalTime!.Value;
+                if (eventTime >= rangeStartLocal && eventTime < rangeEndLocal)
+                    summary.HasActivity = true;
+
                 CloseSummarySegment(summary, activeSegment, activeSegmentStart, eventTime, rangeStartLocal, rangeEndLocal);
 
                 var eventType = (entry.Punch.EventType ?? "").Trim().ToUpperInvariant();
@@ -4807,6 +5063,8 @@ namespace RunBook.Workstation.ViewModels
             var overlap = GetSegmentOverlap(segmentStart.Value, segmentEnd, rangeStartLocal, rangeEndLocal);
             if (overlap <= TimeSpan.Zero)
                 return;
+
+            summary.HasActivity = true;
 
             switch (activeSegment)
             {
@@ -4896,12 +5154,45 @@ namespace RunBook.Workstation.ViewModels
             return detail;
         }
 
-        private static string BuildWeeklyDateRange()
+        private TimeClockRangeSummary BuildSelectedWeekSummary()
         {
-            var now = DateTime.Now;
-            var startOfWeek = now.Date.AddDays(-(int)now.DayOfWeek);
+            return SummarizePunchRange(_selectedTimeClockWeekStart, _selectedTimeClockWeekStart.AddDays(7));
+        }
+
+        private string BuildWeeklyDateRange()
+        {
+            var startOfWeek = _selectedTimeClockWeekStart.Date;
             var endOfWeek = startOfWeek.AddDays(6);
             return $"{startOfWeek.ToString("MMM d", CultureInfo.InvariantCulture)} - {endOfWeek.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}";
+        }
+
+        private void GoToPreviousTimeClockWeek()
+        {
+            SetSelectedTimeClockWeekStart(_selectedTimeClockWeekStart.AddDays(-7));
+        }
+
+        private void GoToNextTimeClockWeek()
+        {
+            if (!CanGoToNextTimeClockWeek)
+                return;
+
+            SetSelectedTimeClockWeekStart(_selectedTimeClockWeekStart.AddDays(7));
+        }
+
+        private void GoToCurrentTimeClockWeek()
+        {
+            SetSelectedTimeClockWeekStart(GetWeekStart(DateTime.Now.Date));
+        }
+
+        private void SetSelectedTimeClockWeekStart(DateTime weekStart)
+        {
+            var normalized = GetWeekStart(weekStart.Date);
+            if (_selectedTimeClockWeekStart.Date == normalized.Date)
+                return;
+
+            _selectedTimeClockWeekStart = normalized;
+            RefreshTimeClockPresentation();
+            RaiseCommandStates();
         }
 
         private string BuildStatusTimeValue()
@@ -4940,6 +5231,12 @@ namespace RunBook.Workstation.ViewModels
             public TimeSpan BreakTotal { get; set; }
             public TimeSpan LunchTotal { get; set; }
             public int ClockInCount { get; set; }
+            public bool HasActivity { get; set; }
+        }
+
+        private static DateTime GetWeekStart(DateTime localDate)
+        {
+            return localDate.Date.AddDays(-(int)localDate.DayOfWeek);
         }
 
         private enum TimeClockSegment
@@ -4950,9 +5247,10 @@ namespace RunBook.Workstation.ViewModels
             Lunch
         }
 
-        private IEnumerable<WorkstationTimeClockActivityRow> BuildTimeClockActivityRows()
+        private IEnumerable<WorkstationTimeClockActivityRow> BuildTimeClockActivityRows(int? maxItems = null)
         {
-            foreach (var punch in RecentPunches.Take(8))
+            var punches = maxItems.HasValue ? RecentPunches.Take(maxItems.Value) : RecentPunches;
+            foreach (var punch in punches)
             {
                 var syncState = string.IsNullOrWhiteSpace(punch.SyncState) ? "synced" : punch.SyncState.Trim();
                 yield return new WorkstationTimeClockActivityRow
@@ -4963,6 +5261,68 @@ namespace RunBook.Workstation.ViewModels
                     DetailText = BuildPunchDetail(punch),
                     IconText = GetActivityIconText((punch.EventType ?? "").Trim()),
                     AccentBrush = GetActivityAccentBrush((punch.EventType ?? "").Trim(), syncState)
+                };
+            }
+        }
+
+        private IEnumerable<WorkstationShiftTimelineEntry> BuildTodayShiftTimelineEntries()
+        {
+            var today = DateTime.Today;
+            var entries = RecentPunches
+                .Select(punch => new
+                {
+                    Punch = punch,
+                    LocalTime = ToLocalTime(punch.ClientTs)
+                })
+                .Where(entry => entry.LocalTime.HasValue && entry.LocalTime.Value.Date == today)
+                .OrderBy(entry => entry.LocalTime!.Value)
+                .ThenBy(entry => GetTimelineEventSortOrder((entry.Punch.EventType ?? "").Trim()))
+                .ToList();
+
+            for (var index = 0; index < entries.Count; index++)
+            {
+                var entry = entries[index];
+                var eventType = (entry.Punch.EventType ?? "").Trim().ToUpperInvariant();
+                var isLast = index == entries.Count - 1;
+                var isCurrent = isLast && !string.Equals(TimeClockStateKey, "out", StringComparison.OrdinalIgnoreCase);
+                var isCompleted = !isCurrent;
+                var accent = GetTimelineAccentBrush(eventType, isCurrent, isCompleted);
+                var background = isCurrent
+                    ? GetTimelineBackgroundBrush(eventType)
+                    : "#FF101824";
+                var border = isCurrent
+                    ? accent
+                    : isCompleted
+                        ? accent
+                        : "#FF243246";
+                var subtitle = isCurrent
+                    ? "In Progress"
+                    : isLast && string.Equals(TimeClockStateKey, "out", StringComparison.OrdinalIgnoreCase)
+                        ? "Completed"
+                        : "Completed";
+                var leftConnectorBrush = index == 0
+                    ? "#243246"
+                    : GetTimelineAccentBrush((entries[index - 1].Punch.EventType ?? "").Trim().ToUpperInvariant(), false, true);
+                var leftConnectorOpacity = index == 0 ? 0 : 0.9;
+                var rightConnectorOpacity = isLast ? 0 : (isCompleted ? 0.9 : 0.35);
+
+                yield return new WorkstationShiftTimelineEntry
+                {
+                    SequenceNumber = index + 1,
+                    Title = ToEventLabel((entry.Punch.EventType ?? "").Trim().ToLowerInvariant()),
+                    TimestampDisplay = entry.LocalTime!.Value.ToString("MM/dd/yyyy HH:mm", CultureInfo.InvariantCulture),
+                    Subtitle = subtitle,
+                    AccentBrush = accent,
+                    BackgroundBrush = background,
+                    BorderBrush = border,
+                    LeftConnectorBrush = leftConnectorBrush,
+                    RightConnectorBrush = accent,
+                    LeftConnectorOpacity = leftConnectorOpacity,
+                    RightConnectorOpacity = rightConnectorOpacity,
+                    IsFirst = index == 0,
+                    IsCurrent = isCurrent,
+                    IsCompleted = isCompleted,
+                    IsLast = isLast
                 };
             }
         }
@@ -5079,17 +5439,60 @@ namespace RunBook.Workstation.ViewModels
         private static string GetActivityAccentBrush(string eventType, string syncState)
         {
             if (string.Equals(syncState, "failed", StringComparison.OrdinalIgnoreCase))
-                return "#FF5B6E";
+                return "#FF5A6A";
             if (string.Equals(syncState, "pending", StringComparison.OrdinalIgnoreCase))
-                return "#F5A623";
+                return "#F5B642";
 
             return (eventType ?? "").Trim().ToUpperInvariant() switch
             {
-                "BREAK_START" or "BREAK_END" => "#F5A623",
-                "LUNCH_START" or "LUNCH_END" => "#49A7FF",
-                "CLOCK_IN" => "#58E58B",
-                "CLOCK_OUT" => "#FF5B6E",
-                _ => "#35C8FF"
+                "BREAK_START" or "BREAK_END" => "#F5B642",
+                "LUNCH_START" or "LUNCH_END" => "#F5B642",
+                "CLOCK_IN" => "#2BD576",
+                "CLOCK_OUT" => "#FF5A6A",
+                _ => "#38D5FF"
+            };
+        }
+
+        private static string GetTimelineAccentBrush(string eventType, bool isCurrent, bool isCompleted)
+        {
+            var baseAccent = (eventType ?? "").Trim().ToUpperInvariant() switch
+            {
+                "BREAK_START" or "BREAK_END" => "#F5B642",
+                "LUNCH_START" or "LUNCH_END" => "#F5B642",
+                "CLOCK_IN" => "#2BD576",
+                "CLOCK_OUT" => "#FF5A6A",
+                _ => "#38D5FF"
+            };
+
+            if (isCurrent || isCompleted)
+                return baseAccent;
+
+            return "#5A718E";
+        }
+
+        private static string GetTimelineBackgroundBrush(string eventType)
+        {
+            return (eventType ?? "").Trim().ToUpperInvariant() switch
+            {
+                "BREAK_START" or "BREAK_END" => "#2A1D08",
+                "LUNCH_START" or "LUNCH_END" => "#2A1D08",
+                "CLOCK_IN" => "#0D2A1B",
+                "CLOCK_OUT" => "#2A1015",
+                _ => "#101824"
+            };
+        }
+
+        private static int GetTimelineEventSortOrder(string eventType)
+        {
+            return (eventType ?? "").Trim().ToUpperInvariant() switch
+            {
+                "CLOCK_IN" => 0,
+                "BREAK_START" => 1,
+                "BREAK_END" => 2,
+                "LUNCH_START" => 3,
+                "LUNCH_END" => 4,
+                "CLOCK_OUT" => 5,
+                _ => 99
             };
         }
 
@@ -6170,6 +6573,14 @@ namespace RunBook.Workstation.ViewModels
             return string.IsNullOrWhiteSpace(initials) ? "RB" : initials;
         }
 
+        private static string BuildFirstName(string displayName)
+        {
+            var first = (displayName ?? "")
+                .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault();
+            return string.IsNullOrWhiteSpace(first) ? "Operator" : first;
+        }
+
         private static string BuildAccessSummary(WorkstationAuthPackageEmployee employee)
         {
             var modules = new List<string>();
@@ -7099,6 +7510,13 @@ namespace RunBook.Workstation.ViewModels
             if (LunchEndCommand is RelayCommand lunchEnd) lunchEnd.RaiseCanExecuteChanged();
             if (SyncPendingCommand is RelayCommand syncPending) syncPending.RaiseCanExecuteChanged();
             if (SubmitTimeOffCommand is RelayCommand submitTimeOff) submitTimeOff.RaiseCanExecuteChanged();
+            if (OpenTimeOffRequestsDialogCommand is RelayCommand openTimeOffRequests) openTimeOffRequests.RaiseCanExecuteChanged();
+            if (CloseTimeOffRequestsDialogCommand is RelayCommand closeTimeOffRequests) closeTimeOffRequests.RaiseCanExecuteChanged();
+            if (OpenTimeClockActivityDialogCommand is RelayCommand openTimeClockActivity) openTimeClockActivity.RaiseCanExecuteChanged();
+            if (CloseTimeClockActivityDialogCommand is RelayCommand closeTimeClockActivity) closeTimeClockActivity.RaiseCanExecuteChanged();
+            if (PreviousTimeClockWeekCommand is RelayCommand previousTimeClockWeek) previousTimeClockWeek.RaiseCanExecuteChanged();
+            if (NextTimeClockWeekCommand is RelayCommand nextTimeClockWeek) nextTimeClockWeek.RaiseCanExecuteChanged();
+            if (CurrentTimeClockWeekCommand is RelayCommand currentTimeClockWeek) currentTimeClockWeek.RaiseCanExecuteChanged();
             if (RefreshWorkOrdersCommand is RelayCommand refreshWorkOrders) refreshWorkOrders.RaiseCanExecuteChanged();
             if (ResumeCurrentJobCommand is RelayCommand resumeCurrentJob) resumeCurrentJob.RaiseCanExecuteChanged();
             if (ResumeRecentJobCommand is RelayCommand resumeRecentJob) resumeRecentJob.RaiseCanExecuteChanged();
@@ -7153,6 +7571,78 @@ namespace RunBook.Workstation.ViewModels
 
             var suffix = string.IsNullOrWhiteSpace(details) ? "" : $" | {details}";
             DebugLogService.Write($"UnlockTrace | {trace.TraceId} | {step} | elapsed_ms={trace.Stopwatch.ElapsedMilliseconds}{suffix}");
+        }
+
+        private Brush BuildTimeClockHeroGradientBrush()
+        {
+            var brush = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0.5),
+                EndPoint = new Point(1, 0.5)
+            };
+
+            switch (TimeClockStateKey)
+            {
+                case "working":
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F20D2A1B"), 0));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F00E1F1B"), 0.24));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#E008141D"), 0.66));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F008111D"), 1));
+                    break;
+                case "break":
+                case "lunch":
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F22A1D08"), 0));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#EE20180C"), 0.24));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#D810131C"), 0.66));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F008111D"), 1));
+                    break;
+                default:
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F22A1015"), 0));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#EA1A0D18"), 0.28));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#D610111C"), 0.68));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F008111D"), 1));
+                    break;
+            }
+
+            brush.Freeze();
+            return brush;
+        }
+
+        private Brush BuildTimeClockHeroGlowWashBrush()
+        {
+            var brush = new RadialGradientBrush
+            {
+                Center = new Point(0.08, 0.48),
+                GradientOrigin = new Point(0.08, 0.44),
+                RadiusX = 1.05,
+                RadiusY = 1.2
+            };
+
+            switch (TimeClockStateKey)
+            {
+                case "working":
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#722BD576"), 0));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#360D2A1B"), 0.36));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#160E1F1B"), 0.68));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#0008111D"), 1));
+                    break;
+                case "break":
+                case "lunch":
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#66F5B642"), 0));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#342A1D08"), 0.36));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#1620180C"), 0.68));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#0008111D"), 1));
+                    break;
+                default:
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#2EFF5A6A"), 0));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#222A1015"), 0.36));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#141A0D18"), 0.68));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#0008111D"), 1));
+                    break;
+            }
+
+            brush.Freeze();
+            return brush;
         }
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
