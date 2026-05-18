@@ -456,6 +456,7 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(ServiceStatusAccentBrush));
                 OnPropertyChanged(nameof(ServiceStatusBackgroundBrush));
                 OnPropertyChanged(nameof(ServiceStatusNote));
+                OnPropertyChanged(nameof(StationStatusDetailText));
                 OnPropertyChanged(nameof(RuntimeAuthorityStatusText));
                 OnPropertyChanged(nameof(RuntimeAuthorityStatusBrush));
                 OnPropertyChanged(nameof(WorkstationOnlineStatusBrush));
@@ -804,7 +805,16 @@ namespace RunBook.Workstation.ViewModels
             => (_statusText ?? "").IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
         public string SessionCountdown { get => _sessionCountdown; private set { _sessionCountdown = value ?? ""; OnPropertyChanged(); } }
         public string TimeClockStatus { get => _timeClockStatus; private set { _timeClockStatus = value ?? ""; OnPropertyChanged(); } }
-        public string OfflineStatus { get => _offlineStatus; private set { _offlineStatus = value ?? ""; OnPropertyChanged(); } }
+        public string OfflineStatus
+        {
+            get => _offlineStatus;
+            private set
+            {
+                _offlineStatus = value ?? "";
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(StationStatusDetailText));
+            }
+        }
         public string AuthCacheStatus { get => _authCacheStatus; private set { _authCacheStatus = value ?? ""; OnPropertyChanged(); } }
         public string SettingsBaseUrl { get => _settingsBaseUrl; set { _settingsBaseUrl = value ?? ""; OnPropertyChanged(); } }
         public string SettingsDesktopBaseUrl { get => _settingsDesktopBaseUrl; set { _settingsDesktopBaseUrl = value ?? ""; OnPropertyChanged(); } }
@@ -1090,6 +1100,9 @@ namespace RunBook.Workstation.ViewModels
         public string ServiceStatusNote => _serviceWriteBlocked
             ? "RunBook.Service local authority is unavailable right now."
             : "RunBook.Service local authority connected.";
+        public string StationStatusDetailText => string.Equals(OfflineStatus, ServiceStatusNote, StringComparison.OrdinalIgnoreCase)
+            ? ""
+            : OfflineStatus;
         public string LastSyncDisplayText
         {
             get
