@@ -453,7 +453,12 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(IsDrawingsSelected));
                 OnPropertyChanged(nameof(ServiceStatusHeadline));
                 OnPropertyChanged(nameof(ServiceStatusDetail));
+                OnPropertyChanged(nameof(ServiceStatusAccentBrush));
+                OnPropertyChanged(nameof(ServiceStatusBackgroundBrush));
+                OnPropertyChanged(nameof(ServiceStatusNote));
                 OnPropertyChanged(nameof(RuntimeAuthorityStatusText));
+                OnPropertyChanged(nameof(RuntimeAuthorityStatusBrush));
+                OnPropertyChanged(nameof(WorkstationOnlineStatusBrush));
                 OnPropertyChanged(nameof(LastSyncDisplayText));
                 RefreshRosterEmployeeStatuses();
                 RefreshConnectionStatuses();
@@ -469,6 +474,7 @@ namespace RunBook.Workstation.ViewModels
                 _registration = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(ConnectivityLine));
+                OnPropertyChanged(nameof(WorkstationOnlineStatusBrush));
                 OnPropertyChanged(nameof(WorkstationOnlineStatusText));
                 OnPropertyChanged(nameof(LastSyncDisplayText));
                 RefreshConnectionStatuses();
@@ -1015,10 +1021,14 @@ namespace RunBook.Workstation.ViewModels
         public string WorkstationIdentityLine => $"{Settings.WorkstationName}  |  {Settings.WorkstationId}";
         public IReadOnlyList<WorkstationRosterEmployee> RecentRosterEmployees => RosterEmployees.Take(8).ToList();
         public bool HasMoreRosterEmployees => RosterEmployees.Count > RecentRosterEmployees.Count;
+        public bool HasRosterEmployees => RosterEmployees.Count > 0;
         public bool ShowRecentEmployeeEmptyState => RosterEmployees.Count == 0;
         public string RecentEmployeeEmptyText => RosterEmployees.Count == 0
-            ? "No workstation-ready employees are loaded yet."
+            ? "Choose an action above, then select your employee profile."
             : "Select a recent employee to continue into passcode sign-in.";
+        public string RecentEmployeeEmptyDetailText => RosterEmployees.Count == 0
+            ? "Recent employees will appear here after sign-in."
+            : "";
         public string EmployeeQuickSearchText
         {
             get => _employeeQuickSearchText;
@@ -1037,6 +1047,9 @@ namespace RunBook.Workstation.ViewModels
         public string EmployeeQuickSearchHint => string.IsNullOrWhiteSpace(EmployeeQuickSearchText)
             ? "Search employee by name or badge..."
             : EmployeeQuickSearchText.Trim();
+        public string QuickSearchHelperText => RosterEmployees.Count == 0
+            ? "Employee search becomes available after the workstation roster is loaded."
+            : "Search employee by name or badge, or open the full employee list.";
         public bool IsEmployeeBrowserOpen
         {
             get => _isEmployeeBrowserOpen;
@@ -1070,8 +1083,13 @@ namespace RunBook.Workstation.ViewModels
             : "Connected to RunBook Service";
         public string ServiceStatusAccentBrush => _serviceWriteBlocked ? "#FF5A6A" : "#2BD576";
         public string ServiceStatusBackgroundBrush => _serviceWriteBlocked ? "#22FF5A6A" : "#182BD576";
+        public string WorkstationOnlineStatusBrush => Registration?.IsActive == true ? "#FF2BD576" : "#FFAAB6C8";
         public string WorkstationOnlineStatusText => Registration?.IsActive == true ? "Online" : "Not paired";
         public string RuntimeAuthorityStatusText => _serviceWriteBlocked ? "Blocked" : "Healthy";
+        public string RuntimeAuthorityStatusBrush => _serviceWriteBlocked ? "#FFFF5A6A" : "#FF2BD576";
+        public string ServiceStatusNote => _serviceWriteBlocked
+            ? "RunBook.Service local authority is unavailable right now."
+            : "RunBook.Service local authority connected.";
         public string LastSyncDisplayText
         {
             get
@@ -1848,7 +1866,7 @@ namespace RunBook.Workstation.ViewModels
                 }
                 else
                 {
-                    StatusText = "No workstation-ready employees are loaded yet.";
+                    StatusText = "Choose an action above, then select your employee profile when the workstation roster is ready.";
                 }
                 return;
             }
@@ -1861,6 +1879,13 @@ namespace RunBook.Workstation.ViewModels
         private async Task SubmitEmployeeQuickSearchAsync()
         {
             var query = (EmployeeQuickSearchText ?? "").Trim();
+            if (RosterEmployees.Count == 0)
+            {
+                StatusText = "Employee profiles will appear here after the workstation roster finishes loading.";
+                await Task.CompletedTask;
+                return;
+            }
+
             if (query.Length == 0)
             {
                 OpenEmployeeBrowser();
@@ -1872,7 +1897,7 @@ namespace RunBook.Workstation.ViewModels
             if (match == null)
             {
                 OpenEmployeeBrowser();
-                StatusText = $"No employee matched \"{query}\".";
+                StatusText = $"No roster match yet for \"{query}\". Try another name or open the full employee list.";
                 return;
             }
 
@@ -5482,8 +5507,11 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(RosterAvatarStatusLine));
             OnPropertyChanged(nameof(RecentRosterEmployees));
             OnPropertyChanged(nameof(HasMoreRosterEmployees));
+            OnPropertyChanged(nameof(HasRosterEmployees));
             OnPropertyChanged(nameof(ShowRecentEmployeeEmptyState));
             OnPropertyChanged(nameof(RecentEmployeeEmptyText));
+            OnPropertyChanged(nameof(RecentEmployeeEmptyDetailText));
+            OnPropertyChanged(nameof(QuickSearchHelperText));
             OnPropertyChanged(nameof(EmployeeBrowserEmployees));
             RaiseCommandStates();
             if (RosterEmployees.Count == 0)
