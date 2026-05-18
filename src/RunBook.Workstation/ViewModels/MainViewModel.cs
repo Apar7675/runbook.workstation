@@ -656,6 +656,12 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(PasscodeDialogTitle));
                 OnPropertyChanged(nameof(PasscodeDialogSubtitle));
                 OnPropertyChanged(nameof(PasscodeDialogModuleSummary));
+                OnPropertyChanged(nameof(PasscodeDialogActionTitle));
+                OnPropertyChanged(nameof(PasscodeDialogEmployeeStatusText));
+                OnPropertyChanged(nameof(ShowPasscodeDialogEmployeeStatus));
+                OnPropertyChanged(nameof(PasscodeDialogEmployeeStatusForeground));
+                OnPropertyChanged(nameof(PasscodeDialogEmployeeStatusBackground));
+                OnPropertyChanged(nameof(PasscodeDialogEmployeeStatusBorder));
                 RaiseCommandStates();
             }
         }
@@ -686,6 +692,8 @@ namespace RunBook.Workstation.ViewModels
                 _isPasscodeDialogOpen = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CanConfirmPasscode));
+                OnPropertyChanged(nameof(PasscodeDialogMessageText));
+                OnPropertyChanged(nameof(ShowPasscodeDialogMessage));
                 RaiseCommandStates();
             }
         }
@@ -793,6 +801,8 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(StatusTextBrush));
                 OnPropertyChanged(nameof(StatusTextBorderBrush));
                 OnPropertyChanged(nameof(StatusTextBackgroundBrush));
+                OnPropertyChanged(nameof(PasscodeDialogMessageText));
+                OnPropertyChanged(nameof(ShowPasscodeDialogMessage));
             }
         }
         public string StatusTextBrush => IsErrorStatusText ? "#F0525E" : IsWarningStatusText ? "#E8BC52" : IsSuccessStatusText ? "#3CC875" : "#B0BDD0";
@@ -1472,7 +1482,28 @@ namespace RunBook.Workstation.ViewModels
         public string PasscodeDialogTitle => SelectedRosterEmployee?.DisplayName ?? "Employee Sign In";
         public string PasscodeDialogSubtitle => SelectedRosterEmployee == null ? "Select an employee to continue." : SelectedRosterEmployee.Role;
         public string PasscodeDialogModuleSummary => SelectedRosterEmployee?.AccessSummary ?? "";
+        public string PasscodeDialogActionTitle => _pendingWelcomeModuleKey switch
+        {
+            "timeclock" => "Continue to Punch In / Out",
+            "workorders" => "Continue to Work Orders",
+            "drawings" => "Continue to Drawings",
+            "inspection" => "Continue to Inspection Reports",
+            _ => "Continue to Workstation"
+        };
+        public string PasscodeDialogEmployeeStatusText => SelectedRosterEmployee?.StatusChipText ?? "";
+        public bool ShowPasscodeDialogEmployeeStatus => !string.IsNullOrWhiteSpace(PasscodeDialogEmployeeStatusText);
+        public string PasscodeDialogEmployeeStatusForeground => string.IsNullOrWhiteSpace(SelectedRosterEmployee?.StatusChipForeground) ? "#FF2BD576" : SelectedRosterEmployee!.StatusChipForeground;
+        public string PasscodeDialogEmployeeStatusBackground => string.IsNullOrWhiteSpace(SelectedRosterEmployee?.StatusChipBackground) ? "#142BD576" : SelectedRosterEmployee!.StatusChipBackground;
+        public string PasscodeDialogEmployeeStatusBorder => string.IsNullOrWhiteSpace(SelectedRosterEmployee?.StatusChipBorder) ? "#332BD576" : SelectedRosterEmployee!.StatusChipBorder;
         public string PasscodeMaskDisplay => _passcode.Length == 0 ? "Enter code" : string.Join(" ", _passcode.Select(_ => "\u2022"));
+        public string PasscodeDialogMessageText => IsPasscodeDialogOpen ? StatusText : "";
+        public bool ShowPasscodeDialogMessage => IsPasscodeDialogOpen && !string.IsNullOrWhiteSpace(PasscodeDialogMessageText);
+        public bool PasscodeDigitOneFilled => _passcode.Length >= 1;
+        public bool PasscodeDigitTwoFilled => _passcode.Length >= 2;
+        public bool PasscodeDigitThreeFilled => _passcode.Length >= 3;
+        public bool PasscodeDigitFourFilled => _passcode.Length >= 4;
+        public bool PasscodeDigitFiveFilled => _passcode.Length >= 5;
+        public bool PasscodeDigitSixFilled => _passcode.Length >= 6;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -1641,6 +1672,7 @@ namespace RunBook.Workstation.ViewModels
                 CloseEmployeeBrowser();
                 SelectedRosterEmployee = null;
                 OnPropertyChanged(nameof(PasscodeMaskDisplay));
+                NotifyPasscodeEntryVisuals();
                 UpdateSessionCountdown();
             });
 
@@ -2137,6 +2169,7 @@ namespace RunBook.Workstation.ViewModels
             _passcode = "";
             IsPasscodeDialogOpen = true;
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
+            NotifyPasscodeEntryVisuals();
             StatusText = employee.HasWorkstationPasscode
                 ? $"Enter the passcode for {employee.DisplayName}."
                 : $"{employee.DisplayName} may need an employee auth refresh if the passcode was just configured. Enter the passcode to try RunBook Service validation.";
@@ -2149,6 +2182,7 @@ namespace RunBook.Workstation.ViewModels
 
             _passcode += digit[0];
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
+            NotifyPasscodeEntryVisuals();
             RaiseCommandStates();
         }
 
@@ -2159,6 +2193,7 @@ namespace RunBook.Workstation.ViewModels
 
             _passcode = _passcode[..^1];
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
+            NotifyPasscodeEntryVisuals();
             RaiseCommandStates();
         }
 
@@ -2169,6 +2204,7 @@ namespace RunBook.Workstation.ViewModels
 
             _passcode = "";
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
+            NotifyPasscodeEntryVisuals();
             RaiseCommandStates();
         }
 
@@ -2179,7 +2215,18 @@ namespace RunBook.Workstation.ViewModels
             SelectedRosterEmployee = null;
             _pendingWelcomeModuleKey = "";
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
+            NotifyPasscodeEntryVisuals();
             StatusText = "Workstation ready.";
+        }
+
+        private void NotifyPasscodeEntryVisuals()
+        {
+            OnPropertyChanged(nameof(PasscodeDigitOneFilled));
+            OnPropertyChanged(nameof(PasscodeDigitTwoFilled));
+            OnPropertyChanged(nameof(PasscodeDigitThreeFilled));
+            OnPropertyChanged(nameof(PasscodeDigitFourFilled));
+            OnPropertyChanged(nameof(PasscodeDigitFiveFilled));
+            OnPropertyChanged(nameof(PasscodeDigitSixFilled));
         }
 
         private void OpenInspectionReportsExperience()

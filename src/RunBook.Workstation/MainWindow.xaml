@@ -980,95 +980,233 @@
                                     </Border>
                                 </Grid>
                                 <Grid Visibility="{Binding IsPasscodeDialogOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <Rectangle Fill="#8A07101A"/>
-                                    <Border MaxWidth="470"
+                                    <Rectangle Fill="#B2070A0F"/>
+                                    <Border MaxWidth="560"
                                             HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
-                                            CornerRadius="28"
-                                            Padding="26"
-                                            Background="#F1142033"
-                                            BorderBrush="#4672A8D8"
+                                            CornerRadius="30"
+                                            Padding="28"
+                                            Background="#F40B111A"
+                                            BorderBrush="#FF243246"
                                             BorderThickness="1">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Color="#443F6EB7"/>
+                                        </Border.Effect>
                                         <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="18"/>
+                                                <RowDefinition Height="20"/>
                                                 <RowDefinition Height="Auto"/>
                                                 <RowDefinition Height="18"/>
                                                 <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="18"/>
+                                                <RowDefinition Height="20"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="20"/>
                                                 <RowDefinition Height="Auto"/>
                                             </Grid.RowDefinitions>
-                                            <StackPanel>
-                                                <Grid Width="78" Height="78" HorizontalAlignment="Center">
-                                                    <Ellipse Fill="{Binding SelectedRosterEmployee.AvatarBrush}"
-                                                             Stroke="{Binding SelectedRosterEmployee.AccentBrush}"
-                                                             StrokeThickness="3"/>
-                                                    <Ellipse Margin="2">
-                                                        <Ellipse.Style>
-                                                            <Style TargetType="Ellipse">
-                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding SelectedRosterEmployee.HasAvatarDisplayUrl}" Value="True">
-                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Ellipse.Style>
-                                                        <Ellipse.Fill>
-                                                            <ImageBrush ImageSource="{Binding SelectedRosterEmployee.AvatarDisplayUrl}"
-                                                                        Stretch="UniformToFill"
-                                                                        AlignmentX="Center"
-                                                                        AlignmentY="Center"/>
-                                                        </Ellipse.Fill>
-                                                    </Ellipse>
-                                                    <TextBlock Text="{Binding SelectedRosterEmployee.Initials}"
-                                                               Foreground="White"
-                                                               FontSize="24"
-                                                               FontWeight="Bold"
-                                                               HorizontalAlignment="Center"
-                                                               VerticalAlignment="Center">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Visibility" Value="Visible"/>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding SelectedRosterEmployee.HasAvatarDisplayUrl}" Value="True">
-                                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                </Grid>
-                                                <TextBlock Text="{Binding PasscodeDialogTitle}" Foreground="{StaticResource Text}" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0"/>
-                                                <TextBlock Text="{Binding PasscodeDialogSubtitle}" Style="{StaticResource Sub}" FontSize="13" HorizontalAlignment="Center" Margin="0,6,0,0"/>
-                                                <TextBlock Text="{Binding PasscodeDialogModuleSummary}" Foreground="{Binding SelectedRosterEmployee.AccentBrush}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,8,0,0"/>
-                                            </StackPanel>
-                                            <Border Grid.Row="2" CornerRadius="16" Padding="16,14" Background="#E20A1220" BorderBrush="{StaticResource BorderSoft}" BorderThickness="1">
+                                            <Border CornerRadius="22"
+                                                    Padding="22"
+                                                    Background="#F0101824"
+                                                    BorderBrush="#FF243246"
+                                                    BorderThickness="1">
                                                 <StackPanel>
-                                                    <TextBlock Text="Passcode" Style="{StaticResource Label}" HorizontalAlignment="Center" Margin="0,0,0,6"/>
-                                                    <TextBlock Text="{Binding PasscodeMaskDisplay}" Foreground="{StaticResource Text}" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                                    <TextBlock Text="Enter 4 to 6 digits" Style="{StaticResource Sub}" FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                                    <Grid Width="106" Height="106" HorizontalAlignment="Center">
+                                                        <Ellipse Fill="{Binding SelectedRosterEmployee.AvatarBrush}"
+                                                                 Stroke="{Binding SelectedRosterEmployee.AccentBrush}"
+                                                                 StrokeThickness="3"/>
+                                                        <Ellipse Margin="3">
+                                                            <Ellipse.Style>
+                                                                <Style TargetType="Ellipse">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding SelectedRosterEmployee.HasAvatarDisplayUrl}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Ellipse.Style>
+                                                            <Ellipse.Fill>
+                                                                <ImageBrush ImageSource="{Binding SelectedRosterEmployee.AvatarDisplayUrl}"
+                                                                            Stretch="UniformToFill"
+                                                                            AlignmentX="Center"
+                                                                            AlignmentY="Center"/>
+                                                            </Ellipse.Fill>
+                                                        </Ellipse>
+                                                        <TextBlock Text="{Binding SelectedRosterEmployee.Initials}"
+                                                                   Foreground="White"
+                                                                   FontSize="30"
+                                                                   FontWeight="Bold"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding SelectedRosterEmployee.HasAvatarDisplayUrl}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding PasscodeDialogTitle}" Foreground="#FFF4F7FB" FontSize="30" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0"/>
+                                                    <Border Padding="10,4"
+                                                            CornerRadius="999"
+                                                            Background="{Binding PasscodeDialogEmployeeStatusBackground}"
+                                                            BorderBrush="{Binding PasscodeDialogEmployeeStatusBorder}"
+                                                            BorderThickness="1"
+                                                            HorizontalAlignment="Center"
+                                                            Margin="0,10,0,0"
+                                                            Visibility="{Binding ShowPasscodeDialogEmployeeStatus, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <TextBlock Text="{Binding PasscodeDialogEmployeeStatusText}"
+                                                                   Foreground="{Binding PasscodeDialogEmployeeStatusForeground}"
+                                                                   FontSize="11"
+                                                                   FontWeight="SemiBold"/>
+                                                    </Border>
+                                                    <TextBlock Text="Enter PIN" Foreground="#FFF4F7FB" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,18,0,0"/>
+                                                    <TextBlock Text="{Binding PasscodeDialogActionTitle}" Foreground="#FFAAB6C8" FontSize="15" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                                    <TextBlock Text="{Binding PasscodeDialogSubtitle}" Foreground="#FF6F7C8F" FontSize="13" HorizontalAlignment="Center" Margin="0,6,0,0"/>
                                                 </StackPanel>
                                             </Border>
-                                            <UniformGrid Grid.Row="4" Columns="3" Rows="4">
-                                                <Button Content="1" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="1" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,10"/>
-                                                <Button Content="2" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="2" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,10"/>
-                                                <Button Content="3" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="3" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,0,10"/>
-                                                <Button Content="4" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="4" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,10"/>
-                                                <Button Content="5" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="5" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,10"/>
-                                                <Button Content="6" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="6" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,0,10"/>
-                                                <Button Content="7" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="7" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,10"/>
-                                                <Button Content="8" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="8" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,10"/>
-                                                <Button Content="9" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="9" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,0,10"/>
-                                                <Button Content="Clear" Command="{Binding ClearPasscodeCommand}" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="18" Margin="0,0,10,0"/>
-                                                <Button Content="0" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="0" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="22" Margin="0,0,10,0"/>
-                                                <Button Content="Back" Command="{Binding BackspacePasscodeCommand}" Style="{StaticResource RB.Button.Ghost}" Height="62" FontSize="18" Margin="0,0,0,0"/>
+                                            <Border Grid.Row="2"
+                                                    CornerRadius="20"
+                                                    Padding="18,16"
+                                                    Background="#FF101824"
+                                                    BorderBrush="#FF243246"
+                                                    BorderThickness="1">
+                                                <StackPanel>
+                                                    <UniformGrid Columns="6" HorizontalAlignment="Center" Margin="0,0,0,6">
+                                                        <Ellipse Width="16" Height="16" Margin="10,0" Stroke="#FF38D5FF" StrokeThickness="2" Fill="#FF38D5FF">
+                                                            <Ellipse.Style>
+                                                                <Style TargetType="Ellipse">
+                                                                    <Setter Property="Fill" Value="#00000000"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding PasscodeDigitOneFilled}" Value="True">
+                                                                            <Setter Property="Fill" Value="#FF38D5FF"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Ellipse.Style>
+                                                        </Ellipse>
+                                                        <Ellipse Width="16" Height="16" Margin="10,0" Stroke="#FF38D5FF" StrokeThickness="2" Fill="#FF38D5FF">
+                                                            <Ellipse.Style>
+                                                                <Style TargetType="Ellipse">
+                                                                    <Setter Property="Fill" Value="#00000000"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding PasscodeDigitTwoFilled}" Value="True">
+                                                                            <Setter Property="Fill" Value="#FF38D5FF"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Ellipse.Style>
+                                                        </Ellipse>
+                                                        <Ellipse Width="16" Height="16" Margin="10,0" Stroke="#FF38D5FF" StrokeThickness="2" Fill="#FF38D5FF">
+                                                            <Ellipse.Style>
+                                                                <Style TargetType="Ellipse">
+                                                                    <Setter Property="Fill" Value="#00000000"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding PasscodeDigitThreeFilled}" Value="True">
+                                                                            <Setter Property="Fill" Value="#FF38D5FF"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Ellipse.Style>
+                                                        </Ellipse>
+                                                        <Ellipse Width="16" Height="16" Margin="10,0" Stroke="#FF38D5FF" StrokeThickness="2" Fill="#FF38D5FF">
+                                                            <Ellipse.Style>
+                                                                <Style TargetType="Ellipse">
+                                                                    <Setter Property="Fill" Value="#00000000"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding PasscodeDigitFourFilled}" Value="True">
+                                                                            <Setter Property="Fill" Value="#FF38D5FF"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Ellipse.Style>
+                                                        </Ellipse>
+                                                        <Ellipse Width="16" Height="16" Margin="10,0" Stroke="#FF38D5FF" StrokeThickness="2" Fill="#FF38D5FF">
+                                                            <Ellipse.Style>
+                                                                <Style TargetType="Ellipse">
+                                                                    <Setter Property="Fill" Value="#00000000"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding PasscodeDigitFiveFilled}" Value="True">
+                                                                            <Setter Property="Fill" Value="#FF38D5FF"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Ellipse.Style>
+                                                        </Ellipse>
+                                                        <Ellipse Width="16" Height="16" Margin="10,0" Stroke="#FF38D5FF" StrokeThickness="2" Fill="#FF38D5FF">
+                                                            <Ellipse.Style>
+                                                                <Style TargetType="Ellipse">
+                                                                    <Setter Property="Fill" Value="#00000000"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding PasscodeDigitSixFilled}" Value="True">
+                                                                            <Setter Property="Fill" Value="#FF38D5FF"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Ellipse.Style>
+                                                        </Ellipse>
+                                                    </UniformGrid>
+                                                    <TextBlock Text="{Binding PasscodeMaskDisplay}" Foreground="#FFAAB6C8" FontSize="15" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,8,0,0"/>
+                                                    <TextBlock Text="Enter 4 to 6 digits" Foreground="#FF6F7C8F" FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Grid.Row="4"
+                                                    CornerRadius="16"
+                                                    Padding="14,10"
+                                                    Background="{Binding StatusTextBackgroundBrush}"
+                                                    BorderBrush="{Binding StatusTextBorderBrush}"
+                                                    BorderThickness="1"
+                                                    Visibility="{Binding ShowPasscodeDialogMessage, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <TextBlock Text="{Binding PasscodeDialogMessageText}"
+                                                           Foreground="{Binding StatusTextBrush}"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"
+                                                           TextWrapping="Wrap"
+                                                           TextAlignment="Center"
+                                                           HorizontalAlignment="Center"/>
+                                            </Border>
+                                            <UniformGrid Grid.Row="6" Columns="3" Rows="4">
+                                                <Button Content="1" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="1" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,12" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                <Button Content="2" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="2" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,12" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                <Button Content="3" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="3" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,0,12" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                <Button Content="4" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="4" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,12" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                <Button Content="5" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="5" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,12" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                <Button Content="6" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="6" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,0,12" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                <Button Content="7" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="7" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,12" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                <Button Content="8" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="8" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,12" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                <Button Content="9" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="9" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,0,12" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                <Button Content="Clear" Command="{Binding ClearPasscodeCommand}" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="20" Margin="0,0,12,0" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                <Button Content="0" Command="{Binding AppendPasscodeDigitCommand}" CommandParameter="0" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="28" Margin="0,0,12,0" Background="#FF101824" BorderBrush="#FF243246"/>
+                                                <Button Content="Back" Command="{Binding BackspacePasscodeCommand}" Style="{StaticResource WelcomeSearchButton}" Height="76" FontSize="20" Margin="0,0,0,0" Background="#FF101824" BorderBrush="#FF243246"/>
                                             </UniformGrid>
-                                            <UniformGrid Grid.Row="6" Columns="2">
-                                                <Button Content="Cancel" Command="{Binding CancelPasscodeCommand}" Style="{StaticResource RB.Button.Ghost}" Height="54" FontSize="18" Margin="0,0,10,0"/>
-                                                <Button Content="Unlock" Command="{Binding LoginCommand}" Style="{StaticResource RB.Button.Primary}" Height="54" FontSize="18" Margin="10,0,0,0"/>
-                                            </UniformGrid>
+                                            <Grid Grid.Row="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="12"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Button Grid.Column="0"
+                                                        Content="Cancel"
+                                                        Command="{Binding CancelPasscodeCommand}"
+                                                        Style="{StaticResource WelcomeSearchButton}"
+                                                        Height="60"
+                                                        FontSize="18"
+                                                        Background="#FF101824"
+                                                        BorderBrush="#FF243246"/>
+                                                <Button Grid.Column="2"
+                                                        Content="Continue"
+                                                        Command="{Binding LoginCommand}"
+                                                        Style="{StaticResource WelcomeSearchButton}"
+                                                        Height="60"
+                                                        FontSize="18"
+                                                        Background="#FF0F2234"
+                                                        BorderBrush="#FF38D5FF"
+                                                        Foreground="#FFF4F7FB"/>
+                                            </Grid>
                                         </Grid>
                                     </Border>
                                 </Grid>
