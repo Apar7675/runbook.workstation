@@ -695,6 +695,45 @@ namespace RunBook.Workstation.Models
         public string StateBackgroundBrush { get; set; } = "#15162636";
     }
 
+    public sealed class WorkstationQuantityEventEntry
+    {
+        public string EventId { get; set; } = "";
+        public string EventType { get; set; } = "";
+        public double Quantity { get; set; }
+        public double? GoodQuantity { get; set; }
+        public double? ScrapQuantity { get; set; }
+        public string EmployeeName { get; set; } = "";
+        public string Source { get; set; } = "";
+        public string Notes { get; set; } = "";
+        public string CreatedUtc { get; set; } = "";
+        public string EventTypeDisplay => string.IsNullOrWhiteSpace(EventType) ? "EVENT" : EventType.Replace("_", " ").ToUpperInvariant();
+        public string QuantityDisplay => Quantity.ToString("0.####", CultureInfo.InvariantCulture);
+        public string GoodQuantityDisplay => GoodQuantity.HasValue ? GoodQuantity.Value.ToString("0.####", CultureInfo.InvariantCulture) : "--";
+        public string ScrapQuantityDisplay => ScrapQuantity.HasValue ? ScrapQuantity.Value.ToString("0.####", CultureInfo.InvariantCulture) : "--";
+        public string SourceDisplay => string.IsNullOrWhiteSpace(Source) ? "Workstation" : Source;
+        public string CreatedDisplay
+        {
+            get
+            {
+                if (!DateTime.TryParse(CreatedUtc, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed))
+                    return CreatedUtc ?? "";
+                return parsed.ToLocalTime().ToString("g", CultureInfo.InvariantCulture);
+            }
+        }
+        public string SummaryLine
+        {
+            get
+            {
+                var parts = new List<string> { $"Qty {QuantityDisplay}" };
+                if (GoodQuantity.HasValue)
+                    parts.Add($"Good {GoodQuantityDisplay}");
+                if (ScrapQuantity.HasValue)
+                    parts.Add($"Scrap {ScrapQuantityDisplay}");
+                return string.Join("  |  ", parts);
+            }
+        }
+    }
+
     public sealed class WorkstationMaterialHeatLotEntry : INotifyPropertyChanged
     {
         private string _heatLotNumber = "";

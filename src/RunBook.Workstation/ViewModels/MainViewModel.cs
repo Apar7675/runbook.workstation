@@ -127,6 +127,11 @@ namespace RunBook.Workstation.ViewModels
         private int _savedMaterialReceiptId;
         private string _inspectionActualValue = "";
         private string _inspectionResultNoteText = "";
+        private string _quantityEventQuantity = "";
+        private string _quantityEventGoodQuantity = "";
+        private string _quantityEventScrapQuantity = "";
+        private string _quantityEventNotes = "";
+        private bool _isRecordQuantityPanelOpen;
         private bool _inspectionResultSubmissionAvailable;
         private bool _isMobileCaptureDialogOpen;
         private bool _isTimeOffRequestsDialogOpen;
@@ -255,6 +260,9 @@ namespace RunBook.Workstation.ViewModels
             SaveDataEntryCommand = new RelayCommand(async () => await SaveDataEntryAsync(), () => CurrentSession != null && SelectedOperation != null && !IsBusy);
             SubmitQuantityCommand = new RelayCommand(async () => await SubmitQuantityAsync(), () => CurrentSession != null && HasProductionQuantityAccess && SelectedOperation != null && !IsBusy);
             SubmitScrapCommand = new RelayCommand(async () => await SubmitScrapAsync(), () => CurrentSession != null && HasProductionScrapAccess && SelectedOperation != null && !IsBusy);
+            BeginRecordQuantityCommand = new RelayCommand(BeginRecordQuantity, () => CurrentSession != null && SelectedWorkOrder != null && SelectedOperation != null && HasProductionQuantityAccess && !IsBusy);
+            CancelRecordQuantityCommand = new RelayCommand(CancelRecordQuantity, () => !IsBusy && IsRecordQuantityPanelOpen);
+            SaveQuantityEventCommand = new RelayCommand(async () => await SaveQuantityEventAsync(), () => CurrentSession != null && SelectedWorkOrder != null && SelectedOperation != null && HasProductionQuantityAccess && CanSaveQuantityEvent && !IsBusy);
             SubmitOperationNoteCommand = new RelayCommand(async () => await SubmitOperationNoteAsync(), () => CurrentSession != null && HasProductionNoteAccess && SelectedOperation != null && !IsBusy);
             SubmitOperationHelpCommand = new RelayCommand(async () => await SubmitOperationHelpAsync(), () => CurrentSession != null && HasWorkOrdersAccess && SelectedOperation != null && !IsBusy);
             RefreshInspectionTasksCommand = new RelayCommand(async () => await RefreshInspectionTasksAsync(false), () => CurrentSession != null && HasInspectionViewAccess && SelectedWorkOrder != null && !IsBusy);
@@ -338,6 +346,7 @@ namespace RunBook.Workstation.ViewModels
         public ObservableCollection<RunBookWorkstationApiClient.OperationPacketDocument> PacketInspectionDocuments { get; } = new();
         public ObservableCollection<RunBookWorkstationApiClient.OperationPacketDocument> PacketOperationReferences { get; } = new();
         public ObservableCollection<RunBookWorkstationApiClient.BalloonMarker> PacketBalloonMarkers { get; } = new();
+        public ObservableCollection<WorkstationQuantityEventEntry> RecentQuantityEvents { get; } = new();
         public ObservableCollection<WorkstationDataEntrySection> DataEntrySections { get; } = new();
         public ObservableCollection<string> MaterialUnitOptions { get; } = new()
         {
@@ -401,6 +410,9 @@ namespace RunBook.Workstation.ViewModels
         public ICommand SaveDataEntryCommand { get; }
         public ICommand SubmitQuantityCommand { get; }
         public ICommand SubmitScrapCommand { get; }
+        public ICommand BeginRecordQuantityCommand { get; }
+        public ICommand CancelRecordQuantityCommand { get; }
+        public ICommand SaveQuantityEventCommand { get; }
         public ICommand SubmitOperationNoteCommand { get; }
         public ICommand SubmitOperationHelpCommand { get; }
         public ICommand RefreshInspectionTasksCommand { get; }
@@ -1216,6 +1228,22 @@ namespace RunBook.Workstation.ViewModels
         public string OperationActionNoteText { get => _operationActionNoteText; set { _operationActionNoteText = value ?? ""; OnPropertyChanged(); } }
         public string InspectionActualValue { get => _inspectionActualValue; set { _inspectionActualValue = value ?? ""; OnPropertyChanged(); RaiseCommandStates(); } }
         public string InspectionResultNoteText { get => _inspectionResultNoteText; set { _inspectionResultNoteText = value ?? ""; OnPropertyChanged(); } }
+        public string QuantityEventQuantity { get => _quantityEventQuantity; set { _quantityEventQuantity = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(CanSaveQuantityEvent)); OnPropertyChanged(nameof(QuantityEventValidationMessage)); RaiseCommandStates(); } }
+        public string QuantityEventGoodQuantity { get => _quantityEventGoodQuantity; set { _quantityEventGoodQuantity = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(CanSaveQuantityEvent)); OnPropertyChanged(nameof(QuantityEventValidationMessage)); RaiseCommandStates(); } }
+        public string QuantityEventScrapQuantity { get => _quantityEventScrapQuantity; set { _quantityEventScrapQuantity = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(CanSaveQuantityEvent)); OnPropertyChanged(nameof(QuantityEventValidationMessage)); RaiseCommandStates(); } }
+        public string QuantityEventNotes { get => _quantityEventNotes; set { _quantityEventNotes = value ?? ""; OnPropertyChanged(); } }
+        public bool IsRecordQuantityPanelOpen
+        {
+            get => _isRecordQuantityPanelOpen;
+            private set
+            {
+                if (_isRecordQuantityPanelOpen == value)
+                    return;
+                _isRecordQuantityPanelOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
         public string TimeOffType { get => _timeOffType; set { _timeOffType = value ?? "VACATION"; OnPropertyChanged(); } }
         public string TimeOffStartDate { get => _timeOffStartDate; set { _timeOffStartDate = value ?? ""; OnPropertyChanged(); } }
         public string TimeOffEndDate { get => _timeOffEndDate; set { _timeOffEndDate = value ?? ""; OnPropertyChanged(); } }
@@ -1654,6 +1682,15 @@ namespace RunBook.Workstation.ViewModels
         public bool ShowDataEntryEvidenceCard => SelectedOperation != null;
         public bool ShowDataEntryMissingReason => !string.IsNullOrWhiteSpace(DataEntryValidationMessage);
         public string DataEntryValidationMessage => BuildDataEntryValidationMessage();
+        public string QuantityRequiredText => FormatQuantitySummaryValue(_operationPacket?.OrderedQuantity);
+        public string QuantityCompletedText => FormatQuantitySummaryValue(_operationPacket?.CompletedQuantity);
+        public string QuantityScrapText => FormatQuantitySummaryValue(_operationPacket?.ScrapQuantity);
+        public string QuantityRemainingText => FormatQuantitySummaryValue(_operationPacket?.RemainingQuantity);
+        public string QuantityAcceptedText => FormatQuantitySummaryValue(_operationPacket?.AcceptedQuantity);
+        public string QuantityRejectedText => FormatQuantitySummaryValue(_operationPacket?.RejectedQuantity);
+        public bool HasRecentQuantityEvents => RecentQuantityEvents.Count > 0;
+        public string QuantityEventValidationMessage => BuildQuantityEventValidationMessage();
+        public bool CanSaveQuantityEvent => string.IsNullOrWhiteSpace(QuantityEventValidationMessage);
         public IReadOnlyList<RunBookWorkstationApiClient.OperationPacketDocument> PacketDocuments => PacketDrawingDocuments
             .Concat(PacketBalloonedDrawingDocuments)
             .Concat(PacketInspectionDocuments)
@@ -3060,6 +3097,7 @@ namespace RunBook.Workstation.ViewModels
             if (operation == null)
                 return;
 
+            CancelRecordQuantity();
             SelectedOperation = operation;
             await RefreshOperationPacketAsync(false);
         }
@@ -3246,6 +3284,70 @@ namespace RunBook.Workstation.ViewModels
                 QuantityReportText = "";
                 OperationActionNoteText = "";
                 StatusText = string.IsNullOrWhiteSpace(response.Message) ? "Quantity saved." : response.Message;
+            });
+        }
+
+        private void BeginRecordQuantity()
+        {
+            if (SelectedOperation == null || SelectedWorkOrder == null)
+                return;
+
+            QuantityEventQuantity = "";
+            QuantityEventGoodQuantity = "";
+            QuantityEventScrapQuantity = "";
+            QuantityEventNotes = "";
+            IsRecordQuantityPanelOpen = true;
+        }
+
+        private void CancelRecordQuantity()
+        {
+            QuantityEventQuantity = "";
+            QuantityEventGoodQuantity = "";
+            QuantityEventScrapQuantity = "";
+            QuantityEventNotes = "";
+            IsRecordQuantityPanelOpen = false;
+        }
+
+        private async Task SaveQuantityEventAsync()
+        {
+            if (!EnsureServiceWritable())
+                return;
+            if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null || !HasProductionQuantityAccess)
+                return;
+
+            var validation = BuildQuantityEventValidationMessage();
+            if (!string.IsNullOrWhiteSpace(validation))
+            {
+                StatusText = validation;
+                return;
+            }
+
+            _ = decimal.TryParse((QuantityEventQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var quantity);
+            var hasGood = decimal.TryParse((QuantityEventGoodQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var goodQuantity);
+            var hasScrap = decimal.TryParse((QuantityEventScrapQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var scrapQuantity);
+
+            await RunBusyAsync(async () =>
+            {
+                var response = await _api.SubmitQuantityEventAsync(
+                    Settings,
+                    CurrentSession,
+                    SelectedWorkOrder.WorkOrderId,
+                    SelectedOperation.OperationId,
+                    new RunBookWorkstationApiClient.QuantityEventSubmitRequest
+                    {
+                        EventType = "OperationCompleted",
+                        Quantity = Convert.ToDouble(quantity, CultureInfo.InvariantCulture),
+                        GoodQuantity = hasGood ? Convert.ToDouble(goodQuantity, CultureInfo.InvariantCulture) : null,
+                        ScrapQuantity = hasScrap ? Convert.ToDouble(scrapQuantity, CultureInfo.InvariantCulture) : null,
+                        Notes = (QuantityEventNotes ?? "").Trim(),
+                        EmployeeId = CurrentSession.Employee.EmployeeId,
+                        EmployeeName = CurrentSession.Employee.DisplayName
+                    },
+                    CancellationToken.None);
+
+                CancelRecordQuantity();
+                await RefreshOperationPacketAsync(false);
+                StatusText = string.IsNullOrWhiteSpace(response.Message) ? "Quantity event saved." : response.Message;
             });
         }
 
@@ -3538,6 +3640,7 @@ namespace RunBook.Workstation.ViewModels
             PacketBalloonMarkers.Clear();
             OperationAttachments.Clear();
             InspectionTasks.Clear();
+            RecentQuantityEvents.Clear();
 
             if (packet != null)
             {
@@ -3553,6 +3656,8 @@ namespace RunBook.Workstation.ViewModels
                     PacketBalloonMarkers.Add(marker);
                 foreach (var attachment in packet.OperationAttachments ?? Enumerable.Empty<RunBookWorkstationApiClient.OperationAttachment>())
                     OperationAttachments.Add(attachment);
+                foreach (var quantityEvent in packet.RecentQuantityEvents?.Select(MapQuantityEvent) ?? Enumerable.Empty<WorkstationQuantityEventEntry>())
+                    RecentQuantityEvents.Add(quantityEvent);
                 foreach (var task in packet.InspectionTasks?.Select(MapInspectionTask) ?? Enumerable.Empty<WorkstationInspectionTask>())
                     InspectionTasks.Add(task);
                 foreach (var unit in packet.MaterialUnitOptions ?? Enumerable.Empty<string>())
@@ -3597,6 +3702,13 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(SelectedOperationTypeText));
             OnPropertyChanged(nameof(SelectedOperationSetupText));
             OnPropertyChanged(nameof(SelectedOperationCycleText));
+            OnPropertyChanged(nameof(QuantityRequiredText));
+            OnPropertyChanged(nameof(QuantityCompletedText));
+            OnPropertyChanged(nameof(QuantityScrapText));
+            OnPropertyChanged(nameof(QuantityRemainingText));
+            OnPropertyChanged(nameof(QuantityAcceptedText));
+            OnPropertyChanged(nameof(QuantityRejectedText));
+            OnPropertyChanged(nameof(HasRecentQuantityEvents));
             RebuildDataEntrySections();
             RaiseCommandStates();
         }
@@ -3667,6 +3779,7 @@ namespace RunBook.Workstation.ViewModels
             PacketBalloonMarkers.Clear();
             OperationAttachments.Clear();
             InspectionTasks.Clear();
+            RecentQuantityEvents.Clear();
             InspectionPackage = null;
             SelectedInspectionTask = null;
             OnPropertyChanged(nameof(HasOperationInspection));
@@ -3689,6 +3802,13 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(SelectedOperationTypeText));
             OnPropertyChanged(nameof(SelectedOperationSetupText));
             OnPropertyChanged(nameof(SelectedOperationCycleText));
+            OnPropertyChanged(nameof(QuantityRequiredText));
+            OnPropertyChanged(nameof(QuantityCompletedText));
+            OnPropertyChanged(nameof(QuantityScrapText));
+            OnPropertyChanged(nameof(QuantityRemainingText));
+            OnPropertyChanged(nameof(QuantityAcceptedText));
+            OnPropertyChanged(nameof(QuantityRejectedText));
+            OnPropertyChanged(nameof(HasRecentQuantityEvents));
             RebuildDataEntrySections();
         }
 
@@ -3805,6 +3925,8 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(ShowDataEntryEvidenceCard));
             OnPropertyChanged(nameof(ShowDataEntryMissingReason));
             OnPropertyChanged(nameof(DataEntryValidationMessage));
+            OnPropertyChanged(nameof(QuantityEventValidationMessage));
+            OnPropertyChanged(nameof(CanSaveQuantityEvent));
             OnPropertyChanged(nameof(InspectionAvailabilityMessage));
             OnPropertyChanged(nameof(IsReceiveMaterialOperation));
             OnPropertyChanged(nameof(ReceiveMaterialEntryVisibility));
@@ -3822,6 +3944,35 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(MaterialHeatLotModeText));
             if (SaveDataEntryCommand is RelayCommand save) save.RaiseCanExecuteChanged();
             if (CompleteOperationCommand is RelayCommand complete) complete.RaiseCanExecuteChanged();
+        }
+
+        private static string FormatQuantitySummaryValue(double? value)
+            => value.HasValue ? value.Value.ToString("0.####", CultureInfo.InvariantCulture) : "--";
+
+        private string BuildQuantityEventValidationMessage()
+        {
+            if (SelectedWorkOrder == null || SelectedOperation == null)
+                return "Select a work order operation first.";
+
+            if (!decimal.TryParse((QuantityEventQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
+                return "Qty completed must be greater than zero.";
+
+            if (quantity > MaxProductionQuantityValue)
+                return $"Qty completed must be {MaxProductionQuantityValue:N0} or less.";
+
+            if (!string.IsNullOrWhiteSpace(QuantityEventGoodQuantity) &&
+                (!decimal.TryParse((QuantityEventGoodQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var goodQuantity) || goodQuantity < 0))
+                return "Good quantity cannot be negative.";
+
+            if (!string.IsNullOrWhiteSpace(QuantityEventScrapQuantity) &&
+                (!decimal.TryParse((QuantityEventScrapQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var scrapQuantity) || scrapQuantity < 0))
+                return "Scrap quantity cannot be negative.";
+
+            if (decimal.TryParse((QuantityEventScrapQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedScrap) &&
+                parsedScrap > quantity)
+                return "Scrap quantity cannot exceed completed quantity.";
+
+            return "";
         }
 
         private double MaterialHeatLotTotal()
@@ -6852,6 +7003,22 @@ namespace RunBook.Workstation.ViewModels
             };
         }
 
+        private static WorkstationQuantityEventEntry MapQuantityEvent(RunBookWorkstationApiClient.OperationQuantityEvent quantityEvent)
+        {
+            return new WorkstationQuantityEventEntry
+            {
+                EventId = quantityEvent.EventId,
+                EventType = quantityEvent.EventType,
+                Quantity = quantityEvent.Quantity,
+                GoodQuantity = quantityEvent.GoodQuantity,
+                ScrapQuantity = quantityEvent.ScrapQuantity,
+                EmployeeName = quantityEvent.EmployeeName,
+                Source = quantityEvent.Source,
+                Notes = quantityEvent.Notes,
+                CreatedUtc = quantityEvent.CreatedUtc,
+            };
+        }
+
         private static bool IsInProcessInspection(WorkstationInspectionTaskPackage? package)
         {
             if (package == null)
@@ -7828,6 +7995,9 @@ namespace RunBook.Workstation.ViewModels
             if (SaveDataEntryCommand is RelayCommand saveDataEntry) saveDataEntry.RaiseCanExecuteChanged();
             if (SubmitQuantityCommand is RelayCommand submitQuantity) submitQuantity.RaiseCanExecuteChanged();
             if (SubmitScrapCommand is RelayCommand submitScrap) submitScrap.RaiseCanExecuteChanged();
+            if (BeginRecordQuantityCommand is RelayCommand beginRecordQuantity) beginRecordQuantity.RaiseCanExecuteChanged();
+            if (CancelRecordQuantityCommand is RelayCommand cancelRecordQuantity) cancelRecordQuantity.RaiseCanExecuteChanged();
+            if (SaveQuantityEventCommand is RelayCommand saveQuantityEvent) saveQuantityEvent.RaiseCanExecuteChanged();
             if (SubmitOperationNoteCommand is RelayCommand submitNote) submitNote.RaiseCanExecuteChanged();
             if (SubmitOperationHelpCommand is RelayCommand submitHelp) submitHelp.RaiseCanExecuteChanged();
             if (RefreshInspectionTasksCommand is RelayCommand refreshInspection) refreshInspection.RaiseCanExecuteChanged();

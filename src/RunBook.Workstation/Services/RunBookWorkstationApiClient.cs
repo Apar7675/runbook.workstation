@@ -414,6 +414,18 @@ namespace RunBook.Workstation.Services
             return payload ?? throw new InvalidOperationException("Empty operation packet response.");
         }
 
+        public async Task<QuantityEventResponse> SubmitQuantityEventAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, QuantityEventSubmitRequest quantityEvent, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildLocalSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}/operations/{operationId}/quantity-events"));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            request.Content = new StringContent(JsonSerializer.Serialize(quantityEvent, JsonOptions), Encoding.UTF8, "application/json");
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<QuantityEventResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to save quantity event.");
+            return payload ?? throw new InvalidOperationException("Empty quantity event response.");
+        }
+
         public async Task<DrawingContentResponse> DownloadPacketDocumentAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, string relativeRoute, CancellationToken cancellationToken)
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, BuildLocalSessionUrl(settings, relativeRoute));
@@ -1930,6 +1942,27 @@ namespace RunBook.Workstation.Services
             [JsonPropertyName("material_unit_options")]
             public List<string> MaterialUnitOptions { get; set; } = new List<string>();
 
+            [JsonPropertyName("ordered_quantity")]
+            public double? OrderedQuantity { get; set; }
+
+            [JsonPropertyName("completed_quantity")]
+            public double CompletedQuantity { get; set; }
+
+            [JsonPropertyName("scrap_quantity")]
+            public double ScrapQuantity { get; set; }
+
+            [JsonPropertyName("remaining_quantity")]
+            public double? RemainingQuantity { get; set; }
+
+            [JsonPropertyName("accepted_quantity")]
+            public double AcceptedQuantity { get; set; }
+
+            [JsonPropertyName("rejected_quantity")]
+            public double RejectedQuantity { get; set; }
+
+            [JsonPropertyName("recent_quantity_events")]
+            public List<OperationQuantityEvent> RecentQuantityEvents { get; set; } = new List<OperationQuantityEvent>();
+
             [JsonPropertyName("material_requirements")]
             public List<MaterialRequirementDto> MaterialRequirements { get; set; } = new List<MaterialRequirementDto>();
 
@@ -1944,6 +1977,144 @@ namespace RunBook.Workstation.Services
 
             [JsonPropertyName("inspection_tasks")]
             public List<InspectionTask> InspectionTasks { get; set; } = new List<InspectionTask>();
+        }
+
+        public sealed class OperationQuantityEvent
+        {
+            [JsonPropertyName("event_id")]
+            public string EventId { get; set; } = "";
+
+            [JsonPropertyName("work_order_id")]
+            public string WorkOrderId { get; set; } = "";
+
+            [JsonPropertyName("operation_id")]
+            public string OperationId { get; set; } = "";
+
+            [JsonPropertyName("operation_number")]
+            public int? OperationNumber { get; set; }
+
+            [JsonPropertyName("event_type")]
+            public string EventType { get; set; } = "";
+
+            [JsonPropertyName("quantity")]
+            public double Quantity { get; set; }
+
+            [JsonPropertyName("good_quantity")]
+            public double? GoodQuantity { get; set; }
+
+            [JsonPropertyName("scrap_quantity")]
+            public double? ScrapQuantity { get; set; }
+
+            [JsonPropertyName("employee_id")]
+            public string EmployeeId { get; set; } = "";
+
+            [JsonPropertyName("employee_name")]
+            public string EmployeeName { get; set; } = "";
+
+            [JsonPropertyName("source")]
+            public string Source { get; set; } = "";
+
+            [JsonPropertyName("notes")]
+            public string Notes { get; set; } = "";
+
+            [JsonPropertyName("created_utc")]
+            public string CreatedUtc { get; set; } = "";
+
+            [JsonPropertyName("created_by")]
+            public string CreatedBy { get; set; } = "";
+
+            [JsonPropertyName("packing_list_number")]
+            public string PackingListNumber { get; set; } = "";
+
+            [JsonPropertyName("operation_display")]
+            public string OperationDisplay { get; set; } = "";
+        }
+
+        public sealed class QuantityEventSubmitRequest
+        {
+            [JsonPropertyName("eventType")]
+            public string EventType { get; set; } = "OperationCompleted";
+
+            [JsonPropertyName("quantity")]
+            public double Quantity { get; set; }
+
+            [JsonPropertyName("goodQuantity")]
+            public double? GoodQuantity { get; set; }
+
+            [JsonPropertyName("scrapQuantity")]
+            public double? ScrapQuantity { get; set; }
+
+            [JsonPropertyName("notes")]
+            public string Notes { get; set; } = "";
+
+            [JsonPropertyName("packingListNumber")]
+            public string PackingListNumber { get; set; } = "";
+
+            [JsonPropertyName("employeeId")]
+            public string EmployeeId { get; set; } = "";
+
+            [JsonPropertyName("employeeName")]
+            public string EmployeeName { get; set; } = "";
+        }
+
+        public sealed class QuantityEventResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+
+            [JsonPropertyName("message")]
+            public string Message { get; set; } = "";
+
+            [JsonPropertyName("saved_event")]
+            public OperationQuantityEvent? SavedEvent { get; set; }
+
+            [JsonPropertyName("work_order_quantity_summary")]
+            public QuantitySummary? WorkOrderQuantitySummary { get; set; }
+
+            [JsonPropertyName("operation_quantity_summary")]
+            public QuantitySummary? OperationQuantitySummary { get; set; }
+        }
+
+        public sealed class QuantitySummary
+        {
+            [JsonPropertyName("work_order_id")]
+            public string WorkOrderId { get; set; } = "";
+
+            [JsonPropertyName("operation_id")]
+            public string OperationId { get; set; } = "";
+
+            [JsonPropertyName("operation_number")]
+            public int? OperationNumber { get; set; }
+
+            [JsonPropertyName("operation_display")]
+            public string OperationDisplay { get; set; } = "";
+
+            [JsonPropertyName("ordered_quantity")]
+            public double? OrderedQuantity { get; set; }
+
+            [JsonPropertyName("required_quantity")]
+            public double? RequiredQuantity { get; set; }
+
+            [JsonPropertyName("completed_quantity")]
+            public double CompletedQuantity { get; set; }
+
+            [JsonPropertyName("accepted_quantity")]
+            public double AcceptedQuantity { get; set; }
+
+            [JsonPropertyName("rejected_quantity")]
+            public double RejectedQuantity { get; set; }
+
+            [JsonPropertyName("scrap_quantity")]
+            public double ScrapQuantity { get; set; }
+
+            [JsonPropertyName("remaining_quantity")]
+            public double? RemainingQuantity { get; set; }
+
+            [JsonPropertyName("remaining_to_complete")]
+            public double? RemainingToComplete { get; set; }
         }
 
         public sealed class MaterialRequirementDto

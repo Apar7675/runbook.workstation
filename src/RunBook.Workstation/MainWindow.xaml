@@ -4817,12 +4817,121 @@
                                                                 </StackPanel.Style>
                                                             <StackPanel Visibility="{Binding IsProductionDataEntryTabSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                                 <TextBlock Text="{Binding DataEntryEntryInstruction}" Foreground="#FFAAB6C8" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                                                                <TextBlock Text="{Binding DataEntryQuantityLabel}" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
-                                                                <TextBox Text="{Binding QuantityReportText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox}" Height="40" Margin="0,6,0,12"/>
-                                                                <TextBlock Text="Scrap Quantity" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
-                                                                <TextBox Text="{Binding ScrapReportText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox}" Height="40" Margin="0,6,0,12"/>
-                                                                <Button Content="Submit Quantity" Command="{Binding SubmitQuantityCommand}" Style="{StaticResource WorkOrdersPrimaryActionButtonStyle}"/>
-                                                                <Button Content="Submit Scrap" Command="{Binding SubmitScrapCommand}" Style="{StaticResource WorkOrdersActionButtonStyle}" Margin="0,10,0,0"/>
+                                                                <Border Padding="14" CornerRadius="12" Background="#FF101824" BorderBrush="#FF243246" BorderThickness="1" Margin="0,0,0,12">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="Quantity Progress" Foreground="#FFF4F7FB" FontSize="15" FontWeight="SemiBold"/>
+                                                                        <UniformGrid Columns="2" Margin="0,12,0,0">
+                                                                            <StackPanel Margin="0,0,12,10">
+                                                                                <TextBlock Text="Required" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                                <TextBlock Text="{Binding QuantityRequiredText}" Foreground="#FFF4F7FB" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                                                            </StackPanel>
+                                                                            <StackPanel Margin="0,0,0,10">
+                                                                                <TextBlock Text="Completed" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                                <TextBlock Text="{Binding QuantityCompletedText}" Foreground="#FFF4F7FB" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                                                            </StackPanel>
+                                                                            <StackPanel Margin="0,0,12,0">
+                                                                                <TextBlock Text="Scrap" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                                <TextBlock Text="{Binding QuantityScrapText}" Foreground="#FFF4F7FB" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                                                            </StackPanel>
+                                                                            <StackPanel>
+                                                                                <TextBlock Text="Remaining" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                                <TextBlock Text="{Binding QuantityRemainingText}" Foreground="#FFF4F7FB" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                                                            </StackPanel>
+                                                                        </UniformGrid>
+                                                                        <Button Content="Record Quantity" Command="{Binding BeginRecordQuantityCommand}" Style="{StaticResource WorkOrdersPrimaryActionButtonStyle}" Margin="0,14,0,0"/>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                                <Border Padding="14" CornerRadius="12" Background="#FF101824" BorderBrush="#FF38D5FF" BorderThickness="1" Margin="0,0,0,12">
+                                                                    <Border.Style>
+                                                                        <Style TargetType="Border">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsRecordQuantityPanelOpen}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Border.Style>
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="Record Quantity" Foreground="#FFF4F7FB" FontSize="15" FontWeight="SemiBold"/>
+                                                                        <TextBlock Text="Save a quantity event through RunBook Service for this operation." Foreground="#FFAAB6C8" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                                                        <TextBlock Text="Qty Completed" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold" Margin="0,14,0,0"/>
+                                                                        <TextBox Text="{Binding QuantityEventQuantity, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox}" Height="42" Margin="0,6,0,10"/>
+                                                                        <TextBlock Text="Good Qty" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                        <TextBox Text="{Binding QuantityEventGoodQuantity, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox}" Height="42" Margin="0,6,0,10"/>
+                                                                        <TextBlock Text="Scrap Qty" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                        <TextBox Text="{Binding QuantityEventScrapQuantity, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox}" Height="42" Margin="0,6,0,10"/>
+                                                                        <TextBlock Text="Notes" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                        <TextBox Text="{Binding QuantityEventNotes, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox.MultiLine}" MinHeight="74" Margin="0,6,0,10"/>
+                                                                        <TextBlock Text="{Binding QuantityEventValidationMessage}" Foreground="#FFFF5A6A" FontSize="11" Margin="0,0,0,10" TextWrapping="Wrap">
+                                                                            <TextBlock.Style>
+                                                                                <Style TargetType="TextBlock">
+                                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                                    <Style.Triggers>
+                                                                                        <DataTrigger Binding="{Binding CanSaveQuantityEvent}" Value="True">
+                                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                        </DataTrigger>
+                                                                                    </Style.Triggers>
+                                                                                </Style>
+                                                                            </TextBlock.Style>
+                                                                        </TextBlock>
+                                                                        <UniformGrid Columns="2">
+                                                                            <Button Content="Cancel" Command="{Binding CancelRecordQuantityCommand}" Style="{StaticResource WorkOrdersActionButtonStyle}" Margin="0,0,8,0"/>
+                                                                            <Button Content="Save" Command="{Binding SaveQuantityEventCommand}" Style="{StaticResource WorkOrdersPrimaryActionButtonStyle}"/>
+                                                                        </UniformGrid>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                                <StackPanel Margin="0,0,0,12">
+                                                                    <TextBlock Text="Recent Quantity Events" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold"/>
+                                                                    <TextBlock Text="Recent quantity history from the selected operation packet." Foreground="#FFAAB6C8" FontSize="12" Margin="0,4,0,10"/>
+                                                                    <ItemsControl ItemsSource="{Binding RecentQuantityEvents}">
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate>
+                                                                                <Border Padding="12" Margin="0,0,0,8" CornerRadius="10" Background="#FF101824" BorderBrush="#FF243246" BorderThickness="1">
+                                                                                    <Grid>
+                                                                                        <Grid.ColumnDefinitions>
+                                                                                            <ColumnDefinition Width="*"/>
+                                                                                            <ColumnDefinition Width="Auto"/>
+                                                                                        </Grid.ColumnDefinitions>
+                                                                                        <StackPanel>
+                                                                                            <TextBlock Text="{Binding EventTypeDisplay}" Foreground="#FFF4F7FB" FontSize="12" FontWeight="SemiBold"/>
+                                                                                            <TextBlock Text="{Binding SummaryLine}" Foreground="#FFAAB6C8" FontSize="11" Margin="0,4,0,0"/>
+                                                                                            <TextBlock Text="{Binding Notes}" Foreground="#FF6F7C8F" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                                                                        </StackPanel>
+                                                                                        <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                                                            <TextBlock Text="{Binding CreatedDisplay}" Foreground="#FFAAB6C8" FontSize="11" HorizontalAlignment="Right"/>
+                                                                                            <TextBlock Text="{Binding SourceDisplay}" Foreground="#FF6F7C8F" FontSize="11" Margin="0,4,0,0" HorizontalAlignment="Right"/>
+                                                                                        </StackPanel>
+                                                                                    </Grid>
+                                                                                </Border>
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                    <TextBlock Text="No quantity events have been recorded for this operation yet." Foreground="#FF6F7C8F" FontSize="12" TextWrapping="Wrap">
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding HasRecentQuantityEvents}" Value="False">
+                                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+                                                                </StackPanel>
+                                                                <Border Padding="14" CornerRadius="12" Background="#0C111A" BorderBrush="#FF243246" BorderThickness="1">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="Quick Quantity Report" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold"/>
+                                                                        <TextBlock Text="Legacy Service quantity and scrap commands remain available in this pass." Foreground="#FFAAB6C8" FontSize="12" Margin="0,4,0,12" TextWrapping="Wrap"/>
+                                                                        <TextBlock Text="{Binding DataEntryQuantityLabel}" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                        <TextBox Text="{Binding QuantityReportText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox}" Height="40" Margin="0,6,0,12"/>
+                                                                        <TextBlock Text="Scrap Quantity" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                        <TextBox Text="{Binding ScrapReportText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox}" Height="40" Margin="0,6,0,12"/>
+                                                                        <Button Content="Submit Quantity" Command="{Binding SubmitQuantityCommand}" Style="{StaticResource WorkOrdersPrimaryActionButtonStyle}"/>
+                                                                        <Button Content="Submit Scrap" Command="{Binding SubmitScrapCommand}" Style="{StaticResource WorkOrdersActionButtonStyle}" Margin="0,10,0,0"/>
+                                                                    </StackPanel>
+                                                                </Border>
                                                             </StackPanel>
                                                             <StackPanel Visibility="{Binding IsMaterialDataEntryTabSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                                 <TextBlock Text="{Binding ExpectedMaterialSummary}" Foreground="#FFAAB6C8" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"/>
