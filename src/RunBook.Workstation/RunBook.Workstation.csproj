@@ -14,6 +14,7 @@
   <ItemGroup>
     <Resource Include="Assets\Images\logo.png" />
     <Resource Include="Assets\Images\chatgpt_space_bg.png" />
+    <Resource Include="Assets\Images\Icons\workorders.png" />
     <Resource Include="Assets\Images\Avatars\avatar_*.jpg" />
     <Resource Include="Themes\RunBookTheme.xaml" />
   </ItemGroup>

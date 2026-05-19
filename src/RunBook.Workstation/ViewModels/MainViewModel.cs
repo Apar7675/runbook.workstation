@@ -160,6 +160,9 @@ namespace RunBook.Workstation.ViewModels
         private string _lastTimeClockPresentationSignature = "";
         private DateTime _lastPassiveConnectionRefreshUtc = DateTime.MinValue;
         private UnlockTimingTrace? _unlockTimingTrace;
+        private string _selectedWorkOrderQueueTab = "assigned";
+        private string _selectedPacketTab = "packet";
+        private string _selectedDataEntryTab = "production";
 
         public MainViewModel()
         {
@@ -243,6 +246,9 @@ namespace RunBook.Workstation.ViewModels
             SelectWorkOrderCommand = new RelayCommand<WorkstationWorkOrderSummary>(async workOrder => await SelectWorkOrderAsync(workOrder), workOrder => workOrder != null && CurrentSession != null && HasWorkOrdersAccess && !IsBusy);
             OpenDrawingCommand = new RelayCommand<WorkstationDrawingReference>(async drawing => await OpenDrawingAsync(drawing), drawing => drawing != null && CurrentSession != null && HasDrawingsAccess && !IsBusy);
             SelectOperationCommand = new RelayCommand<WorkstationWorkOrderOperationSummary>(async operation => await SelectOperationAsync(operation), operation => operation != null && CurrentSession != null && HasWorkOrdersAccess && !IsBusy);
+            SelectWorkOrderQueueTabCommand = new RelayCommand<string>(SelectWorkOrderQueueTab, key => !string.IsNullOrWhiteSpace(key));
+            SelectPacketTabCommand = new RelayCommand<string>(SelectPacketTab, key => !string.IsNullOrWhiteSpace(key));
+            SelectDataEntryTabCommand = new RelayCommand<string>(SelectDataEntryTab, key => !string.IsNullOrWhiteSpace(key));
             StartOperationCommand = new RelayCommand(async () => await ExecuteOperationAsync("start"), () => CurrentSession != null && HasOperationExecutionAccess && SelectedOperation != null && !IsBusy);
             StopOperationCommand = new RelayCommand(async () => await ExecuteOperationAsync("stop"), () => CurrentSession != null && HasOperationExecutionAccess && SelectedOperation?.CanStop == true && !IsBusy);
             CompleteOperationCommand = new RelayCommand(async () => await ExecuteOperationAsync("complete"), () => CurrentSession != null && HasOperationExecutionAccess && SelectedOperation?.CanComplete == true && !IsBusy);
@@ -386,6 +392,9 @@ namespace RunBook.Workstation.ViewModels
         public ICommand SelectWorkOrderCommand { get; }
         public ICommand OpenDrawingCommand { get; }
         public ICommand SelectOperationCommand { get; }
+        public ICommand SelectWorkOrderQueueTabCommand { get; }
+        public ICommand SelectPacketTabCommand { get; }
+        public ICommand SelectDataEntryTabCommand { get; }
         public ICommand StartOperationCommand { get; }
         public ICommand StopOperationCommand { get; }
         public ICommand CompleteOperationCommand { get; }
@@ -564,11 +573,23 @@ namespace RunBook.Workstation.ViewModels
                     ScrapReportText = "";
                     OperationNoteText = "";
                     OperationActionNoteText = "";
+                    SelectedPacketTab = "packet";
+                    SelectedDataEntryTab = "production";
                     UpdateActiveContext();
                     OnPropertyChanged(nameof(InspectionSubtitle));
                 }
 
                 OnPropertyChanged();
+                RefreshWorkOrderSelectionStates();
+                OnPropertyChanged(nameof(SelectedWorkOrderStatusText));
+                OnPropertyChanged(nameof(SelectedWorkOrderStatusBackgroundBrush));
+                OnPropertyChanged(nameof(SelectedWorkOrderStatusBorderBrush));
+                OnPropertyChanged(nameof(SelectedWorkOrderStatusForegroundBrush));
+                OnPropertyChanged(nameof(SelectedWorkOrderDueDateText));
+                OnPropertyChanged(nameof(SelectedWorkOrderRevisionText));
+                OnPropertyChanged(nameof(SelectedWorkOrderCustomerText));
+                OnPropertyChanged(nameof(SelectedWorkOrderCellText));
+                OnPropertyChanged(nameof(SelectedWorkOrderProgressPercentText));
                 RaiseCommandStates();
             }
         }
@@ -587,6 +608,10 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(SelectedWorkOrderProgressSummary));
                 OnPropertyChanged(nameof(SelectedWorkOrderActiveOperatorsSummary));
                 OnPropertyChanged(nameof(ActiveWorkContextLine));
+                OnPropertyChanged(nameof(SelectedWorkOrderDueDateText));
+                OnPropertyChanged(nameof(SelectedWorkOrderRevisionText));
+                OnPropertyChanged(nameof(SelectedWorkOrderCustomerText));
+                OnPropertyChanged(nameof(SelectedWorkOrderProgressPercentText));
             }
         }
 
@@ -613,12 +638,32 @@ namespace RunBook.Workstation.ViewModels
                 UpdateActiveContext();
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(SelectedOperationTitle));
+                OnPropertyChanged(nameof(SelectedOperationNumberText));
                 OnPropertyChanged(nameof(SelectedOperationContext));
                 OnPropertyChanged(nameof(SelectedOperationDisplayStatus));
+                OnPropertyChanged(nameof(SelectedOperationStatusText));
+                OnPropertyChanged(nameof(SelectedOperationStatusBackgroundBrush));
+                OnPropertyChanged(nameof(SelectedOperationStatusBorderBrush));
+                OnPropertyChanged(nameof(SelectedOperationStatusForegroundBrush));
                 OnPropertyChanged(nameof(OperationStartActionText));
                 OnPropertyChanged(nameof(ActiveWorkContextLine));
+                OnPropertyChanged(nameof(ShowStartOperationAction));
+                OnPropertyChanged(nameof(ShowPauseOperationAction));
+                OnPropertyChanged(nameof(ShowCompleteOperationAction));
+                OnPropertyChanged(nameof(ShowInspectionAction));
+                OnPropertyChanged(nameof(ShowAttachmentActions));
+                OnPropertyChanged(nameof(ShowMobileCaptureAction));
+                OnPropertyChanged(nameof(SelectedOperationWorkCenterText));
+                OnPropertyChanged(nameof(SelectedOperationDepartmentText));
+                OnPropertyChanged(nameof(SelectedOperationTypeText));
+                OnPropertyChanged(nameof(SelectedOperationSetupText));
+                OnPropertyChanged(nameof(SelectedOperationCycleText));
+                OnPropertyChanged(nameof(SelectedOperationStartedText));
                 RebuildDataEntrySections();
                 UpdateOperationAttachmentIntakeQr();
+                RefreshOperationSelectionStates();
+                SelectedPacketTab = "packet";
+                SetDefaultDataEntryTab();
                 if (_selectedOperation == null)
                 {
                     ClearOperationPacket();
@@ -1219,6 +1264,87 @@ namespace RunBook.Workstation.ViewModels
         public bool ShowGlobalStatusFooter => !IsTimeClockSelected;
         public bool IsWorkOrdersSelected => string.Equals(SelectedModule?.Key, "workorders", StringComparison.OrdinalIgnoreCase);
         public bool IsDrawingsSelected => string.Equals(SelectedModule?.Key, "drawings", StringComparison.OrdinalIgnoreCase);
+        public string SelectedWorkOrderQueueTab
+        {
+            get => _selectedWorkOrderQueueTab;
+            private set
+            {
+                var normalized = string.Equals(value, "all", StringComparison.OrdinalIgnoreCase) ? "all" : "assigned";
+                if (string.Equals(_selectedWorkOrderQueueTab, normalized, StringComparison.Ordinal))
+                    return;
+                _selectedWorkOrderQueueTab = normalized;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsAssignedQueueSelected));
+                OnPropertyChanged(nameof(IsAvailableQueueSelected));
+                OnPropertyChanged(nameof(VisibleWorkOrderQueue));
+                OnPropertyChanged(nameof(VisibleWorkOrderQueueCount));
+                OnPropertyChanged(nameof(VisibleWorkOrderQueueLabel));
+                OnPropertyChanged(nameof(WorkOrdersQueueFooterText));
+                OnPropertyChanged(nameof(WorkOrdersQueueEmptyStateTitle));
+                OnPropertyChanged(nameof(WorkOrdersQueueEmptyStateBody));
+            }
+        }
+        public bool IsAssignedQueueSelected => string.Equals(SelectedWorkOrderQueueTab, "assigned", StringComparison.OrdinalIgnoreCase);
+        public bool IsAvailableQueueSelected => !IsAssignedQueueSelected;
+        public IReadOnlyList<WorkstationWorkOrderSummary> VisibleWorkOrderQueue => IsAssignedQueueSelected
+            ? AssignedWorkOrders.ToList()
+            : AvailableWorkOrders.ToList();
+        public int VisibleWorkOrderQueueCount => VisibleWorkOrderQueue.Count;
+        public string VisibleWorkOrderQueueLabel => IsAssignedQueueSelected ? "assigned work orders" : "available work orders";
+        public string WorkOrdersQueueFooterText => VisibleWorkOrderQueueCount == 0
+            ? $"No {VisibleWorkOrderQueueLabel} are loaded."
+            : $"Showing {VisibleWorkOrderQueueCount} {VisibleWorkOrderQueueLabel}.";
+        public string WorkOrdersQueueEmptyStateTitle => IsAssignedQueueSelected ? "No assigned work orders" : "No available work orders";
+        public string WorkOrdersQueueEmptyStateBody => IsAssignedQueueSelected
+            ? "RunBook Service has not assigned executable work orders to this operator yet."
+            : "No additional available work orders are exposed to this operator right now.";
+        public string WorkOrdersQueueEmptyStateSecondary => IsAssignedQueueSelected
+            ? "Refresh after a supervisor releases or assigns work."
+            : "Refresh after a supervisor releases or exposes additional available work.";
+        public string SelectedPacketTab
+        {
+            get => _selectedPacketTab;
+            private set
+            {
+                var normalized = NormalizePacketTab(value);
+                if (string.Equals(_selectedPacketTab, normalized, StringComparison.Ordinal))
+                    return;
+                _selectedPacketTab = normalized;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsPacketTabSelected));
+                OnPropertyChanged(nameof(IsDrawingsPacketTabSelected));
+                OnPropertyChanged(nameof(IsReferencesPacketTabSelected));
+                OnPropertyChanged(nameof(IsChecklistPacketTabSelected));
+                OnPropertyChanged(nameof(IsInspectionsPacketTabSelected));
+                OnPropertyChanged(nameof(IsAttachmentsPacketTabSelected));
+            }
+        }
+        public bool IsPacketTabSelected => string.Equals(SelectedPacketTab, "packet", StringComparison.OrdinalIgnoreCase);
+        public bool IsDrawingsPacketTabSelected => string.Equals(SelectedPacketTab, "drawings", StringComparison.OrdinalIgnoreCase);
+        public bool IsReferencesPacketTabSelected => string.Equals(SelectedPacketTab, "references", StringComparison.OrdinalIgnoreCase);
+        public bool IsChecklistPacketTabSelected => string.Equals(SelectedPacketTab, "checklist", StringComparison.OrdinalIgnoreCase);
+        public bool IsInspectionsPacketTabSelected => string.Equals(SelectedPacketTab, "inspections", StringComparison.OrdinalIgnoreCase);
+        public bool IsAttachmentsPacketTabSelected => string.Equals(SelectedPacketTab, "attachments", StringComparison.OrdinalIgnoreCase);
+        public string SelectedDataEntryTab
+        {
+            get => _selectedDataEntryTab;
+            private set
+            {
+                var normalized = NormalizeDataEntryTab(value);
+                if (string.Equals(_selectedDataEntryTab, normalized, StringComparison.Ordinal))
+                    return;
+                _selectedDataEntryTab = normalized;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsProductionDataEntryTabSelected));
+                OnPropertyChanged(nameof(IsMaterialDataEntryTabSelected));
+                OnPropertyChanged(nameof(IsInspectionDataEntryTabSelected));
+                OnPropertyChanged(nameof(IsNotesDataEntryTabSelected));
+            }
+        }
+        public bool IsProductionDataEntryTabSelected => string.Equals(SelectedDataEntryTab, "production", StringComparison.OrdinalIgnoreCase);
+        public bool IsMaterialDataEntryTabSelected => string.Equals(SelectedDataEntryTab, "material", StringComparison.OrdinalIgnoreCase);
+        public bool IsInspectionDataEntryTabSelected => string.Equals(SelectedDataEntryTab, "inspection", StringComparison.OrdinalIgnoreCase);
+        public bool IsNotesDataEntryTabSelected => string.Equals(SelectedDataEntryTab, "notes", StringComparison.OrdinalIgnoreCase);
         public bool HasCurrentJob => CurrentJob != null && CurrentJob.WorkOrderId > 0;
         public bool HasRecentJob => !HasCurrentJob && RecentJob != null && RecentJob.WorkOrderId > 0;
         public bool ShowOperatorCurrentJobCard => HasCurrentJob;
@@ -1381,10 +1507,22 @@ namespace RunBook.Workstation.ViewModels
                 : $"{ShopOperators.Count} operators are active now.";
         public string CurrentModuleTitle => SelectedModule?.Title ?? "RunBook Workstation";
         public string CurrentModuleSubtitle => SelectedModule?.Subtitle ?? "Shop-floor access shell";
+        public string WorkOrdersHeaderCountText => WorkOrders.Count.ToString(CultureInfo.InvariantCulture);
         public string SelectedWorkOrderTitle => WorkOrderDetail?.WorkOrderNumber ?? "Select a work order";
         public string SelectedWorkOrderSummary => WorkOrderDetail == null
             ? "Read-only released work-order detail will appear here."
             : $"{WorkOrderDetail.PartNumber} - Rev {WorkOrderDetail.Revision} - Qty {WorkOrderDetail.Quantity}";
+        public string SelectedWorkOrderStatusText => SelectedWorkOrder?.StatusBadgeText ?? "PENDING";
+        public string SelectedWorkOrderStatusBackgroundBrush => SelectedWorkOrder?.StatusBadgeBackgroundBrush ?? "#1A6F7C8F";
+        public string SelectedWorkOrderStatusBorderBrush => SelectedWorkOrder?.StatusBadgeBorderBrush ?? "#66243246";
+        public string SelectedWorkOrderStatusForegroundBrush => SelectedWorkOrder?.StatusBadgeForegroundBrush ?? "#FFAAB6C8";
+        public string SelectedWorkOrderDueDateText => WorkOrderDetail == null
+            ? "No due date"
+            : string.IsNullOrWhiteSpace(WorkOrderDetail.DueDate) ? "No due date" : FormatFriendlyDate(WorkOrderDetail.DueDate);
+        public string SelectedWorkOrderRevisionText => string.IsNullOrWhiteSpace(WorkOrderDetail?.Revision) ? "Rev -" : $"Rev {WorkOrderDetail.Revision}";
+        public string SelectedWorkOrderCustomerText => string.IsNullOrWhiteSpace(WorkOrderDetail?.CustomerName) ? "Customer not available" : WorkOrderDetail.CustomerName;
+        public string SelectedWorkOrderCellText => FirstNonBlank(_operationPacket?.WorkCenterDisplay, SelectedOperation?.WorkCenter, "Work center pending");
+        public string SelectedWorkOrderProgressPercentText => WorkOrderDetail == null ? "0%" : $"{WorkOrderDetail.ProgressPercent}%";
         public string SelectedWorkOrderContext => WorkOrderDetail == null
             ? "Service now serves workstation work-order reads."
             : $"{WorkOrderDetail.ReleaseState} snapshot - Due {FormatFriendlyDate(WorkOrderDetail.DueDate)} - {WorkOrderDetail.SnapshotLoadSource}";
@@ -1429,11 +1567,28 @@ namespace RunBook.Workstation.ViewModels
         public string SelectedOperationTitle => SelectedOperation == null
             ? "Select an operation"
             : $"OP{SelectedOperation.OperationNumber:000} - {SelectedOperation.Title}";
+        public string SelectedOperationNumberText => SelectedOperation == null ? "OP ---" : $"OP-{SelectedOperation.OperationNumber:000}";
         public string SelectedOperationDisplayStatus => SelectedOperation?.DisplayStatus ?? "";
+        public string SelectedOperationStatusText => SelectedOperation?.StatusBadgeText ?? "PENDING";
+        public string SelectedOperationStatusBackgroundBrush => SelectedOperation?.StatusBadgeBackgroundBrush ?? "#1A6F7C8F";
+        public string SelectedOperationStatusBorderBrush => SelectedOperation?.StatusBadgeBorderBrush ?? "#66243246";
+        public string SelectedOperationStatusForegroundBrush => SelectedOperation?.StatusTextBrush ?? "#FFAAB6C8";
         public string OperationStartActionText => SelectedOperation?.IsPaused == true ? "Resume Operation" : "Start Operation";
         public string SelectedOperationContext => SelectedOperation == null
             ? "Pick a released operation to execute from Workstation."
             : $"{SelectedOperation.DisplayStatus} - {SelectedOperation.Department} / {SelectedOperation.WorkCenter}";
+        public bool ShowStartOperationAction => SelectedOperation != null;
+        public bool ShowPauseOperationAction => SelectedOperation?.CanStop == true;
+        public bool ShowCompleteOperationAction => SelectedOperation?.CanComplete == true;
+        public bool ShowInspectionAction => HasOperationInspection;
+        public bool ShowAttachmentActions => SelectedOperation != null;
+        public bool ShowMobileCaptureAction => SelectedOperation != null;
+        public string SelectedOperationWorkCenterText => FirstNonBlank(_operationPacket?.WorkCenterDisplay, SelectedOperation?.WorkCenter, "Work center pending");
+        public string SelectedOperationDepartmentText => FirstNonBlank(_operationPacket?.DepartmentDisplay, SelectedOperation?.Department, "Department pending");
+        public string SelectedOperationTypeText => FirstNonBlank(_operationPacket?.OperationTypeDisplay, _operationPacket?.OperationType, SelectedOperation?.Title, "Operation");
+        public string SelectedOperationSetupText => BuildMinutesText(_operationPacket?.SetupMinutes);
+        public string SelectedOperationCycleText => BuildMinutesText(_operationPacket?.CycleMinutes);
+        public string SelectedOperationStartedText => string.IsNullOrWhiteSpace(SelectedOperation?.StartedUtc) ? "Not started yet" : FormatDisplayDateTime(SelectedOperation.StartedUtc);
         public string DataEntryOperationTypeLabel => SelectedOperation == null
             ? "No operation selected"
             : FirstNonBlank(_operationPacket?.OperationTypeDisplay, _operationPacket?.OperationType, SelectedOperation.Title, "Custom");
@@ -1499,6 +1654,15 @@ namespace RunBook.Workstation.ViewModels
         public bool ShowDataEntryEvidenceCard => SelectedOperation != null;
         public bool ShowDataEntryMissingReason => !string.IsNullOrWhiteSpace(DataEntryValidationMessage);
         public string DataEntryValidationMessage => BuildDataEntryValidationMessage();
+        public IReadOnlyList<RunBookWorkstationApiClient.OperationPacketDocument> PacketDocuments => PacketDrawingDocuments
+            .Concat(PacketBalloonedDrawingDocuments)
+            .Concat(PacketInspectionDocuments)
+            .Concat(PacketOperationReferences)
+            .ToList();
+        public IReadOnlyList<RunBookWorkstationApiClient.OperationPacketReferenceItem> PacketReferenceItems => _operationPacket?.ReferenceItems?.ToList()
+            ?? new List<RunBookWorkstationApiClient.OperationPacketReferenceItem>();
+        public IReadOnlyList<RunBookWorkstationApiClient.OperationPacketChecklistItem> PacketChecklistItems => _operationPacket?.ChecklistItems?.ToList()
+            ?? new List<RunBookWorkstationApiClient.OperationPacketChecklistItem>();
         public RunBookWorkstationApiClient.MaterialRequirementDto? PrimaryMaterialRequirement => _operationPacket?.MaterialRequirements?.FirstOrDefault();
         public string ExpectedMaterialSummary
         {
@@ -1547,6 +1711,9 @@ namespace RunBook.Workstation.ViewModels
         public bool HasOperationInspection => SelectedOperation != null && (InspectionTasks.Count > 0 || PacketInspectionDocuments.Count > 0);
         public bool HasPacketDocuments => PacketDrawingDocuments.Count > 0 || PacketBalloonedDrawingDocuments.Count > 0 || PacketInspectionDocuments.Count > 0 || PacketOperationReferences.Count > 0;
         public bool HasBalloonGeometry => _operationPacket?.HasBalloonGeometry == true;
+        public string PacketLoadMessage => SelectedOperation == null
+            ? "Select an operation to view released drawings, references, checklist, inspections, and attachments."
+            : _operationPacketLoadStatus;
         public string PacketDocumentSummary => _operationPacket == null
             ? _operationPacketLoadStatus
             : $"{PacketDrawingDocuments.Count} drawing(s), {PacketBalloonedDrawingDocuments.Count} ballooned drawing(s), {PacketInspectionDocuments.Count} inspection reference(s), {PacketOperationReferences.Count} operation reference(s).";
@@ -1568,6 +1735,9 @@ namespace RunBook.Workstation.ViewModels
         public string SelectedInspectionFeatureLabel => SelectedInspectionTask == null
             ? "No inspection row selected."
             : $"Feature {SelectedInspectionTask.FeatureId} - {SelectedInspectionTask.FeatureText}";
+        public bool HasRecentOperationEntry => false;
+        public string LastOperationEntryTitle => "No recent workstation entry";
+        public string LastOperationEntryBody => "Recent operation history is not exposed by the current Workstation Service payload yet.";
         public bool IsMobileCaptureDialogOpen
         {
             get => _isMobileCaptureDialogOpen;
@@ -1580,6 +1750,15 @@ namespace RunBook.Workstation.ViewModels
                 RaiseCommandStates();
             }
         }
+
+        private void SelectWorkOrderQueueTab(string? key)
+            => SelectedWorkOrderQueueTab = key ?? "assigned";
+
+        private void SelectPacketTab(string? key)
+            => SelectedPacketTab = key ?? "packet";
+
+        private void SelectDataEntryTab(string? key)
+            => SelectedDataEntryTab = key ?? "production";
 
         public string SelectedMobileCaptureType
         {
@@ -2746,6 +2925,8 @@ namespace RunBook.Workstation.ViewModels
                     AssignedWorkOrders.Add(workOrder);
                 foreach (var workOrder in response.AvailableJobs.Select(MapWorkOrderSummary))
                     AvailableWorkOrders.Add(workOrder);
+                if (AssignedWorkOrders.Count == 0 && AvailableWorkOrders.Count > 0)
+                    SelectedWorkOrderQueueTab = "all";
 
                 var preferredCurrentId = CurrentJob?.WorkOrderId ?? 0;
                 SelectedWorkOrder = WorkOrders.FirstOrDefault(item => item.WorkOrderId == previousSelectedId)
@@ -2769,6 +2950,12 @@ namespace RunBook.Workstation.ViewModels
                     SelectedDrawing = null;
                 }
 
+                RefreshWorkOrderSelectionStates();
+                OnPropertyChanged(nameof(WorkOrdersHeaderCountText));
+                OnPropertyChanged(nameof(VisibleWorkOrderQueue));
+                OnPropertyChanged(nameof(VisibleWorkOrderQueueCount));
+                OnPropertyChanged(nameof(WorkOrdersQueueFooterText));
+
                 WorkOrdersStatus = WorkOrders.Count == 0
                     ? "Service has no assigned or backup work orders available for this employee."
                     : $"Loaded {WorkOrders.Count} workstation jobs from Service. Assigned {_assignedWorkOrderCount}, backup {_backupWorkOrderCount}.";
@@ -2784,6 +2971,10 @@ namespace RunBook.Workstation.ViewModels
 
             await RunBusyAsync(async () =>
             {
+                if (AssignedWorkOrders.Any(item => item.WorkOrderId == workOrder.WorkOrderId))
+                    SelectedWorkOrderQueueTab = "assigned";
+                else if (AvailableWorkOrders.Any(item => item.WorkOrderId == workOrder.WorkOrderId))
+                    SelectedWorkOrderQueueTab = "all";
                 SelectedWorkOrder = workOrder;
                 await LoadWorkOrderDetailAsync(workOrder.WorkOrderId, true);
                 StatusText = $"Loaded {workOrder.WorkOrderNumber} from Service.";
@@ -2871,6 +3062,49 @@ namespace RunBook.Workstation.ViewModels
 
             SelectedOperation = operation;
             await RefreshOperationPacketAsync(false);
+        }
+
+        private void RefreshWorkOrderSelectionStates()
+        {
+            var selectedId = SelectedWorkOrder?.WorkOrderId ?? 0;
+            foreach (var workOrder in WorkOrders)
+                workOrder.IsSelected = workOrder.WorkOrderId == selectedId;
+            foreach (var workOrder in AssignedWorkOrders)
+                workOrder.IsSelected = workOrder.WorkOrderId == selectedId;
+            foreach (var workOrder in AvailableWorkOrders)
+                workOrder.IsSelected = workOrder.WorkOrderId == selectedId;
+            OnPropertyChanged(nameof(VisibleWorkOrderQueue));
+        }
+
+        private void RefreshOperationSelectionStates()
+        {
+            var selectedId = SelectedOperation?.OperationId ?? 0;
+            foreach (var operation in WorkOrderDetail?.Operations ?? Enumerable.Empty<WorkstationWorkOrderOperationSummary>())
+                operation.IsSelected = operation.OperationId == selectedId;
+            OnPropertyChanged(nameof(WorkOrderDetail));
+        }
+
+        private void SetDefaultDataEntryTab()
+        {
+            if (SelectedOperation == null)
+            {
+                SelectedDataEntryTab = "production";
+                return;
+            }
+
+            if (IsReceiveMaterialOperation)
+            {
+                SelectedDataEntryTab = "material";
+                return;
+            }
+
+            if (ShowDataEntryInspectionCard && GetOperationFamily() == "inspection")
+            {
+                SelectedDataEntryTab = "inspection";
+                return;
+            }
+
+            SelectedDataEntryTab = "production";
         }
 
         private async Task LoadDrawingPackageAsync(int workOrderId)
@@ -3272,6 +3506,7 @@ namespace RunBook.Workstation.ViewModels
             try
             {
                 _operationPacketLoadStatus = "Loading operation packet from RunBook Service...";
+                OnPropertyChanged(nameof(PacketLoadMessage));
                 OnPropertyChanged(nameof(PacketDocumentSummary));
                 var response = await _api.GetOperationPacketAsync(Settings, CurrentSession, SelectedWorkOrder.WorkOrderId, SelectedOperation.OperationId, CancellationToken.None);
                 ApplyOperationPacket(response.Packet);
@@ -3291,6 +3526,11 @@ namespace RunBook.Workstation.ViewModels
         {
             _operationPacket = packet;
             _operationPacketLoadStatus = packet == null ? "Operation packet has not loaded yet." : "Operation packet loaded from RunBook Service.";
+            if (SelectedOperation != null)
+            {
+                SelectedOperation.SetupMinutesEstimate = packet?.SetupMinutes > 0 ? $"{packet.SetupMinutes:0.##} min" : "";
+                SelectedOperation.CycleMinutesEstimate = packet?.CycleMinutes > 0 ? $"{packet.CycleMinutes:0.##} min" : "";
+            }
             PacketDrawingDocuments.Clear();
             PacketBalloonedDrawingDocuments.Clear();
             PacketInspectionDocuments.Clear();
@@ -3338,14 +3578,25 @@ namespace RunBook.Workstation.ViewModels
             SeedMaterialReceivingFields();
             SelectedInspectionTask = InspectionTasks.FirstOrDefault(task => task.FeatureId == SelectedInspectionTask?.FeatureId) ?? InspectionTasks.FirstOrDefault();
             OnPropertyChanged(nameof(HasOperationInspection));
+            OnPropertyChanged(nameof(ShowInspectionAction));
             OnPropertyChanged(nameof(HasPacketDocuments));
             OnPropertyChanged(nameof(HasBalloonGeometry));
+            OnPropertyChanged(nameof(PacketLoadMessage));
             OnPropertyChanged(nameof(PacketDocumentSummary));
+            OnPropertyChanged(nameof(PacketDocuments));
+            OnPropertyChanged(nameof(PacketReferenceItems));
+            OnPropertyChanged(nameof(PacketChecklistItems));
             OnPropertyChanged(nameof(BalloonGeometryStatus));
             OnPropertyChanged(nameof(OperationAttachmentSummary));
             OnPropertyChanged(nameof(InspectionSubtitle));
             OnPropertyChanged(nameof(SelectedInspectionBalloonLabel));
             OnPropertyChanged(nameof(SelectedInspectionFeatureLabel));
+            OnPropertyChanged(nameof(SelectedWorkOrderCellText));
+            OnPropertyChanged(nameof(SelectedOperationWorkCenterText));
+            OnPropertyChanged(nameof(SelectedOperationDepartmentText));
+            OnPropertyChanged(nameof(SelectedOperationTypeText));
+            OnPropertyChanged(nameof(SelectedOperationSetupText));
+            OnPropertyChanged(nameof(SelectedOperationCycleText));
             RebuildDataEntrySections();
             RaiseCommandStates();
         }
@@ -3403,6 +3654,11 @@ namespace RunBook.Workstation.ViewModels
         {
             _operationPacket = null;
             _operationPacketLoadStatus = string.IsNullOrWhiteSpace(status) ? "Operation packet has not loaded yet." : status;
+            if (SelectedOperation != null)
+            {
+                SelectedOperation.SetupMinutesEstimate = "";
+                SelectedOperation.CycleMinutesEstimate = "";
+            }
             CurrentWorkOrderThumbnailImage = null;
             PacketDrawingDocuments.Clear();
             PacketBalloonedDrawingDocuments.Clear();
@@ -3414,14 +3670,25 @@ namespace RunBook.Workstation.ViewModels
             InspectionPackage = null;
             SelectedInspectionTask = null;
             OnPropertyChanged(nameof(HasOperationInspection));
+            OnPropertyChanged(nameof(ShowInspectionAction));
             OnPropertyChanged(nameof(HasPacketDocuments));
             OnPropertyChanged(nameof(HasBalloonGeometry));
+            OnPropertyChanged(nameof(PacketLoadMessage));
             OnPropertyChanged(nameof(PacketDocumentSummary));
+            OnPropertyChanged(nameof(PacketDocuments));
+            OnPropertyChanged(nameof(PacketReferenceItems));
+            OnPropertyChanged(nameof(PacketChecklistItems));
             OnPropertyChanged(nameof(BalloonGeometryStatus));
             OnPropertyChanged(nameof(OperationAttachmentSummary));
             OnPropertyChanged(nameof(InspectionSubtitle));
             OnPropertyChanged(nameof(SelectedInspectionBalloonLabel));
             OnPropertyChanged(nameof(SelectedInspectionFeatureLabel));
+            OnPropertyChanged(nameof(SelectedWorkOrderCellText));
+            OnPropertyChanged(nameof(SelectedOperationWorkCenterText));
+            OnPropertyChanged(nameof(SelectedOperationDepartmentText));
+            OnPropertyChanged(nameof(SelectedOperationTypeText));
+            OnPropertyChanged(nameof(SelectedOperationSetupText));
+            OnPropertyChanged(nameof(SelectedOperationCycleText));
             RebuildDataEntrySections();
         }
 
@@ -5399,6 +5666,37 @@ namespace RunBook.Workstation.ViewModels
         {
             var totalHours = (int)Math.Floor(value.TotalHours);
             return $"{totalHours}h {value.Minutes:00}m";
+        }
+
+        private static string NormalizePacketTab(string? key)
+        {
+            return (key ?? "").Trim().ToLowerInvariant() switch
+            {
+                "drawings" => "drawings",
+                "references" => "references",
+                "checklist" => "checklist",
+                "inspections" => "inspections",
+                "attachments" => "attachments",
+                _ => "packet"
+            };
+        }
+
+        private static string NormalizeDataEntryTab(string? key)
+        {
+            return (key ?? "").Trim().ToLowerInvariant() switch
+            {
+                "material" => "material",
+                "inspection" => "inspection",
+                "notes" => "notes",
+                _ => "production"
+            };
+        }
+
+        private static string BuildMinutesText(double? minutes)
+        {
+            return minutes.HasValue && minutes.Value > 0
+                ? $"{minutes.Value:0.##} min"
+                : "--";
         }
 
         private static string FormatDisplayDateTime(string utc)

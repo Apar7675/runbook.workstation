@@ -324,6 +324,16 @@
                                                   ItemsSource="{Binding ConnectionStatuses}"
                                                   Margin="0,0,14,0"
                                                   VerticalAlignment="Center">
+                                        <ItemsControl.Style>
+                                            <Style TargetType="ItemsControl">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsWorkOrdersSelected}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ItemsControl.Style>
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
                                                 <StackPanel Orientation="Horizontal"/>
@@ -364,6 +374,32 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
+                                    <Border Grid.Column="4"
+                                            Padding="12,8"
+                                            CornerRadius="10"
+                                            Background="{Binding ServiceStatusBackgroundBrush}"
+                                            BorderBrush="{Binding ServiceStatusAccentBrush}"
+                                            BorderThickness="1"
+                                            Margin="0,0,14,0"
+                                            VerticalAlignment="Center">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsWorkOrdersSelected}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="8" Height="8" Fill="{Binding ServiceStatusAccentBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <StackPanel>
+                                                <TextBlock Text="SERVICE READY" Foreground="#FFF4F7FB" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding ServiceStatusDetail}" Foreground="#FFAAB6C8" FontSize="10" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
                                     <Border Grid.Column="5" Style="{StaticResource HeaderDateTimeCard}" Padding="14,8" Margin="0,0,10,0">
                                         <StackPanel VerticalAlignment="Center">
                                             <TextBlock Text="{Binding HeaderDateText}" Style="{StaticResource HeaderDateText}"/>
@@ -373,19 +409,71 @@
                                     <Button Grid.Column="6"
                                             Content="Save Settings"
                                             Command="{Binding SaveSettingsCommand}"
-                                            Style="{StaticResource RB.Button.Ghost}"
                                             IsEnabled="{Binding HasSupervisorSession}"
                                             Margin="0,0,8,0"
                                             VerticalAlignment="Center"
-                                            ToolTip="Supervisor sign-in required."/>
+                                            ToolTip="Supervisor sign-in required.">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource RB.Button.Ghost}">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsWorkOrdersSelected}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
                                     <Button Grid.Column="7"
                                             Content="{Binding RefreshConnectionsButtonText}"
                                             Command="{Binding RefreshEmployeeAuthCommand}"
-                                            Style="{StaticResource RB.Button.Primary}"
                                             IsEnabled="{Binding HasSupervisorSession}"
                                             Margin="0,0,8,0"
                                             VerticalAlignment="Center"
-                                            ToolTip="Supervisor sign-in required."/>
+                                            ToolTip="Supervisor sign-in required.">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource RB.Button.Primary}">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsWorkOrdersSelected}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Grid.Column="6"
+                                            Content="Refresh"
+                                            Command="{Binding RefreshWorkOrdersCommand}"
+                                            Margin="0,0,8,0"
+                                            VerticalAlignment="Center">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource RB.Button.Ghost}">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsWorkOrdersSelected}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Grid.Column="7"
+                                            Content="Supervisor Access"
+                                            Command="{Binding OpenSupervisorDialogCommand}"
+                                            Margin="0,0,8,0"
+                                            VerticalAlignment="Center">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource RB.Button.Primary}">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsWorkOrdersSelected}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
                                     <Button Grid.Column="8" Command="{Binding LogoutCommand}" Style="{StaticResource RB.Button.Ghost}" VerticalAlignment="Center" MinWidth="150" Padding="14,9">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -3110,7 +3198,7 @@
                                         </Grid>
                                     </Border>
                                 </Grid>
-                                <Grid Visibility="{Binding IsWorkOrdersSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Grid Visibility="Collapsed">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="8"/>
@@ -4011,6 +4099,861 @@
                                             </Grid>
                                         </Border>
                                     </UniformGrid>
+                                </Grid>
+                                <Grid Visibility="{Binding IsWorkOrdersSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid.Resources>
+                                        <Style x:Key="WorkOrdersPanelCardStyle" TargetType="Border">
+                                            <Setter Property="Background" Value="#FF0B111A"/>
+                                            <Setter Property="BorderBrush" Value="#FF243246"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                            <Setter Property="CornerRadius" Value="14"/>
+                                            <Setter Property="Padding" Value="16"/>
+                                        </Style>
+                                        <Style x:Key="WorkOrdersIconBadgeStyle" TargetType="Border">
+                                            <Setter Property="Width" Value="60"/>
+                                            <Setter Property="Height" Value="60"/>
+                                            <Setter Property="CornerRadius" Value="12"/>
+                                            <Setter Property="Background" Value="#FF101824"/>
+                                            <Setter Property="BorderBrush" Value="#FF243246"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                                            <Setter Property="VerticalAlignment" Value="Center"/>
+                                            <Setter Property="Effect">
+                                                <Setter.Value>
+                                                    <DropShadowEffect BlurRadius="14" ShadowDepth="0" Color="#5538D5FF" Opacity="0.35"/>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                        <Style x:Key="WorkOrdersTabButtonStyle" TargetType="Button" BasedOn="{StaticResource RB.Button.Ghost}">
+                                            <Setter Property="Foreground" Value="#FF6F7C8F"/>
+                                            <Setter Property="Background" Value="#00000000"/>
+                                            <Setter Property="BorderBrush" Value="#00000000"/>
+                                            <Setter Property="BorderThickness" Value="0"/>
+                                            <Setter Property="Padding" Value="0,0,0,10"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border x:Name="Root" BorderBrush="#00000000" BorderThickness="0,0,0,2" Background="Transparent">
+                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter Property="Foreground" Value="#FFF4F7FB"/>
+                                                            </Trigger>
+                                                            <Trigger Property="Tag" Value="True">
+                                                                <Setter TargetName="Root" Property="BorderBrush" Value="#FF38D5FF"/>
+                                                                <Setter Property="Foreground" Value="#FF38D5FF"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsEnabled" Value="False">
+                                                                <Setter Property="Opacity" Value="0.45"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                        <Style x:Key="WorkOrdersActionButtonStyle" TargetType="Button" BasedOn="{StaticResource RB.Button.Ghost}">
+                                            <Setter Property="Height" Value="40"/>
+                                            <Setter Property="Background" Value="#FF101824"/>
+                                            <Setter Property="BorderBrush" Value="#FF243246"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                            <Setter Property="Foreground" Value="#FFF4F7FB"/>
+                                            <Setter Property="Padding" Value="12,0"/>
+                                        </Style>
+                                        <Style x:Key="WorkOrdersPrimaryActionButtonStyle" TargetType="Button" BasedOn="{StaticResource RB.Button.Primary}">
+                                            <Setter Property="Height" Value="42"/>
+                                            <Setter Property="Background" Value="#FF38D5FF"/>
+                                            <Setter Property="BorderBrush" Value="#FF38D5FF"/>
+                                            <Setter Property="Foreground" Value="#FF070A0F"/>
+                                        </Style>
+                                    </Grid.Resources>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="392"/>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="404"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource WorkOrdersPanelCardStyle}">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="18"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="12"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="WORK ORDERS" Foreground="#FFF4F7FB" FontSize="24" FontWeight="SemiBold"/>
+                                                    <Border Margin="10,0,0,0" Padding="10,3" CornerRadius="6" Background="#1414202B" BorderBrush="#FF243246" BorderThickness="1">
+                                                        <TextBlock Text="{Binding WorkOrdersHeaderCountText}" Foreground="#FF38D5FF" FontSize="12" FontWeight="SemiBold"/>
+                                                    </Border>
+                                                </StackPanel>
+                                                <Button Grid.Column="1" Content="Refresh" Command="{Binding RefreshWorkOrdersCommand}" Style="{StaticResource WorkOrdersActionButtonStyle}" Width="96"/>
+                                            </Grid>
+                                            <UniformGrid Grid.Row="2" Columns="2">
+                                                <Button Content="ASSIGNED TO ME" Tag="{Binding IsAssignedQueueSelected}" Command="{Binding SelectWorkOrderQueueTabCommand}" CommandParameter="assigned" Style="{StaticResource WorkOrdersTabButtonStyle}"/>
+                                                <Button Content="ALL AVAILABLE" Tag="{Binding IsAvailableQueueSelected}" Command="{Binding SelectWorkOrderQueueTabCommand}" CommandParameter="all" Style="{StaticResource WorkOrdersTabButtonStyle}"/>
+                                            </UniformGrid>
+                                            <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                                <StackPanel>
+                                                    <Border Padding="14" Margin="0,0,0,12">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border" BasedOn="{StaticResource WorkOrdersPanelCardStyle}">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding VisibleWorkOrderQueueCount}" Value="0">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <StackPanel>
+                                                            <Border Style="{StaticResource WorkOrdersIconBadgeStyle}" Width="56" Height="56">
+                                                                <Image Source="pack://application:,,,/Assets/Images/Icons/workorders.png"
+                                                                       Width="36"
+                                                                       Height="36"
+                                                                       Stretch="Uniform"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"/>
+                                                            </Border>
+                                                            <TextBlock Text="{Binding WorkOrdersQueueEmptyStateTitle}" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold" Margin="0,14,0,0"/>
+                                                            <TextBlock Text="{Binding WorkOrdersQueueEmptyStateBody}" Foreground="#FFAAB6C8" FontSize="13" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                            <TextBlock Text="{Binding WorkOrdersQueueEmptyStateSecondary}" Foreground="#FF6F7C8F" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                            <Button Content="Refresh" Command="{Binding RefreshWorkOrdersCommand}" Style="{StaticResource WorkOrdersActionButtonStyle}" Width="110" Margin="0,14,0,0"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <ItemsControl ItemsSource="{Binding VisibleWorkOrderQueue}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Command="{Binding DataContext.SelectWorkOrderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Style="{StaticResource WorkstationFullWidthButtonStyle}"
+                                                                        Margin="0,0,0,12"
+                                                                        Padding="0">
+                                                                    <Border Padding="14" CornerRadius="14" Background="{Binding QueueCardBackgroundBrush}" BorderBrush="{Binding QueueCardBorderBrush}" BorderThickness="1.4">
+                                                                        <Grid>
+                                                                            <Grid.ColumnDefinitions>
+                                                                                <ColumnDefinition Width="72"/>
+                                                                                <ColumnDefinition Width="12"/>
+                                                                                <ColumnDefinition Width="*"/>
+                                                                            </Grid.ColumnDefinitions>
+                                                                            <Border Width="72" Height="72" CornerRadius="12" Background="#FF101824" BorderBrush="#FF243246" BorderThickness="1">
+                                                                                <Viewbox Width="34" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                                    <Path Data="M11,2 L20,5 L24,14 L20,23 L11,26 L2,23 L-2,14 L2,5 Z M11,8 A6,6 0 1 1 10.99,8"
+                                                                                          Stroke="#FF6F7C8F"
+                                                                                          StrokeThickness="1.8"
+                                                                                          StrokeLineJoin="Round"
+                                                                                          StrokeStartLineCap="Round"
+                                                                                          StrokeEndLineCap="Round"/>
+                                                                                </Viewbox>
+                                                                            </Border>
+                                                                            <Grid Grid.Column="2">
+                                                                                <Grid.RowDefinitions>
+                                                                                    <RowDefinition Height="Auto"/>
+                                                                                    <RowDefinition Height="8"/>
+                                                                                    <RowDefinition Height="Auto"/>
+                                                                                    <RowDefinition Height="8"/>
+                                                                                    <RowDefinition Height="Auto"/>
+                                                                                    <RowDefinition Height="8"/>
+                                                                                    <RowDefinition Height="Auto"/>
+                                                                                </Grid.RowDefinitions>
+                                                                                <Grid>
+                                                                                    <Grid.ColumnDefinitions>
+                                                                                        <ColumnDefinition Width="*"/>
+                                                                                        <ColumnDefinition Width="Auto"/>
+                                                                                    </Grid.ColumnDefinitions>
+                                                                                    <Border Padding="8,3" CornerRadius="6" Background="{Binding StatusBadgeBackgroundBrush}" BorderBrush="{Binding StatusBadgeBorderBrush}" BorderThickness="1">
+                                                                                        <TextBlock Text="{Binding StatusBadgeText}" Foreground="{Binding StatusBadgeForegroundBrush}" FontSize="10" FontWeight="SemiBold"/>
+                                                                                    </Border>
+                                                                                    <TextBlock Grid.Column="1" Text="{Binding DueDateDisplay}" Foreground="#FFAAB6C8" FontSize="11" VerticalAlignment="Center"/>
+                                                                                </Grid>
+                                                                                <StackPanel Grid.Row="2">
+                                                                                    <TextBlock Text="{Binding WorkOrderNumber}" Foreground="#FFF4F7FB" FontSize="24" FontWeight="SemiBold"/>
+                                                                                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                                                                        <TextBlock Text="{Binding PartNumber}" Foreground="#FFAAB6C8" FontSize="12"/>
+                                                                                        <TextBlock Text="  " Foreground="#FFAAB6C8"/>
+                                                                                        <TextBlock Text="{Binding RevisionDisplay}" Foreground="#FF6F7C8F" FontSize="12"/>
+                                                                                    </StackPanel>
+                                                                                    <TextBlock Text="{Binding PartDescription}" Foreground="#FFF4F7FB" FontSize="13" Margin="0,6,0,0" TextWrapping="Wrap" MaxHeight="36"/>
+                                                                                </StackPanel>
+                                                                                <Grid Grid.Row="4">
+                                                                                    <Grid.ColumnDefinitions>
+                                                                                        <ColumnDefinition Width="*"/>
+                                                                                        <ColumnDefinition Width="Auto"/>
+                                                                                    </Grid.ColumnDefinitions>
+                                                                                    <TextBlock Text="{Binding QuantityDisplay}" Foreground="#FFAAB6C8" FontSize="12" FontWeight="SemiBold"/>
+                                                                                    <Border Grid.Column="1" Padding="8,3" CornerRadius="6" Background="{Binding AssignmentChipBackgroundBrush}" BorderBrush="{Binding AssignmentChipBorderBrush}" BorderThickness="1">
+                                                                                        <TextBlock Text="{Binding AssignmentChipText}" Foreground="{Binding AssignmentChipForegroundBrush}" FontSize="10" FontWeight="SemiBold"/>
+                                                                                    </Border>
+                                                                                </Grid>
+                                                                                <Grid Grid.Row="6">
+                                                                                    <Grid.ColumnDefinitions>
+                                                                                        <ColumnDefinition Width="*"/>
+                                                                                        <ColumnDefinition Width="Auto"/>
+                                                                                    </Grid.ColumnDefinitions>
+                                                                                    <ProgressBar Height="8" Minimum="0" Maximum="100" Value="{Binding ProgressPercent}" Background="#FF070A0F" Foreground="#FF38D5FF"/>
+                                                                                    <TextBlock Grid.Column="1" Text="{Binding ProgressPercentDisplay}" Foreground="#FFF4F7FB" FontSize="12" FontWeight="SemiBold" Margin="10,0,0,0"/>
+                                                                                </Grid>
+                                                                            </Grid>
+                                                                        </Grid>
+                                                                    </Border>
+                                                                </Button>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </ScrollViewer>
+                                            <TextBlock Grid.Row="5" Text="{Binding WorkOrdersQueueFooterText}" Foreground="#FF6F7C8F" FontSize="12" Margin="0,12,0,0"/>
+                                        </Grid>
+                                    </Border>
+                                    <Grid Grid.Column="2">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="12"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="12"/>
+                                            <RowDefinition Height="260"/>
+                                        </Grid.RowDefinitions>
+                                        <Border Grid.Row="0">
+                                            <Grid>
+                                                <Grid.Style>
+                                                    <Style TargetType="Grid">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding WorkOrderDetail}" Value="{x:Null}">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Grid.Style>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="118"/>
+                                                    <ColumnDefinition Width="16"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Width="118" Height="94" CornerRadius="14" Background="#FF101824" BorderBrush="#FF243246" BorderThickness="1">
+                                                    <Grid>
+                                                        <Image Source="{Binding CurrentWorkOrderThumbnailImage}" Stretch="Uniform" Margin="10" Visibility="{Binding CurrentWorkOrderThumbnailVisibility}"/>
+                                                        <Grid Visibility="{Binding CurrentWorkOrderThumbnailPlaceholderVisibility}">
+                                                            <Viewbox Width="42" Height="42" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                <Path Data="M4,19 L12,4 L28,4 L36,19 L28,34 L12,34 Z M15,16 L25,16 M15,22 L25,22"
+                                                                      Stroke="#FF6F7C8F"
+                                                                      StrokeThickness="2"
+                                                                      StrokeLineJoin="Round"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"/>
+                                                            </Viewbox>
+                                                        </Grid>
+                                                    </Grid>
+                                                </Border>
+                                                <StackPanel Grid.Column="2">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding SelectedWorkOrderTitle}" Foreground="#FFF4F7FB" FontSize="32" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                        <Border Margin="12,2,0,0" Padding="10,4" CornerRadius="6" Background="{Binding SelectedWorkOrderStatusBackgroundBrush}" BorderBrush="{Binding SelectedWorkOrderStatusBorderBrush}" BorderThickness="1" VerticalAlignment="Top">
+                                                            <TextBlock Text="{Binding SelectedWorkOrderStatusText}" Foreground="{Binding SelectedWorkOrderStatusForegroundBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                                        </Border>
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding WorkOrderDetail.PartDescription}" Foreground="#FFF4F7FB" FontSize="19" Margin="0,6,0,0"/>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                        <TextBlock Text="{Binding WorkOrderDetail.PartNumber}" Foreground="#FFAAB6C8" FontSize="13"/>
+                                                        <TextBlock Text="  " Foreground="#FFAAB6C8"/>
+                                                        <TextBlock Text="{Binding SelectedWorkOrderRevisionText}" Foreground="#FF6F7C8F" FontSize="13"/>
+                                                    </StackPanel>
+                                                    <UniformGrid Columns="5" Margin="0,18,0,0">
+                                                        <StackPanel Margin="0,0,12,0">
+                                                            <TextBlock Text="Customer" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding SelectedWorkOrderCustomerText}" Foreground="#FFF4F7FB" FontSize="14" Margin="0,4,0,0"/>
+                                                        </StackPanel>
+                                                        <StackPanel Margin="0,0,12,0">
+                                                            <TextBlock Text="Qty Ordered" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding WorkOrderDetail.Quantity}" Foreground="#FFF4F7FB" FontSize="14" Margin="0,4,0,0"/>
+                                                        </StackPanel>
+                                                        <StackPanel Margin="0,0,12,0">
+                                                            <TextBlock Text="Progress" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding SelectedWorkOrderProgressPercentText}" Foreground="#FFF4F7FB" FontSize="14" Margin="0,4,0,0"/>
+                                                        </StackPanel>
+                                                        <StackPanel Margin="0,0,12,0">
+                                                            <TextBlock Text="Due Date" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding SelectedWorkOrderDueDateText}" Foreground="#FFF4F7FB" FontSize="14" Margin="0,4,0,0"/>
+                                                        </StackPanel>
+                                                        <StackPanel>
+                                                            <TextBlock Text="Cell / Work Center" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding SelectedWorkOrderCellText}" Foreground="#FFF4F7FB" FontSize="14" Margin="0,4,0,0"/>
+                                                        </StackPanel>
+                                                    </UniformGrid>
+                                                    <ProgressBar Height="8" Margin="0,18,0,0" Minimum="0" Maximum="100" Value="{Binding WorkOrderDetail.ProgressPercent}" Background="#FF070A0F" Foreground="#FF38D5FF"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                        <Border Grid.Row="0">
+                                            <Border.Style>
+                                                <Style TargetType="Border" BasedOn="{StaticResource WorkOrdersPanelCardStyle}">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding WorkOrderDetail}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Grid VerticalAlignment="Center">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="70"/>
+                                                    <ColumnDefinition Width="16"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Style="{StaticResource WorkOrdersIconBadgeStyle}" Width="64" Height="64" CornerRadius="12">
+                                                    <Viewbox Margin="13">
+                                                        <Path Data="M10,10 L28,10 A4,4 0 0 1 32,14 L32,38 A4,4 0 0 1 28,42 L10,42 A4,4 0 0 1 6,38 L6,14 A4,4 0 0 1 10,10 Z M18,6 L36,6 A4,4 0 0 1 40,10 L40,34 A4,4 0 0 1 36,38 L34,38 M14,20 L24,20 M14,28 L24,28 M14,36 L22,36"
+                                                              Stroke="#FF38D5FF"
+                                                              StrokeThickness="2.3"
+                                                              StrokeLineJoin="Round"
+                                                              StrokeStartLineCap="Round"
+                                                              StrokeEndLineCap="Round"/>
+                                                    </Viewbox>
+                                                </Border>
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                    <TextBlock Text="Select a work order" Foreground="#FFF4F7FB" FontSize="26" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="Choose assigned or available work from the queue." Foreground="#FFAAB6C8" FontSize="14" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                        <Border Grid.Row="2" Style="{StaticResource WorkOrdersPanelCardStyle}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="12"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+                                                <TextBlock Text="OPERATIONS" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold"/>
+                                                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                                    <StackPanel>
+                                                        <Border Padding="24" MinHeight="220">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border" BasedOn="{StaticResource WorkOrdersPanelCardStyle}">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding WorkOrderDetail}" Value="{x:Null}">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="320">
+                                                                <Border Style="{StaticResource WorkOrdersIconBadgeStyle}" Width="64" Height="64" CornerRadius="12">
+                                                                    <Viewbox Margin="13">
+                                                                        <Path Data="M14,10 A4,4 0 1 1 13.99,10 M14,10 L14,24 M14,24 L14,38 M14,24 L26,18 M26,18 L36,18 M14,38 L28,38 M36,18 A4,4 0 1 1 35.99,18 M28,38 A4,4 0 1 1 27.99,38"
+                                                                              Stroke="#FF38D5FF"
+                                                                              StrokeThickness="2.3"
+                                                                              StrokeStartLineCap="Round"
+                                                                              StrokeEndLineCap="Round"
+                                                                              StrokeLineJoin="Round"/>
+                                                                    </Viewbox>
+                                                                </Border>
+                                                                <TextBlock Text="No operation selected" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold" Margin="0,14,0,0" HorizontalAlignment="Center"/>
+                                                                <TextBlock Text="Select a work order to view released operations." Foreground="#FFAAB6C8" FontSize="13" Margin="0,8,0,0" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <ItemsControl ItemsSource="{Binding WorkOrderDetail.Operations}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Button Command="{Binding DataContext.SelectOperationCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Style="{StaticResource WorkstationFullWidthButtonStyle}" Padding="0" Margin="0,0,0,12">
+                                                                        <Grid>
+                                                                            <Grid.ColumnDefinitions>
+                                                                                <ColumnDefinition Width="54"/>
+                                                                                <ColumnDefinition Width="*"/>
+                                                                            </Grid.ColumnDefinitions>
+                                                                            <Grid Grid.Column="0">
+                                                                                <Border Width="2" Background="{Binding TimelineLineBrush}" HorizontalAlignment="Center" Margin="0,14,0,14"/>
+                                                                                <Border Width="36" Height="36" CornerRadius="18" Background="{Binding TimelineNodeFillBrush}" BorderBrush="{Binding TimelineNodeBorderBrush}" BorderThickness="1.4" HorizontalAlignment="Center" VerticalAlignment="Top">
+                                                                                    <TextBlock Text="{Binding OperationNumberDisplay}" Foreground="{Binding TimelineNodeTextBrush}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                                </Border>
+                                                                            </Grid>
+                                                                            <Border Grid.Column="1" Padding="14" CornerRadius="14" Background="{Binding RowBackgroundBrush}" BorderBrush="{Binding RowBorderBrush}" BorderThickness="1.2">
+                                                                                <Grid>
+                                                                                    <Grid.RowDefinitions>
+                                                                                        <RowDefinition Height="Auto"/>
+                                                                                        <RowDefinition Height="10"/>
+                                                                                        <RowDefinition Height="Auto"/>
+                                                                                    </Grid.RowDefinitions>
+                                                                                    <Grid>
+                                                                                        <Grid.ColumnDefinitions>
+                                                                                            <ColumnDefinition Width="*"/>
+                                                                                            <ColumnDefinition Width="Auto"/>
+                                                                                        </Grid.ColumnDefinitions>
+                                                                                        <StackPanel>
+                                                                                            <TextBlock Text="{Binding Title}" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold"/>
+                                                                                            <TextBlock Text="{Binding MachineDisplay}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,4,0,0"/>
+                                                                                        </StackPanel>
+                                                                                        <Border Grid.Column="1" Padding="8,3" CornerRadius="6" Background="{Binding StatusBadgeBackgroundBrush}" BorderBrush="{Binding StatusBadgeBorderBrush}" BorderThickness="1" VerticalAlignment="Top">
+                                                                                            <TextBlock Text="{Binding StatusBadgeText}" Foreground="{Binding StatusTextBrush}" FontSize="10" FontWeight="SemiBold"/>
+                                                                                        </Border>
+                                                                                    </Grid>
+                                                                                    <UniformGrid Grid.Row="2" Columns="4">
+                                                                                        <TextBlock Text="{Binding DepartmentDisplay}" Foreground="#FF6F7C8F" FontSize="12"/>
+                                                                                        <TextBlock Text="{Binding SetupMinutesDisplay}" Foreground="#FF6F7C8F" FontSize="12"/>
+                                                                                        <TextBlock Text="{Binding CycleMinutesDisplay}" Foreground="#FF6F7C8F" FontSize="12"/>
+                                                                                        <TextBlock Text="{Binding StartedDisplay}" Foreground="#FF6F7C8F" FontSize="12"/>
+                                                                                    </UniformGrid>
+                                                                                </Grid>
+                                                                            </Border>
+                                                                        </Grid>
+                                                                    </Button>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                </ScrollViewer>
+                                            </Grid>
+                                        </Border>
+                                        <Border Grid.Row="4" Style="{StaticResource WorkOrdersPanelCardStyle}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="12"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="PACKET / DOCUMENTS" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold"/>
+                                                    <UniformGrid Columns="6" Margin="0,12,0,0">
+                                                        <Button Content="PACKET" Tag="{Binding IsPacketTabSelected}" Command="{Binding SelectPacketTabCommand}" CommandParameter="packet" Style="{StaticResource WorkOrdersTabButtonStyle}"/>
+                                                        <Button Content="DRAWINGS" Tag="{Binding IsDrawingsPacketTabSelected}" Command="{Binding SelectPacketTabCommand}" CommandParameter="drawings" Style="{StaticResource WorkOrdersTabButtonStyle}"/>
+                                                        <Button Content="REFERENCES" Tag="{Binding IsReferencesPacketTabSelected}" Command="{Binding SelectPacketTabCommand}" CommandParameter="references" Style="{StaticResource WorkOrdersTabButtonStyle}"/>
+                                                        <Button Content="CHECKLIST" Tag="{Binding IsChecklistPacketTabSelected}" Command="{Binding SelectPacketTabCommand}" CommandParameter="checklist" Style="{StaticResource WorkOrdersTabButtonStyle}"/>
+                                                        <Button Content="INSPECTIONS" Tag="{Binding IsInspectionsPacketTabSelected}" Command="{Binding SelectPacketTabCommand}" CommandParameter="inspections" Style="{StaticResource WorkOrdersTabButtonStyle}"/>
+                                                        <Button Content="ATTACHMENTS" Tag="{Binding IsAttachmentsPacketTabSelected}" Command="{Binding SelectPacketTabCommand}" CommandParameter="attachments" Style="{StaticResource WorkOrdersTabButtonStyle}"/>
+                                                    </UniformGrid>
+                                                </StackPanel>
+                                                <Grid Grid.Row="2">
+                                                    <Border Padding="18" MinHeight="180" VerticalAlignment="Center">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border" BasedOn="{StaticResource WorkOrdersPanelCardStyle}">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding SelectedOperation}" Value="{x:Null}">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360">
+                                                            <Border Style="{StaticResource WorkOrdersIconBadgeStyle}" Width="64" Height="64" CornerRadius="12">
+                                                                <Viewbox Margin="13">
+                                                                    <Path Data="M8,16 L8,36 A4,4 0 0 0 12,40 L36,40 A4,4 0 0 0 40,36 L40,16 M8,16 A4,4 0 0 1 12,12 L18,12 L22,8 L26,12 L36,12 A4,4 0 0 1 40,16 M14,20 L22,20 M14,28 L24,28 M26,14 L34,14 L34,34"
+                                                                          Stroke="#FF38D5FF"
+                                                                          StrokeThickness="2.3"
+                                                                          StrokeStartLineCap="Round"
+                                                                          StrokeEndLineCap="Round"
+                                                                          StrokeLineJoin="Round"/>
+                                                                </Viewbox>
+                                                            </Border>
+                                                            <TextBlock Text="Packet not loaded" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold" Margin="0,14,0,0" HorizontalAlignment="Center"/>
+                                                            <TextBlock Text="Select an operation to view released drawings, references, checklist, inspections, and attachments." Foreground="#FFAAB6C8" FontSize="13" VerticalAlignment="Center" Margin="0,8,0,0" TextAlignment="Center" TextWrapping="Wrap"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <Grid>
+                                                        <Grid.Style>
+                                                            <Style TargetType="Grid">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding SelectedOperation}" Value="{x:Null}">
+                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Grid.Style>
+                                                        <Grid Visibility="{Binding IsPacketTabSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="1.1*"/>
+                                                                <ColumnDefinition Width="12"/>
+                                                                <ColumnDefinition Width="0.9*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel>
+                                                                <TextBlock Text="Operation packet summary" Foreground="#FFF4F7FB" FontSize="15" FontWeight="SemiBold"/>
+                                                                <TextBlock Text="{Binding SelectedOperationWorkCenterText, StringFormat=Work Center: {0}}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,10,0,0"/>
+                                                                <TextBlock Text="{Binding SelectedOperationDepartmentText, StringFormat=Department: {0}}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,4,0,0"/>
+                                                                <TextBlock Text="{Binding SelectedOperationTypeText, StringFormat=Operation Type: {0}}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,4,0,0"/>
+                                                                <TextBlock Text="{Binding SelectedOperationSetupText, StringFormat=Setup: {0}}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,4,0,0"/>
+                                                                <TextBlock Text="{Binding SelectedOperationCycleText, StringFormat=Cycle: {0}}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,4,0,0"/>
+                                                                <TextBlock Text="{Binding DataEntryHeaderSummary}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                                                                <TextBlock Text="{Binding ExpectedMaterialSummary}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="2">
+                                                                <TextBlock Text="Documents" Foreground="#FFF4F7FB" FontSize="15" FontWeight="SemiBold"/>
+                                                                <ItemsControl ItemsSource="{Binding PacketDocuments}" Margin="0,10,0,0">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Border Padding="10" Margin="0,0,0,8" CornerRadius="10" Background="#FF101824" BorderBrush="#FF243246" BorderThickness="1">
+                                                                                <Grid>
+                                                                                    <Grid.ColumnDefinitions>
+                                                                                        <ColumnDefinition Width="*"/>
+                                                                                        <ColumnDefinition Width="Auto"/>
+                                                                                    </Grid.ColumnDefinitions>
+                                                                                    <StackPanel>
+                                                                                        <TextBlock Text="{Binding Title}" Foreground="#FFF4F7FB" FontSize="12" FontWeight="SemiBold"/>
+                                                                                        <TextBlock Text="{Binding Type}" Foreground="#FF6F7C8F" FontSize="11" Margin="0,3,0,0"/>
+                                                                                    </StackPanel>
+                                                                                    <Button Grid.Column="1" Content="Open" Command="{Binding DataContext.OpenPacketDocumentCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Style="{StaticResource WorkOrdersActionButtonStyle}" Width="76"/>
+                                                                                </Grid>
+                                                                            </Border>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                        <ItemsControl ItemsSource="{Binding PacketDrawingDocuments}" Visibility="{Binding IsDrawingsPacketTabSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Border Padding="12" Margin="0,0,0,8" CornerRadius="10" Background="#FF101824" BorderBrush="#FF243246" BorderThickness="1">
+                                                                        <Grid>
+                                                                            <Grid.ColumnDefinitions>
+                                                                                <ColumnDefinition Width="*"/>
+                                                                                <ColumnDefinition Width="Auto"/>
+                                                                            </Grid.ColumnDefinitions>
+                                                                            <StackPanel>
+                                                                                <TextBlock Text="{Binding Title}" Foreground="#FFF4F7FB" FontSize="13" FontWeight="SemiBold"/>
+                                                                                <TextBlock Text="{Binding Revision}" Foreground="#FF6F7C8F" FontSize="11" Margin="0,3,0,0"/>
+                                                                            </StackPanel>
+                                                                            <Button Grid.Column="1" Content="Open" Command="{Binding DataContext.OpenPacketDocumentCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Style="{StaticResource WorkOrdersActionButtonStyle}" Width="76"/>
+                                                                        </Grid>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <ItemsControl ItemsSource="{Binding PacketReferenceItems}" Visibility="{Binding IsReferencesPacketTabSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Border Padding="12" Margin="0,0,0,8" CornerRadius="10" Background="#FF101824" BorderBrush="#FF243246" BorderThickness="1">
+                                                                        <StackPanel>
+                                                                            <TextBlock Text="{Binding DisplayName}" Foreground="#FFF4F7FB" FontSize="13" FontWeight="SemiBold"/>
+                                                                            <TextBlock Text="{Binding Category}" Foreground="#FFAAB6C8" FontSize="11" Margin="0,3,0,0"/>
+                                                                        </StackPanel>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <ItemsControl ItemsSource="{Binding PacketChecklistItems}" Visibility="{Binding IsChecklistPacketTabSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Border Padding="12" Margin="0,0,0,8" CornerRadius="10" Background="#FF101824" BorderBrush="#FF243246" BorderThickness="1">
+                                                                        <Grid>
+                                                                            <Grid.ColumnDefinitions>
+                                                                                <ColumnDefinition Width="*"/>
+                                                                                <ColumnDefinition Width="Auto"/>
+                                                                            </Grid.ColumnDefinitions>
+                                                                            <TextBlock Text="{Binding Label}" Foreground="#FFF4F7FB" FontSize="13"/>
+                                                                            <TextBlock Grid.Column="1" Text="{Binding IsRequired, StringFormat=Required: {0}}" Foreground="#FFAAB6C8" FontSize="11"/>
+                                                                        </Grid>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <StackPanel Visibility="{Binding IsInspectionsPacketTabSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                            <TextBlock Text="{Binding InspectionSubtitle}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,0,0,10" TextWrapping="Wrap"/>
+                                                            <ItemsControl ItemsSource="{Binding InspectionTasks}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <Border Padding="12" Margin="0,0,0,8" CornerRadius="10" Background="#FF101824" BorderBrush="#FF243246" BorderThickness="1">
+                                                                            <TextBlock Text="{Binding FeatureText}" Foreground="#FFF4F7FB" FontSize="12" TextWrapping="Wrap"/>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+                                                        <ItemsControl ItemsSource="{Binding OperationAttachments}" Visibility="{Binding IsAttachmentsPacketTabSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Border Padding="12" Margin="0,0,0,8" CornerRadius="10" Background="#FF101824" BorderBrush="#FF243246" BorderThickness="1">
+                                                                        <StackPanel>
+                                                                            <TextBlock Text="{Binding AttachmentType}" Foreground="#FFF4F7FB" FontSize="13" FontWeight="SemiBold"/>
+                                                                            <TextBlock Text="{Binding FileName}" Foreground="#FFAAB6C8" FontSize="11" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/>
+                                                                        </StackPanel>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </Grid>
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                    <Grid Grid.Column="4">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="12"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="12"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="12"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Border Grid.Row="0">
+                                            <Grid>
+                                                <Grid.Style>
+                                                    <Style TargetType="Grid">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding SelectedOperation}" Value="{x:Null}">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Grid.Style>
+                                                <TextBlock Text="ACTIVE OPERATION" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold"/>
+                                                <StackPanel Margin="0,34,0,0">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding SelectedOperationTitle}" Foreground="#FFF4F7FB" FontSize="24" FontWeight="SemiBold"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding SelectedOperationNumberText}" Foreground="#FFAAB6C8" FontSize="16" VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                    <UniformGrid Columns="2" Margin="0,16,0,0">
+                                                        <StackPanel Margin="0,0,12,0">
+                                                            <TextBlock Text="Work Center" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding SelectedOperationWorkCenterText}" Foreground="#FFF4F7FB" FontSize="14" Margin="0,4,0,0"/>
+                                                        </StackPanel>
+                                                        <StackPanel>
+                                                            <TextBlock Text="Status" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                            <Border Margin="0,4,0,0" Padding="8,3" CornerRadius="6" Background="{Binding SelectedOperationStatusBackgroundBrush}" BorderBrush="{Binding SelectedOperationStatusBorderBrush}" BorderThickness="1" HorizontalAlignment="Left">
+                                                                <TextBlock Text="{Binding SelectedOperationStatusText}" Foreground="{Binding SelectedOperationStatusForegroundBrush}" FontSize="10" FontWeight="SemiBold"/>
+                                                            </Border>
+                                                        </StackPanel>
+                                                    </UniformGrid>
+                                                    <TextBlock Text="{Binding SelectedOperationStartedText}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,14,0,0"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                        <Border Grid.Row="0">
+                                            <Border.Style>
+                                                <Style TargetType="Border" BasedOn="{StaticResource WorkOrdersPanelCardStyle}">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SelectedOperation}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel>
+                                                <Border Style="{StaticResource WorkOrdersIconBadgeStyle}" Width="56" Height="56">
+                                                    <Viewbox Margin="11">
+                                                        <Path Data="M22,8 L25,8 M30,10 L32,12 M34,17 L34,20 M34,24 L34,27 M32,32 L30,34 M25,36 L22,36 M17,34 L15,32 M13,27 L13,24 M13,20 L13,17 M15,12 L17,10 M20,18 L30,22 L20,28 Z"
+                                                              Stroke="#FF38D5FF"
+                                                              StrokeThickness="2.3"
+                                                              StrokeStartLineCap="Round"
+                                                              StrokeEndLineCap="Round"
+                                                              StrokeLineJoin="Round"/>
+                                                    </Viewbox>
+                                                </Border>
+                                                <TextBlock Text="No active operation" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold" Margin="0,14,0,0"/>
+                                                <TextBlock Text="Select an operation to see execution context and data entry." Foreground="#FFAAB6C8" FontSize="13" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Grid.Row="2" Style="{StaticResource WorkOrdersPanelCardStyle}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="12"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+                                                <TextBlock Text="DATA ENTRY" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold"/>
+                                                <StackPanel Grid.Row="2">
+                                                    <UniformGrid Columns="4">
+                                                        <Button Content="PRODUCTION" Tag="{Binding IsProductionDataEntryTabSelected}" Command="{Binding SelectDataEntryTabCommand}" CommandParameter="production" Style="{StaticResource WorkOrdersTabButtonStyle}"/>
+                                                        <Button Content="MATERIAL" Tag="{Binding IsMaterialDataEntryTabSelected}" Command="{Binding SelectDataEntryTabCommand}" CommandParameter="material" Style="{StaticResource WorkOrdersTabButtonStyle}"/>
+                                                        <Button Content="INSPECTION" Tag="{Binding IsInspectionDataEntryTabSelected}" Command="{Binding SelectDataEntryTabCommand}" CommandParameter="inspection" Style="{StaticResource WorkOrdersTabButtonStyle}"/>
+                                                        <Button Content="NOTES" Tag="{Binding IsNotesDataEntryTabSelected}" Command="{Binding SelectDataEntryTabCommand}" CommandParameter="notes" Style="{StaticResource WorkOrdersTabButtonStyle}"/>
+                                                    </UniformGrid>
+                                                    <ScrollViewer Margin="0,12,0,0" VerticalScrollBarVisibility="Auto">
+                                                        <Grid>
+                                                            <Border MinHeight="220">
+                                                                <Border.Style>
+                                                                    <Style TargetType="Border" BasedOn="{StaticResource WorkOrdersPanelCardStyle}">
+                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding SelectedOperation}" Value="{x:Null}">
+                                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Border.Style>
+                                                                <StackPanel VerticalAlignment="Center">
+                                                                    <Border Style="{StaticResource WorkOrdersIconBadgeStyle}" Width="58" Height="58" HorizontalAlignment="Center">
+                                                                        <Viewbox Margin="12">
+                                                                            <Path Data="M10,8 L34,8 A4,4 0 0 1 38,12 L38,40 A4,4 0 0 1 34,44 L10,44 A4,4 0 0 1 6,40 L6,12 A4,4 0 0 1 10,8 Z M14,16 L30,16 M14,24 L30,24 M14,32 L30,32 M14,40 L20,40 M16,28 L16,40 M24,28 L24,40 M32,28 L32,40"
+                                                                                  Stroke="#FF38D5FF"
+                                                                                  StrokeThickness="2.3"
+                                                                                  StrokeStartLineCap="Round"
+                                                                                  StrokeEndLineCap="Round"
+                                                                                  StrokeLineJoin="Round"/>
+                                                                        </Viewbox>
+                                                                    </Border>
+                                                                    <TextBlock Text="Select an operation before entering production data." Foreground="#FFAAB6C8" FontSize="13" Margin="0,14,0,0" TextAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Center" MaxWidth="280"/>
+                                                                    <UniformGrid Columns="2" Margin="0,18,0,0">
+                                                                        <Button Content="Submit Quantity" Style="{StaticResource WorkOrdersActionButtonStyle}" Margin="0,0,8,0" IsEnabled="False" Background="#FF101824" BorderBrush="#FF243246" Foreground="#FF6F7C8F" Opacity="0.7"/>
+                                                                        <Button Content="Submit Scrap" Style="{StaticResource WorkOrdersActionButtonStyle}" IsEnabled="False" Background="#FF101824" BorderBrush="#FF243246" Foreground="#FF6F7C8F" Opacity="0.7"/>
+                                                                    </UniformGrid>
+                                                                </StackPanel>
+                                                            </Border>
+                                                            <StackPanel>
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding SelectedOperation}" Value="{x:Null}">
+                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
+                                                            <StackPanel Visibility="{Binding IsProductionDataEntryTabSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <TextBlock Text="{Binding DataEntryEntryInstruction}" Foreground="#FFAAB6C8" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                                                <TextBlock Text="{Binding DataEntryQuantityLabel}" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                <TextBox Text="{Binding QuantityReportText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox}" Height="40" Margin="0,6,0,12"/>
+                                                                <TextBlock Text="Scrap Quantity" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                <TextBox Text="{Binding ScrapReportText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox}" Height="40" Margin="0,6,0,12"/>
+                                                                <Button Content="Submit Quantity" Command="{Binding SubmitQuantityCommand}" Style="{StaticResource WorkOrdersPrimaryActionButtonStyle}"/>
+                                                                <Button Content="Submit Scrap" Command="{Binding SubmitScrapCommand}" Style="{StaticResource WorkOrdersActionButtonStyle}" Margin="0,10,0,0"/>
+                                                            </StackPanel>
+                                                            <StackPanel Visibility="{Binding IsMaterialDataEntryTabSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <TextBlock Text="{Binding ExpectedMaterialSummary}" Foreground="#FFAAB6C8" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                                                <Grid Visibility="{Binding ReceiveMaterialEntryVisibility}">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="Received Quantity" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                        <TextBox Text="{Binding ReceivedMaterialQuantity, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox}" Height="40" Margin="0,6,0,10"/>
+                                                                        <TextBlock Text="Unit" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                        <ComboBox ItemsSource="{Binding MaterialUnitOptions}" SelectedItem="{Binding ReceivedMaterialUnit, Mode=TwoWay}" Style="{StaticResource RB.ComboBox}" Height="40" Margin="0,6,0,10"/>
+                                                                        <TextBlock Text="Condition" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                        <ComboBox ItemsSource="{Binding MaterialConditionOptions}" SelectedItem="{Binding ReceivedMaterialCondition, Mode=TwoWay}" Style="{StaticResource RB.ComboBox}" Height="40" Margin="0,6,0,10"/>
+                                                                        <TextBlock Text="Storage Location" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                        <TextBox Text="{Binding ReceivedMaterialStorageLocation, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox}" Height="40" Margin="0,6,0,10"/>
+                                                                        <TextBlock Text="Notes" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                        <TextBox Text="{Binding ReceivedMaterialNotes, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox.MultiLine}" MinHeight="80" Margin="0,6,0,10"/>
+                                                                        <Button Content="{Binding DataEntrySaveProgressText}" Command="{Binding SaveDataEntryCommand}" Style="{StaticResource WorkOrdersPrimaryActionButtonStyle}"/>
+                                                                    </StackPanel>
+                                                                </Grid>
+                                                                <TextBlock Text="Material receive entry is only shown for material receive operations." Foreground="#FF6F7C8F" FontSize="12" TextWrapping="Wrap">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsReceiveMaterialOperation}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </StackPanel>
+                                                            <StackPanel Visibility="{Binding IsInspectionDataEntryTabSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <TextBlock Text="{Binding InspectionAvailabilityMessage}" Foreground="#FFAAB6C8" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                                                <Border Padding="12" CornerRadius="10" Background="#FF101824" BorderBrush="#FF243246" BorderThickness="1">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="{Binding SelectedInspectionTaskTitle}" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold"/>
+                                                                        <TextBlock Text="{Binding SelectedInspectionTaskSummary}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                                <TextBlock Text="Actual Value" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                                                                <TextBox Text="{Binding InspectionActualValue, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox}" Height="40" Margin="0,6,0,10"/>
+                                                                <TextBlock Text="Result Note" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                <TextBox Text="{Binding InspectionResultNoteText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox.MultiLine}" MinHeight="74" Margin="0,6,0,10"/>
+                                                                <Button Content="Save Inspection Result" Command="{Binding SubmitInspectionResultCommand}" Style="{StaticResource WorkOrdersPrimaryActionButtonStyle}"/>
+                                                            </StackPanel>
+                                                            <StackPanel Visibility="{Binding IsNotesDataEntryTabSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <TextBlock Text="Operation note" Foreground="#FF6F7C8F" FontSize="11" FontWeight="SemiBold"/>
+                                                                <TextBox Text="{Binding OperationNoteText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RB.Field.TextBox.MultiLine}" MinHeight="120" Margin="0,6,0,12"/>
+                                                                <Button Content="Save Note" Command="{Binding SubmitOperationNoteCommand}" Style="{StaticResource WorkOrdersPrimaryActionButtonStyle}"/>
+                                                            </StackPanel>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </ScrollViewer>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                        <Border Grid.Row="4" Style="{StaticResource WorkOrdersPanelCardStyle}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="14"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+                                                <TextBlock Text="OPERATION ACTIONS" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold"/>
+                                                <Grid Grid.Row="2">
+                                                    <Grid.Style>
+                                                        <Style TargetType="Grid">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding SelectedOperation}" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Grid.Style>
+                                                    <StackPanel>
+                                                        <UniformGrid Columns="2">
+                                                            <Button Content="{Binding OperationStartActionText}" Command="{Binding StartOperationCommand}" Style="{StaticResource WorkOrdersPrimaryActionButtonStyle}" Margin="0,0,8,8" Visibility="{Binding ShowStartOperationAction, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                            <Button Content="Pause Operation" Command="{Binding StopOperationCommand}" Style="{StaticResource WorkOrdersActionButtonStyle}" Margin="0,0,0,8" Visibility="{Binding ShowPauseOperationAction, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                            <Button Content="Complete Operation" Command="{Binding CompleteOperationCommand}" Style="{StaticResource WorkOrdersActionButtonStyle}" Margin="0,0,8,8" Visibility="{Binding ShowCompleteOperationAction, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                            <Button Content="Add Note" Command="{Binding SelectDataEntryTabCommand}" CommandParameter="notes" Style="{StaticResource WorkOrdersActionButtonStyle}" Margin="0,0,0,8" Visibility="{Binding ShowAttachmentActions, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                            <Button Content="Inspection" Command="{Binding OpenOperationInspectionCommand}" Style="{StaticResource WorkOrdersActionButtonStyle}" Margin="0,0,8,8" Visibility="{Binding ShowInspectionAction, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                            <Button Content="Attachments" Command="{Binding SelectPacketTabCommand}" CommandParameter="attachments" Style="{StaticResource WorkOrdersActionButtonStyle}" Margin="0,0,0,8" Visibility="{Binding ShowAttachmentActions, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                            <Button Content="Mobile Capture" Command="{Binding OpenMobileCaptureCommand}" Style="{StaticResource WorkOrdersActionButtonStyle}" Margin="0,0,8,0" Visibility="{Binding ShowMobileCaptureAction, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                            <Button Content="Refresh Attachments" Command="{Binding RefreshOperationAttachmentsCommand}" Style="{StaticResource WorkOrdersActionButtonStyle}" Visibility="{Binding ShowAttachmentActions, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                        </UniformGrid>
+                                                    </StackPanel>
+                                                </Grid>
+                                                <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="300">
+                                                    <StackPanel.Style>
+                                                        <Style TargetType="StackPanel">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding SelectedOperation}" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                            </Style>
+                                                        </StackPanel.Style>
+                                                    <Border Style="{StaticResource WorkOrdersIconBadgeStyle}" Width="60" Height="60" HorizontalAlignment="Center">
+                                                        <Viewbox Margin="12">
+                                                            <Path Data="M12,32 L18,26 M18,26 L24,20 M24,20 L30,14 M22,18 L26,22 M16,24 L20,28 M10,18 L16,12 L22,18 M28,30 L36,30 M32,26 L36,30 L32,34"
+                                                                  Stroke="#FF38D5FF"
+                                                                  StrokeThickness="2.5"
+                                                                  StrokeStartLineCap="Round"
+                                                                  StrokeEndLineCap="Round"
+                                                                  StrokeLineJoin="Round"/>
+                                                        </Viewbox>
+                                                    </Border>
+                                                    <TextBlock Text="Select a released operation to start, pause, complete, inspect, or capture evidence." Foreground="#FFAAB6C8" FontSize="13" Margin="0,16,0,0" TextWrapping="Wrap" TextAlignment="Center"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                        <Border Grid.Row="6" Style="{StaticResource WorkOrdersPanelCardStyle}">
+                                            <StackPanel>
+                                                <TextBlock Text="LAST ENTRY" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold"/>
+                                                <Border Style="{StaticResource WorkOrdersIconBadgeStyle}" Width="52" Height="52" HorizontalAlignment="Left" Margin="0,12,0,0">
+                                                    <Viewbox Margin="11">
+                                                        <Path Data="M10,12 L22,12 M10,20 L22,20 M10,28 L18,28 M32,14 A10,10 0 1 1 22,24 M32,14 L32,20 M32,20 L37,24"
+                                                              Stroke="#FF38D5FF"
+                                                              StrokeThickness="2.3"
+                                                              StrokeStartLineCap="Round"
+                                                              StrokeEndLineCap="Round"
+                                                              StrokeLineJoin="Round"/>
+                                                    </Viewbox>
+                                                </Border>
+                                                <TextBlock Text="{Binding LastOperationEntryTitle}" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                                                <TextBlock Text="{Binding LastOperationEntryBody}" Foreground="#FFAAB6C8" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
                                 </Grid>
                                 <Grid Visibility="{Binding IsDrawingsSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid.ColumnDefinitions>

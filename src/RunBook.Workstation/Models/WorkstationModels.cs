@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace RunBook.Workstation.Models
@@ -389,6 +390,7 @@ namespace RunBook.Workstation.Models
         public int TotalOperations { get; set; }
         public WorkstationOperationStatusSummary OperationSummary { get; set; } = new WorkstationOperationStatusSummary();
         public List<WorkstationActiveOperator> ActiveOperators { get; set; } = new List<WorkstationActiveOperator>();
+        public bool IsSelected { get; set; }
         public int ActiveOperatorCount => ActiveOperators?.Count ?? 0;
         public string ProgressLine => TotalOperations <= 0
             ? "No released operations"
@@ -399,14 +401,58 @@ namespace RunBook.Workstation.Models
             1 => $"{ActiveOperators[0].EmployeeName} active",
             _ => $"{ActiveOperatorCount} active operators"
         };
-        public string CardBackgroundBrush => "#D40F1B2F";
-        public string CardBorderBrush => IsCurrentJob ? "#5531C7FF" : "#3B526F";
-        public string StatusPillBackgroundBrush => IsCurrentJob ? "#16F08A24" : "#15162636";
-        public string StatusPillBorderBrush => IsCurrentJob ? "#66F08A24" : "#3B526F";
-        public string StatusTextBrush => IsCurrentJob ? "#F08A24" : "#B0BDD0";
-        public string AssignmentPillBackgroundBrush => IsCurrentJob ? "#123CC875" : "#15162636";
-        public string AssignmentPillBorderBrush => IsCurrentJob ? "#553CC875" : "#3B526F";
-        public string AssignmentTextBrush => IsCurrentJob ? "#3CC875" : "#B0BDD0";
+        public string QueueCardBackgroundBrush => IsSelected ? "#FF142033" : "#FF101824";
+        public string QueueCardBorderBrush => IsSelected ? "#FF38D5FF" : IsCurrentJob ? "#FF3F6EB7" : "#FF243246";
+        public string StatusBadgeText => NormalizeStatus(Status);
+        public string StatusBadgeBackgroundBrush => StatusBadgeText switch
+        {
+            "READY" => "#162BD576",
+            "IN PROGRESS" => "#1E38D5FF",
+            "WAITING" => "#1EA970FF",
+            "BLOCKED" => "#1EFF5A6A",
+            "COMPLETED" => "#183F6EB7",
+            _ => "#1A6F7C8F"
+        };
+        public string StatusBadgeBorderBrush => StatusBadgeText switch
+        {
+            "READY" => "#662BD576",
+            "IN PROGRESS" => "#6638D5FF",
+            "WAITING" => "#66A970FF",
+            "BLOCKED" => "#66FF5A6A",
+            "COMPLETED" => "#663F6EB7",
+            _ => "#66243246"
+        };
+        public string StatusBadgeForegroundBrush => StatusBadgeText switch
+        {
+            "READY" => "#FF2BD576",
+            "IN PROGRESS" => "#FF38D5FF",
+            "WAITING" => "#FFA970FF",
+            "BLOCKED" => "#FFFF5A6A",
+            "COMPLETED" => "#FF8FD7FF",
+            _ => "#FFAAB6C8"
+        };
+        public string DueDateDisplay => string.IsNullOrWhiteSpace(DueDate) ? "No due date" : $"Due {DueDate}";
+        public string RevisionDisplay => string.IsNullOrWhiteSpace(Revision) ? "Rev -" : $"Rev {Revision}";
+        public string QuantityDisplay => Quantity > 0 ? $"Qty {Quantity}" : "Qty --";
+        public string ProgressPercentDisplay => $"{Math.Max(0, ProgressPercent)}%";
+        public string AssignmentChipText => string.IsNullOrWhiteSpace(AssignmentLabel)
+            ? (IsAssigned ? "ASSIGNED" : IsBackupJob ? "AVAILABLE" : "QUEUE")
+            : AssignmentLabel.ToUpperInvariant();
+        public string AssignmentChipBackgroundBrush => IsAssigned ? "#1438D5FF" : "#140B111A";
+        public string AssignmentChipBorderBrush => IsAssigned ? "#6638D5FF" : "#66243246";
+        public string AssignmentChipForegroundBrush => IsAssigned ? "#FF38D5FF" : "#FFAAB6C8";
+
+        private static string NormalizeStatus(string? status)
+        {
+            var value = (status ?? "").Trim();
+            if (value.Length == 0) return "PENDING";
+            if (value.IndexOf("progress", StringComparison.OrdinalIgnoreCase) >= 0) return "IN PROGRESS";
+            if (value.IndexOf("ready", StringComparison.OrdinalIgnoreCase) >= 0) return "READY";
+            if (value.IndexOf("wait", StringComparison.OrdinalIgnoreCase) >= 0) return "WAITING";
+            if (value.IndexOf("block", StringComparison.OrdinalIgnoreCase) >= 0) return "BLOCKED";
+            if (value.IndexOf("complete", StringComparison.OrdinalIgnoreCase) >= 0) return "COMPLETED";
+            return value.ToUpperInvariant();
+        }
     }
 
     public sealed class WorkstationWorkOrderDetail
@@ -484,25 +530,92 @@ namespace RunBook.Workstation.Models
         public bool CanStart { get; set; }
         public bool CanStop { get; set; }
         public bool CanComplete { get; set; }
+        public bool IsSelected { get; set; }
+        public string SetupMinutesEstimate { get; set; } = "";
+        public string CycleMinutesEstimate { get; set; } = "";
         public bool IsPaused => ContainsStatus("stop") || ContainsStatus("pause");
         public bool IsInProgress => ContainsStatus("progress") || CanStop;
         public bool IsCompleted => ContainsStatus("complete") || !string.IsNullOrWhiteSpace(CompletedUtc);
+        public bool IsReady => ContainsStatus("ready") || CanStart;
+        public bool IsBlocked => ContainsStatus("block");
+        public bool IsWaiting => ContainsStatus("wait") || ContainsStatus("hold") || IsPaused;
+        public bool IsPending => !IsInProgress && !IsCompleted && !IsReady && !IsBlocked && !IsWaiting;
         public string DisplayStatus => IsPaused ? "Paused" : Status;
         public bool IsInspection => ContainsStatus("inspection") ||
             (Title ?? "").IndexOf("inspection", StringComparison.OrdinalIgnoreCase) >= 0 ||
             (Department ?? "").IndexOf("quality", StringComparison.OrdinalIgnoreCase) >= 0 ||
             (Department ?? "").IndexOf("qa", StringComparison.OrdinalIgnoreCase) >= 0;
-        public string RowBackgroundBrush => IsInProgress ? "#16F08A24" : "#D40F1B2F";
-        public string RowBorderBrush => IsInProgress ? "#66F08A24" : IsCompleted ? "#553CC875" : IsInspection ? "#5C8D63E6" : "#3B526F";
-        public string MarkerBackgroundBrush => IsInProgress ? "#22F08A24" : IsCompleted ? "#123CC875" : IsInspection ? "#148D63E6" : "#15162636";
-        public string MarkerBorderBrush => IsInProgress ? "#66F08A24" : IsCompleted ? "#553CC875" : IsInspection ? "#5C8D63E6" : "#3B526F";
-        public string OperationNumberBrush => IsInProgress ? "#F08A24" : IsCompleted ? "#3CC875" : IsInspection ? "#8D63E6" : "#31C7FF";
-        public string StatusPillBackgroundBrush => IsInProgress ? "#16F08A24" : IsCompleted ? "#123CC875" : "#1031C7FF";
-        public string StatusPillBorderBrush => IsInProgress ? "#66F08A24" : IsCompleted ? "#553CC875" : "#5531C7FF";
-        public string StatusTextBrush => IsInProgress ? "#F08A24" : IsCompleted ? "#3CC875" : "#31C7FF";
+        public string OperationNumberDisplay => OperationNumber > 0 ? OperationNumber.ToString("000", CultureInfo.InvariantCulture) : "--";
+        public string WorkCenterDisplay => string.IsNullOrWhiteSpace(WorkCenter) ? "Work center pending" : WorkCenter;
+        public string MachineDisplay => string.IsNullOrWhiteSpace(MachineName) ? WorkCenterDisplay : MachineName;
+        public string DepartmentDisplay => string.IsNullOrWhiteSpace(Department) ? "Department pending" : Department;
+        public string SetupMinutesDisplay => BuildMinutesDisplay("Setup", SetupMinutesEstimate);
+        public string CycleMinutesDisplay => BuildMinutesDisplay("Cycle", CycleMinutesEstimate);
+        public string StartedDisplay => FormatUtcDisplay(StartedUtc, "Started");
+        public string CompletedDisplay => FormatUtcDisplay(CompletedUtc, "Completed");
+        public string TimelineLineBrush => IsSelected ? "#FF38D5FF" : "#FF243246";
+        public string TimelineNodeFillBrush => IsSelected ? "#FF38D5FF" : "#FF101824";
+        public string TimelineNodeBorderBrush => IsSelected ? "#FF38D5FF" : StatusBadgeBorderBrush;
+        public string TimelineNodeTextBrush => IsSelected ? "#FF070A0F" : "#FFF4F7FB";
+        public string RowBackgroundBrush => IsSelected ? "#FF142033" : "#FF101824";
+        public string RowBorderBrush => IsSelected ? "#FF38D5FF" : "#FF243246";
+        public string StatusBadgeText => NormalizeStatus(DisplayStatus);
+        public string StatusBadgeBackgroundBrush => StatusBadgeText switch
+        {
+            "READY" => "#162BD576",
+            "IN PROGRESS" => "#1638D5FF",
+            "WAITING" => "#1EA970FF",
+            "BLOCKED" => "#1EFF5A6A",
+            "COMPLETED" => "#183F6EB7",
+            _ => "#1A6F7C8F"
+        };
+        public string StatusBadgeBorderBrush => StatusBadgeText switch
+        {
+            "READY" => "#662BD576",
+            "IN PROGRESS" => "#6638D5FF",
+            "WAITING" => "#66A970FF",
+            "BLOCKED" => "#66FF5A6A",
+            "COMPLETED" => "#663F6EB7",
+            _ => "#66243246"
+        };
+        public string StatusTextBrush => StatusBadgeText switch
+        {
+            "READY" => "#FF2BD576",
+            "IN PROGRESS" => "#FF38D5FF",
+            "WAITING" => "#FFA970FF",
+            "BLOCKED" => "#FFFF5A6A",
+            "COMPLETED" => "#FF8FD7FF",
+            _ => "#FFAAB6C8"
+        };
 
         private bool ContainsStatus(string value)
             => (Status ?? "").IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
+
+        private static string NormalizeStatus(string? status)
+        {
+            var value = (status ?? "").Trim();
+            if (value.Length == 0) return "PENDING";
+            if (value.IndexOf("pause", StringComparison.OrdinalIgnoreCase) >= 0 || value.IndexOf("stop", StringComparison.OrdinalIgnoreCase) >= 0) return "WAITING";
+            if (value.IndexOf("progress", StringComparison.OrdinalIgnoreCase) >= 0) return "IN PROGRESS";
+            if (value.IndexOf("ready", StringComparison.OrdinalIgnoreCase) >= 0) return "READY";
+            if (value.IndexOf("wait", StringComparison.OrdinalIgnoreCase) >= 0 || value.IndexOf("hold", StringComparison.OrdinalIgnoreCase) >= 0) return "WAITING";
+            if (value.IndexOf("block", StringComparison.OrdinalIgnoreCase) >= 0) return "BLOCKED";
+            if (value.IndexOf("complete", StringComparison.OrdinalIgnoreCase) >= 0) return "COMPLETED";
+            return value.ToUpperInvariant();
+        }
+
+        private static string FormatUtcDisplay(string utc, string prefix)
+        {
+            if (string.IsNullOrWhiteSpace(utc))
+                return "";
+
+            return DateTime.TryParse(utc, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed)
+                ? $"{prefix} {parsed.ToLocalTime():g}"
+                : $"{prefix} {utc}";
+        }
+
+        private static string BuildMinutesDisplay(string label, string value)
+            => string.IsNullOrWhiteSpace(value) ? $"{label} --" : $"{label} {value}";
     }
 
     public sealed class WorkstationDrawingPackage
