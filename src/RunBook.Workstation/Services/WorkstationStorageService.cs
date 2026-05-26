@@ -4,6 +4,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 
 namespace RunBook.Workstation.Services
 {
@@ -37,6 +38,9 @@ namespace RunBook.Workstation.Services
         private static readonly byte[] AuthCacheEntropy = Encoding.UTF8.GetBytes("RunBook.Workstation.EmployeeAuthCache.v1");
         private static readonly byte[] RegistrationEntropy = Encoding.UTF8.GetBytes("RunBook.Workstation.Registration.v2");
         private static readonly byte[] RuntimeAccessTokenEntropy = Encoding.UTF8.GetBytes("RunBook.Workstation.RuntimeAccessToken.v1");
+        private static readonly object FileWriteGate = new object();
+        private const int FileWriteRetryCount = 4;
+        private const int FileWriteRetryDelayMs = 40;
 
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
@@ -90,7 +94,7 @@ namespace RunBook.Workstation.Services
         {
             EnsureRuntimeFolders();
             EnsureDefaults(settings);
-            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(settings, JsonOptions));
+            WriteAllTextWithRetry(SettingsPath, JsonSerializer.Serialize(settings, JsonOptions));
         }
 
         public static WorkstationSessionSnapshot? LoadSession() => LoadProtectedJson<WorkstationSessionSnapshot>(GetSessionPath(), SessionEntropy);
@@ -202,7 +206,7 @@ namespace RunBook.Workstation.Services
                 return;
             }
 
-            File.WriteAllText(path, JsonSerializer.Serialize(value, JsonOptions));
+            WriteAllTextWithRetry(path, JsonSerializer.Serialize(value, JsonOptions));
         }
 
         private static T? LoadProtectedJson<T>(string path, byte[] entropy)
@@ -237,7 +241,7 @@ namespace RunBook.Workstation.Services
 
             var json = JsonSerializer.SerializeToUtf8Bytes(value, JsonOptions);
             var cipher = ProtectedData.Protect(json, entropy, DataProtectionScope.CurrentUser);
-            File.WriteAllBytes(path, cipher);
+            WriteAllBytesWithRetry(path, cipher);
         }
 
         private static WorkstationSettings CreateDefaultSettings()
@@ -323,6 +327,33 @@ namespace RunBook.Workstation.Services
         {
             if (File.Exists(path))
                 File.Delete(path);
+        }
+
+        private static void WriteAllTextWithRetry(string path, string content)
+            => WriteAllBytesWithRetry(path, Encoding.UTF8.GetBytes(content ?? ""));
+
+        private static void WriteAllBytesWithRetry(string path, byte[] bytes)
+        {
+            EnsureRuntimeFolders();
+            Directory.CreateDirectory(Path.GetDirectoryName(path) ?? ConfigFolder);
+
+            lock (FileWriteGate)
+            {
+                for (var attempt = 0; ; attempt++)
+                {
+                    try
+                    {
+                        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                        stream.Write(bytes, 0, bytes.Length);
+                        stream.Flush(flushToDisk: true);
+                        return;
+                    }
+                    catch (IOException) when (attempt < FileWriteRetryCount)
+                    {
+                        Thread.Sleep(FileWriteRetryDelayMs * (attempt + 1));
+                    }
+                }
+            }
         }
 
         private static WorkstationSettings LoadSettingsForScope()
