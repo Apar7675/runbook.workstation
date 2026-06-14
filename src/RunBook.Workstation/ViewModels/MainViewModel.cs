@@ -135,6 +135,7 @@ namespace RunBook.Workstation.ViewModels
         private bool _inspectionResultSubmissionAvailable;
         private bool _isMobileCaptureDialogOpen;
         private bool _isTimeOffRequestsDialogOpen;
+        private bool _isPtoBenefitsDialogOpen;
         private bool _isTimeClockActivityDialogOpen;
         private DateTime _selectedTimeClockWeekStart = GetWeekStart(DateTime.Now.Date);
         private string _selectedMobileCaptureType = "Damage Photo";
@@ -238,6 +239,8 @@ namespace RunBook.Workstation.ViewModels
             SubmitTimeOffCommand = new RelayCommand(async () => await SubmitTimeOffAsync(), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             OpenTimeOffRequestsDialogCommand = new RelayCommand(OpenTimeOffRequestsDialog, () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             CloseTimeOffRequestsDialogCommand = new RelayCommand(CloseTimeOffRequestsDialog, () => IsTimeOffRequestsDialogOpen && !IsBusy);
+            OpenPtoBenefitsCommand = new RelayCommand(OpenPtoBenefitsDialog, () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
+            ClosePtoBenefitsCommand = new RelayCommand(ClosePtoBenefitsDialog, () => IsPtoBenefitsDialogOpen && !IsBusy);
             OpenTimeClockActivityDialogCommand = new RelayCommand(OpenTimeClockActivityDialog, () => CurrentSession != null && HasTimeClockAccess && HasMoreTimeClockActivity && !IsBusy);
             CloseTimeClockActivityDialogCommand = new RelayCommand(CloseTimeClockActivityDialog, () => IsTimeClockActivityDialogOpen && !IsBusy);
             PreviousTimeClockWeekCommand = new RelayCommand(GoToPreviousTimeClockWeek, () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
@@ -388,6 +391,8 @@ namespace RunBook.Workstation.ViewModels
         public ICommand SubmitTimeOffCommand { get; }
         public ICommand OpenTimeOffRequestsDialogCommand { get; }
         public ICommand CloseTimeOffRequestsDialogCommand { get; }
+        public ICommand OpenPtoBenefitsCommand { get; }
+        public ICommand ClosePtoBenefitsCommand { get; }
         public ICommand OpenTimeClockActivityDialogCommand { get; }
         public ICommand CloseTimeClockActivityDialogCommand { get; }
         public ICommand PreviousTimeClockWeekCommand { get; }
@@ -466,6 +471,7 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(SessionEmployeeName));
                 OnPropertyChanged(nameof(SessionEmployeeFirstName));
                 OnPropertyChanged(nameof(SessionEmployeeInitials));
+                NotifySessionEmployeeAvatarProperties();
                 OnPropertyChanged(nameof(SessionRole));
                 OnPropertyChanged(nameof(LoginHeadline));
                 OnPropertyChanged(nameof(LoginInstructionLine));
@@ -814,6 +820,20 @@ namespace RunBook.Workstation.ViewModels
                     return;
 
                 _isTimeOffRequestsDialogOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
+
+        public bool IsPtoBenefitsDialogOpen
+        {
+            get => _isPtoBenefitsDialogOpen;
+            private set
+            {
+                if (_isPtoBenefitsDialogOpen == value)
+                    return;
+
+                _isPtoBenefitsDialogOpen = value;
                 OnPropertyChanged();
                 RaiseCommandStates();
             }
@@ -1175,6 +1195,28 @@ namespace RunBook.Workstation.ViewModels
         public string TimeOffSectionSubtitle => HasRecentTimeOffRequests
             ? "Request time away without leaving the punch screen."
             : "Need time away? Submit the request here.";
+        public WorkstationEmployeeBenefitsSummary PtoBenefits => _timeclockSnapshot?.Benefits ?? new WorkstationEmployeeBenefitsSummary();
+        public IEnumerable<WorkstationBenefitBucket> PtoBenefitBuckets => PtoBenefits.Buckets;
+        public IEnumerable<WorkstationBenefitLedgerEntry> PtoRecentLedger => PtoBenefits.RecentLedger;
+        public bool HasPtoBenefitBuckets => PtoBenefits.Buckets.Count > 0;
+        public bool ShowNoPtoBenefitBuckets => !HasPtoBenefitBuckets;
+        public bool HasPtoRecentLedger => PtoBenefits.RecentLedger.Count > 0;
+        public bool ShowNoPtoRecentLedger => !HasPtoRecentLedger;
+        public string PtoBenefitsTitle => string.IsNullOrWhiteSpace(PtoBenefits.PolicyName)
+            ? "PTO Benefits"
+            : PtoBenefits.PolicyName;
+        public string PtoBenefitsSummary => HasPtoBenefitBuckets
+            ? $"{PtoBenefits.TotalPaidHours:0.##} paid hours available"
+            : "PTO balances will appear here after the service syncs benefits.";
+        public string PtoBenefitsEligibilitySummary => string.IsNullOrWhiteSpace(PtoBenefits.EligibilitySummary)
+            ? (PtoBenefits.IsEligible ? "Eligible now" : "Eligibility date not set")
+            : PtoBenefits.EligibilitySummary;
+        public string PtoBenefitsResetSummary => string.IsNullOrWhiteSpace(PtoBenefits.ResetDate)
+            ? "Expiration/reset date not set"
+            : $"Benefits reset or expire on {PtoBenefits.ResetDate}";
+        public string PtoRequestCountSummary => HasRecentTimeOffRequests
+            ? $"{RecentTimeOffRequests.Count} recent request{(RecentTimeOffRequests.Count == 1 ? "" : "s")}"
+            : "No recent requests";
         public WorkstationShopAwareness ShopAwareness
         {
             get => _shopAwareness;
@@ -1511,7 +1553,24 @@ namespace RunBook.Workstation.ViewModels
             }
         }
 
+        public WorkstationRosterEmployee? ActiveSessionRosterEmployee
+        {
+            get
+            {
+                if (CurrentSession == null)
+                    return null;
+
+                return FindRosterEmployee(
+                    CurrentSession.Employee.RemoteEmployeeId,
+                    CurrentSession.Employee.EmployeeId,
+                    CurrentSession.Employee.EmployeeCode);
+            }
+        }
+
         public string SessionEmployeeName => CurrentSession?.Employee?.DisplayName ?? "No active user";
+        public string SessionEmployeeAvatarDisplayUrl => ActiveSessionRosterEmployee?.AvatarDisplayUrl ?? "";
+        public bool SessionEmployeeHasAvatarDisplayUrl => !string.IsNullOrWhiteSpace(SessionEmployeeAvatarDisplayUrl);
+        public string SessionEmployeeAvatarBrush => ActiveSessionRosterEmployee?.AvatarBrush ?? PickAvatarBrush(SessionEmployeeName);
         public string SessionRole => CurrentSession?.Employee?.Role ?? "Signed out";
         public string SessionModulesLine => CurrentSession == null ? "No modules available" : (CurrentSession.Modules.Count == 0 ? "No access assigned" : string.Join("  |  ", CurrentSession.Modules.Select(ToModuleLabel)));
         public string CurrentJobTitle => CurrentJob == null ? "No active job" : $"{CurrentJob.WorkOrderNumber} • Op {CurrentJob.OperationNumber:000}";
@@ -2685,6 +2744,19 @@ namespace RunBook.Workstation.ViewModels
         private void CloseTimeOffRequestsDialog()
         {
             IsTimeOffRequestsDialogOpen = false;
+        }
+
+        private void OpenPtoBenefitsDialog()
+        {
+            if (CurrentSession == null || !HasTimeClockAccess || IsBusy)
+                return;
+
+            IsPtoBenefitsDialogOpen = true;
+        }
+
+        private void ClosePtoBenefitsDialog()
+        {
+            IsPtoBenefitsDialogOpen = false;
         }
 
         private void OpenTimeClockActivityDialog()
@@ -4904,6 +4976,18 @@ namespace RunBook.Workstation.ViewModels
                 return;
             }
 
+            decimal? requestedHours = null;
+            if (!string.IsNullOrWhiteSpace(TimeOffHoursText))
+            {
+                if (!decimal.TryParse(TimeOffHoursText, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsedHours) || parsedHours <= 0)
+                {
+                    StatusText = "Enter requested PTO hours as a positive number.";
+                    return;
+                }
+
+                requestedHours = parsedHours;
+            }
+
             var now = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
             PendingSyncItems.Add(new WorkstationSyncQueueItem
             {
@@ -4923,7 +5007,7 @@ namespace RunBook.Workstation.ViewModels
                 RequestType = string.IsNullOrWhiteSpace(TimeOffType) ? "VACATION" : TimeOffType.Trim().ToUpperInvariant(),
                 StartDate = startDate,
                 EndDate = endDate,
-                HoursRequested = null,
+                HoursRequested = requestedHours,
                 SyncStatus = "pending",
             });
 
@@ -4935,6 +5019,7 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(TimeOffEndDateValue));
             TimeOffHoursText = "";
             TimeOffNote = "";
+            IsPtoBenefitsDialogOpen = false;
             StatusText = "Time-off request queued.";
             await SyncPendingQueueAsync(false);
         }
@@ -4966,6 +5051,7 @@ namespace RunBook.Workstation.ViewModels
 
             OnPropertyChanged(nameof(SupportsLunch));
             OnPropertyChanged(nameof(LastSyncDisplayText));
+            RaisePtoBenefitsProperties();
             RefreshRosterEmployeeStatuses();
             RebuildLocalProjection();
         }
@@ -5048,6 +5134,7 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(RecentTimeOffRequests));
             OnPropertyChanged(nameof(RecentPunches));
             OnPropertyChanged(nameof(HasPendingSyncItems));
+            RaisePtoBenefitsProperties();
             UpdatePendingSummary();
             RefreshTimeClockPresentation();
         }
@@ -5235,7 +5322,25 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(HasTodayShiftTimeline));
             OnPropertyChanged(nameof(ShowEmptyTodayShiftTimeline));
             OnPropertyChanged(nameof(TimeOffSectionSubtitle));
+            OnPropertyChanged(nameof(PtoRequestCountSummary));
+            RaisePtoBenefitsProperties();
             _lastTimeClockPresentationSignature = signature;
+        }
+
+        private void RaisePtoBenefitsProperties()
+        {
+            OnPropertyChanged(nameof(PtoBenefits));
+            OnPropertyChanged(nameof(PtoBenefitBuckets));
+            OnPropertyChanged(nameof(PtoRecentLedger));
+            OnPropertyChanged(nameof(HasPtoBenefitBuckets));
+            OnPropertyChanged(nameof(ShowNoPtoBenefitBuckets));
+            OnPropertyChanged(nameof(HasPtoRecentLedger));
+            OnPropertyChanged(nameof(ShowNoPtoRecentLedger));
+            OnPropertyChanged(nameof(PtoBenefitsTitle));
+            OnPropertyChanged(nameof(PtoBenefitsSummary));
+            OnPropertyChanged(nameof(PtoBenefitsEligibilitySummary));
+            OnPropertyChanged(nameof(PtoBenefitsResetSummary));
+            OnPropertyChanged(nameof(PtoRequestCountSummary));
         }
 
         private string BuildTimeClockPresentationSignature()
@@ -6493,6 +6598,7 @@ namespace RunBook.Workstation.ViewModels
 
             OnPropertyChanged(nameof(RosterDiagnosticLine));
             OnPropertyChanged(nameof(RosterAvatarStatusLine));
+            NotifySessionEmployeeAvatarProperties();
         }
 
         private void RefreshRosterEmployeeStatuses()
@@ -6522,6 +6628,16 @@ namespace RunBook.Workstation.ViewModels
                     ApplyEmployeeStatusChip(employee, "AVAILABLE");
                 }
             }
+
+            NotifySessionEmployeeAvatarProperties();
+        }
+
+        private void NotifySessionEmployeeAvatarProperties()
+        {
+            OnPropertyChanged(nameof(ActiveSessionRosterEmployee));
+            OnPropertyChanged(nameof(SessionEmployeeAvatarDisplayUrl));
+            OnPropertyChanged(nameof(SessionEmployeeHasAvatarDisplayUrl));
+            OnPropertyChanged(nameof(SessionEmployeeAvatarBrush));
         }
 
         private static void ApplyEmployeeStatusChip(WorkstationRosterEmployee employee, string state)
@@ -7473,6 +7589,7 @@ namespace RunBook.Workstation.ViewModels
             model.SupportsLunch = snapshot.SupportsLunch;
             model.LastSyncUtc = snapshot.LastSyncUtc;
             model.LastSyncMessage = snapshot.LastSyncMessage;
+            model.Benefits = MapBenefits(snapshot.Benefits);
             model.RecentPunches = snapshot.RecentPunches.Select(punch => new WorkstationPunchRecord
             {
                 Id = punch.Id,
@@ -7499,6 +7616,43 @@ namespace RunBook.Workstation.ViewModels
                 SyncState = string.IsNullOrWhiteSpace(request.SyncState) ? "synced" : request.SyncState,
             }).ToList();
             return model;
+        }
+
+        private static WorkstationEmployeeBenefitsSummary MapBenefits(RunBookWorkstationApiClient.DesktopBenefitsSummary? benefits)
+        {
+            if (benefits == null)
+                return new WorkstationEmployeeBenefitsSummary();
+
+            return new WorkstationEmployeeBenefitsSummary
+            {
+                PolicyName = benefits.PolicyName,
+                IsEligible = benefits.IsEligible,
+                EligibleDate = benefits.EligibleDate,
+                EligibilitySummary = benefits.EligibilitySummary,
+                AccrualSummary = benefits.AccrualSummary,
+                CarryoverSummary = benefits.CarryoverSummary,
+                ResetDate = benefits.ResetDate,
+                TotalPaidHours = benefits.TotalPaidHours,
+                Buckets = (benefits.Buckets ?? new List<RunBookWorkstationApiClient.DesktopBenefitBucket>()).Select(bucket => new WorkstationBenefitBucket
+                {
+                    Code = bucket.Code,
+                    Label = bucket.Label,
+                    AvailableHours = bucket.AvailableHours,
+                    UsedHours = bucket.UsedHours,
+                    PendingHours = bucket.PendingHours,
+                    AccruedHours = bucket.AccruedHours,
+                    CarryoverHours = bucket.CarryoverHours,
+                    ExpiresOn = bucket.ExpiresOn,
+                }).ToList(),
+                RecentLedger = (benefits.RecentLedger ?? new List<RunBookWorkstationApiClient.DesktopBenefitLedgerEntry>()).Select(entry => new WorkstationBenefitLedgerEntry
+                {
+                    Date = entry.Date,
+                    Type = entry.Type,
+                    Label = entry.Label,
+                    Hours = entry.Hours,
+                    Note = entry.Note,
+                }).ToList(),
+            };
         }
 
         private static WorkstationPunchRecord ClonePunch(WorkstationPunchRecord punch)
@@ -7977,6 +8131,8 @@ namespace RunBook.Workstation.ViewModels
             if (SubmitTimeOffCommand is RelayCommand submitTimeOff) submitTimeOff.RaiseCanExecuteChanged();
             if (OpenTimeOffRequestsDialogCommand is RelayCommand openTimeOffRequests) openTimeOffRequests.RaiseCanExecuteChanged();
             if (CloseTimeOffRequestsDialogCommand is RelayCommand closeTimeOffRequests) closeTimeOffRequests.RaiseCanExecuteChanged();
+            if (OpenPtoBenefitsCommand is RelayCommand openPtoBenefits) openPtoBenefits.RaiseCanExecuteChanged();
+            if (ClosePtoBenefitsCommand is RelayCommand closePtoBenefits) closePtoBenefits.RaiseCanExecuteChanged();
             if (OpenTimeClockActivityDialogCommand is RelayCommand openTimeClockActivity) openTimeClockActivity.RaiseCanExecuteChanged();
             if (CloseTimeClockActivityDialogCommand is RelayCommand closeTimeClockActivity) closeTimeClockActivity.RaiseCanExecuteChanged();
             if (PreviousTimeClockWeekCommand is RelayCommand previousTimeClockWeek) previousTimeClockWeek.RaiseCanExecuteChanged();

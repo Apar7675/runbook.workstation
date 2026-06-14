@@ -767,8 +767,44 @@ namespace RunBook.Workstation.Models
         public bool SupportsLunch { get; set; } = true;
         public string LastSyncUtc { get; set; } = "";
         public string LastSyncMessage { get; set; } = "";
+        public WorkstationEmployeeBenefitsSummary Benefits { get; set; } = new WorkstationEmployeeBenefitsSummary();
         public List<WorkstationPunchRecord> RecentPunches { get; set; } = new List<WorkstationPunchRecord>();
         public List<WorkstationTimeOffRequestRecord> RecentTimeOffRequests { get; set; } = new List<WorkstationTimeOffRequestRecord>();
+    }
+
+    public sealed class WorkstationEmployeeBenefitsSummary
+    {
+        public string PolicyName { get; set; } = "";
+        public bool IsEligible { get; set; }
+        public string EligibleDate { get; set; } = "";
+        public string EligibilitySummary { get; set; } = "";
+        public string AccrualSummary { get; set; } = "";
+        public string CarryoverSummary { get; set; } = "";
+        public string ResetDate { get; set; } = "";
+        public decimal TotalPaidHours { get; set; }
+        public List<WorkstationBenefitBucket> Buckets { get; set; } = new List<WorkstationBenefitBucket>();
+        public List<WorkstationBenefitLedgerEntry> RecentLedger { get; set; } = new List<WorkstationBenefitLedgerEntry>();
+    }
+
+    public sealed class WorkstationBenefitBucket
+    {
+        public string Code { get; set; } = "";
+        public string Label { get; set; } = "";
+        public decimal AvailableHours { get; set; }
+        public decimal UsedHours { get; set; }
+        public decimal PendingHours { get; set; }
+        public decimal AccruedHours { get; set; }
+        public decimal CarryoverHours { get; set; }
+        public string ExpiresOn { get; set; } = "";
+    }
+
+    public sealed class WorkstationBenefitLedgerEntry
+    {
+        public string Date { get; set; } = "";
+        public string Type { get; set; } = "";
+        public string Label { get; set; } = "";
+        public decimal Hours { get; set; }
+        public string Note { get; set; } = "";
     }
 
     public sealed class WorkstationTimeOffRequestRecord

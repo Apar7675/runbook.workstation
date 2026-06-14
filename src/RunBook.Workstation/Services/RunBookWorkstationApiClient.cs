@@ -997,10 +997,70 @@ namespace RunBook.Workstation.Services
             public string LastSyncUtc { get; set; } = "";
             [JsonPropertyName("last_sync_message")]
             public string LastSyncMessage { get; set; } = "";
+            [JsonPropertyName("benefits")]
+            public DesktopBenefitsSummary Benefits { get; set; } = new DesktopBenefitsSummary();
             [JsonPropertyName("recent_punches")]
             public List<TimeClockPunch> RecentPunches { get; set; } = new List<TimeClockPunch>();
             [JsonPropertyName("recent_time_off_requests")]
             public List<DesktopTimeOffRequest> RecentTimeOffRequests { get; set; } = new List<DesktopTimeOffRequest>();
+        }
+
+        public sealed class DesktopBenefitsSummary
+        {
+            [JsonPropertyName("policy_name")]
+            public string PolicyName { get; set; } = "";
+            [JsonPropertyName("is_eligible")]
+            public bool IsEligible { get; set; }
+            [JsonPropertyName("eligible_date")]
+            public string EligibleDate { get; set; } = "";
+            [JsonPropertyName("eligibility_summary")]
+            public string EligibilitySummary { get; set; } = "";
+            [JsonPropertyName("accrual_summary")]
+            public string AccrualSummary { get; set; } = "";
+            [JsonPropertyName("carryover_summary")]
+            public string CarryoverSummary { get; set; } = "";
+            [JsonPropertyName("reset_date")]
+            public string ResetDate { get; set; } = "";
+            [JsonPropertyName("total_paid_hours")]
+            public decimal TotalPaidHours { get; set; }
+            [JsonPropertyName("buckets")]
+            public List<DesktopBenefitBucket> Buckets { get; set; } = new List<DesktopBenefitBucket>();
+            [JsonPropertyName("recent_ledger")]
+            public List<DesktopBenefitLedgerEntry> RecentLedger { get; set; } = new List<DesktopBenefitLedgerEntry>();
+        }
+
+        public sealed class DesktopBenefitBucket
+        {
+            [JsonPropertyName("code")]
+            public string Code { get; set; } = "";
+            [JsonPropertyName("label")]
+            public string Label { get; set; } = "";
+            [JsonPropertyName("available_hours")]
+            public decimal AvailableHours { get; set; }
+            [JsonPropertyName("used_hours")]
+            public decimal UsedHours { get; set; }
+            [JsonPropertyName("pending_hours")]
+            public decimal PendingHours { get; set; }
+            [JsonPropertyName("accrued_hours")]
+            public decimal AccruedHours { get; set; }
+            [JsonPropertyName("carryover_hours")]
+            public decimal CarryoverHours { get; set; }
+            [JsonPropertyName("expires_on")]
+            public string ExpiresOn { get; set; } = "";
+        }
+
+        public sealed class DesktopBenefitLedgerEntry
+        {
+            [JsonPropertyName("date")]
+            public string Date { get; set; } = "";
+            [JsonPropertyName("type")]
+            public string Type { get; set; } = "";
+            [JsonPropertyName("label")]
+            public string Label { get; set; } = "";
+            [JsonPropertyName("hours")]
+            public decimal Hours { get; set; }
+            [JsonPropertyName("note")]
+            public string Note { get; set; } = "";
         }
 
         public sealed class DesktopTimeOffRequest
