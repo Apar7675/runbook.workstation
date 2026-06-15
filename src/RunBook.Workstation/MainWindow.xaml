@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="RunBook Workstation" Width="1440" Height="920" MinWidth="1200" MinHeight="780"
-        WindowStartupLocation="CenterScreen" Background="{StaticResource ShellBg}"
+        WindowStartupLocation="CenterScreen" WindowState="Maximized" Background="{StaticResource ShellBg}"
         PreviewKeyDown="Window_OnPreviewKeyDown"
         PreviewTextInput="Window_OnPreviewTextInput"
         PreviewMouseMove="Window_OnPreviewMouseMove"
@@ -251,10 +251,11 @@
     </Window.Resources>
     <Grid>
         <Grid.Background>
-            <ImageBrush ImageSource="pack://application:,,,/Assets/Images/chatgpt_space_bg.png"
-                        Stretch="UniformToFill"
-                        AlignmentX="Center"
-                        AlignmentY="Center"/>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#050B14" Offset="0"/>
+                <GradientStop Color="#071321" Offset="0.48"/>
+                <GradientStop Color="#030812" Offset="1"/>
+            </LinearGradientBrush>
         </Grid.Background>
         <Rectangle IsHitTestVisible="False" Opacity="0.14" Fill="#0E1826"/>
         <Border Margin="12" Style="{StaticResource ShellFrame}">
@@ -280,6 +281,9 @@
                                             <Setter Property="Visibility" Value="Collapsed"/>
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsHomeSelected}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsTimeClockSelected}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed"/>
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -420,6 +424,9 @@
                                                     <DataTrigger Binding="{Binding IsWorkOrdersSelected}" Value="True">
                                                         <Setter Property="Visibility" Value="Collapsed"/>
                                                     </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsTimeClockSelected}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </Button.Style>
@@ -436,6 +443,9 @@
                                                 <Setter Property="Visibility" Value="Visible"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsWorkOrdersSelected}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsTimeClockSelected}" Value="True">
                                                         <Setter Property="Visibility" Value="Collapsed"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -1981,7 +1991,724 @@
                                                 <RowDefinition Height="14"/>
                                                 <RowDefinition Height="Auto"/>
                                             </Grid.RowDefinitions>
-                                        <Grid>
+                                            <Grid>
+                                                <Grid.Style>
+                                                    <Style TargetType="Grid">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsPtoBenefitsDialogOpen}" Value="True">
+                                                                <Setter Property="Effect">
+                                                                    <Setter.Value>
+                                                                        <BlurEffect Radius="7"/>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                                <Setter Property="Opacity" Value="0.55"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Grid.Style>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="92"/>
+                                                    <RowDefinition Height="10"/>
+                                                    <RowDefinition Height="420"/>
+                                                    <RowDefinition Height="10"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.02*"/>
+                                                    <ColumnDefinition Width="12"/>
+                                                    <ColumnDefinition Width="0.75*"/>
+                                                    <ColumnDefinition Width="12"/>
+                                                    <ColumnDefinition Width="1.08*"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <Border Grid.ColumnSpan="5" CornerRadius="12" Background="#F006101C" BorderBrush="#1B344F" BorderThickness="1" Padding="26,12">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="244"/>
+                                                            <ColumnDefinition Width="1"/>
+                                                            <ColumnDefinition Width="232"/>
+                                                            <ColumnDefinition Width="1"/>
+                                                            <ColumnDefinition Width="260"/>
+                                                            <ColumnDefinition Width="1"/>
+                                                            <ColumnDefinition Width="240"/>
+                                                            <ColumnDefinition Width="1"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="172"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Image Source="pack://application:,,,/Assets/Images/logo.png" Width="52" Height="52" Stretch="Uniform" Margin="0,0,12,0"/>
+                                                            <StackPanel VerticalAlignment="Center">
+                                                                <TextBlock Text="RUNBOOK" Foreground="#F4F8FF" FontSize="27" FontWeight="Bold"/>
+                                                                <TextBlock Text="PREMIUM" Foreground="#4A8DFF" FontSize="16" FontWeight="SemiBold"/>
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                        <Border Grid.Column="1" Background="#1F3A56" Width="1" Margin="0,0,22,0"/>
+                                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="26,0,0,0">
+                                                            <TextBlock Text="▣" Foreground="#A6B8CC" FontSize="30" Margin="0,0,16,0"/>
+                                                            <StackPanel>
+                                                                <TextBlock Text="Workstation" Foreground="#9CB5D0" FontSize="13"/>
+                                                                <TextBlock Text="{Binding WorkstationIdentityLine}" Foreground="#F4F8FF" FontSize="22" FontWeight="SemiBold"/>
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                        <Border Grid.Column="3" Background="#1F3A56" Width="1" Margin="0,0,22,0"/>
+                                                        <Grid Grid.Column="4" Margin="26,0,0,0">
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                            <Ellipse Width="54" Height="54" Stroke="#DCE9F8" StrokeThickness="2">
+                                                                <Ellipse.Style>
+                                                                    <Style TargetType="Ellipse">
+                                                                        <Setter Property="Fill" Value="{Binding SessionEmployeeAvatarBrush}"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding SessionEmployeeHasAvatarDisplayUrl}" Value="True">
+                                                                                <Setter Property="Fill">
+                                                                                    <Setter.Value>
+                                                                                        <ImageBrush ImageSource="{Binding SessionEmployeeAvatarDisplayUrl}" Stretch="UniformToFill"/>
+                                                                                    </Setter.Value>
+                                                                                </Setter>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Ellipse.Style>
+                                                            </Ellipse>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
+                                                                <TextBlock Text="Employee" Foreground="#9CB5D0" FontSize="13"/>
+                                                                <TextBlock Text="{Binding SessionEmployeeName}" Foreground="#F4F8FF" FontSize="20" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding CurrentSession.Employee.EmployeeCode, StringFormat=ID: {0}}" Foreground="#9CB5D0" FontSize="12"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                        <Border Grid.Column="5" Background="#1F3A56" Width="1" Margin="0,0,22,0"/>
+                                                        <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center" Margin="26,0,0,0">
+                                                            <TextBlock Text="▣" Foreground="#A6B8CC" FontSize="27" Margin="0,0,16,0"/>
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding HeaderDateText}" Foreground="#9CB5D0" FontSize="12"/>
+                                                                <TextBlock Text="{Binding HeaderTimeText}" Foreground="#F4F8FF" FontSize="25" FontWeight="Bold"/>
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                        <Border Grid.Column="7" Background="#1F3A56" Width="1" Margin="0,0,22,0"/>
+                                                        <UniformGrid Grid.Column="8" Columns="3" VerticalAlignment="Center" Margin="24,0,16,0">
+                                                            <StackPanel>
+                                                                <TextBlock Text="Service" Foreground="#5F9BFF" FontSize="12" FontWeight="SemiBold"/>
+                                                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0"><Ellipse Width="8" Height="8" Fill="#58E58B" Margin="0,0,8,0"/><TextBlock Text="Connected" Foreground="#F4F8FF" FontSize="14" FontWeight="SemiBold"/></StackPanel>
+                                                            </StackPanel>
+                                                            <StackPanel>
+                                                                <TextBlock Text="Local API" Foreground="#5F9BFF" FontSize="12" FontWeight="SemiBold"/>
+                                                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0"><Ellipse Width="8" Height="8" Fill="#58E58B" Margin="0,0,8,0"/><TextBlock Text="Online" Foreground="#F4F8FF" FontSize="14" FontWeight="SemiBold"/></StackPanel>
+                                                            </StackPanel>
+                                                            <StackPanel>
+                                                                <TextBlock Text="Queue" Foreground="#5F9BFF" FontSize="12" FontWeight="SemiBold"/>
+                                                                <TextBlock Text="{Binding PendingSyncItems.Count, StringFormat={}{0} Pending}" Foreground="#F4F8FF" FontSize="14" FontWeight="SemiBold" Margin="0,5,0,0"/>
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <Button Grid.Column="9" Command="{Binding LogoutCommand}" Style="{StaticResource RB.Button.Ghost}" Height="52" MinWidth="160" Padding="16,0">
+                                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                                <TextBlock Text="♙" Foreground="#DCE9F8" FontSize="20" Margin="0,0,12,0"/>
+                                                                <TextBlock Text="Switch User" Foreground="#F4F8FF" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </Grid>
+                                                </Border>
+
+                                                <Border Grid.Row="2" Grid.Column="0" CornerRadius="8" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="#1D3A58" BorderThickness="1" Padding="26">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="194"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                        <Grid Width="172" Height="172" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="0,4,0,0">
+                                                            <Ellipse Stroke="#EAF4FF" StrokeThickness="3">
+                                                                <Ellipse.Style>
+                                                                    <Style TargetType="Ellipse">
+                                                                        <Setter Property="Fill" Value="{Binding SessionEmployeeAvatarBrush}"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding SessionEmployeeHasAvatarDisplayUrl}" Value="True">
+                                                                                <Setter Property="Fill">
+                                                                                    <Setter.Value>
+                                                                                        <ImageBrush ImageSource="{Binding SessionEmployeeAvatarDisplayUrl}" Stretch="UniformToFill"/>
+                                                                                    </Setter.Value>
+                                                                                </Setter>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Ellipse.Style>
+                                                            </Ellipse>
+                                                            <Ellipse Width="34" Height="34" Fill="#58E58B" Stroke="#0C1B2E" StrokeThickness="2" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="18,0,0,3"/>
+                                                        </Grid>
+                                                        <Grid Grid.Column="1">
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="18"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="22"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="18"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="16"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                            </Grid.RowDefinitions>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Border Width="46" Height="46" CornerRadius="23" BorderBrush="#58E58B" BorderThickness="3" Margin="0,0,16,0">
+                                                                    <TextBlock Text="✓" Foreground="#58E58B" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                                <TextBlock Text="{Binding CurrentShiftStatus}" Foreground="#58E58B" FontSize="38" FontWeight="Bold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                            </StackPanel>
+                                                            <TextBlock Grid.Row="2" Text="{Binding TimeClockHeroShiftDisplay}" Foreground="#EAF4FF" FontSize="17" FontWeight="SemiBold"/>
+                                                            <Border Grid.Row="3" Height="1" Background="#2A405A" VerticalAlignment="Bottom"/>
+                                                            <UniformGrid Grid.Row="4" Columns="3" Margin="0,8,0,0">
+                                                                <StackPanel>
+                                                                    <TextBlock Text="Shift Start" Foreground="#9CB5D0" FontSize="12"/>
+                                                                    <TextBlock Text="{Binding TimeClockHeroClockInTime}" Foreground="#F4F8FF" FontSize="22" FontWeight="Bold" Margin="0,7,0,0"/>
+                                                                </StackPanel>
+                                                                <StackPanel>
+                                                                    <TextBlock Text="Current Segment" Foreground="#9CB5D0" FontSize="12"/>
+                                                                    <TextBlock Text="{Binding TimeClockHeroElapsedValue}" Foreground="#F4F8FF" FontSize="22" FontWeight="Bold" Margin="0,7,0,0"/>
+                                                                    <TextBlock Text="{Binding TimeClockStateKey}" Foreground="#C9D6E8" FontSize="13"/>
+                                                                </StackPanel>
+                                                                <StackPanel>
+                                                                    <TextBlock Text="Worked Today" Foreground="#9CB5D0" FontSize="12"/>
+                                                                    <TextBlock Text="{Binding TodaySummaryRows[0].Value}" Foreground="#F4F8FF" FontSize="22" FontWeight="Bold" Margin="0,7,0,0"/>
+                                                                </StackPanel>
+                                                            </UniformGrid>
+                                                            <Border Grid.Row="5" Height="1" Background="#2A405A" VerticalAlignment="Center"/>
+                                                            <UniformGrid Grid.Row="6" Columns="4">
+                                                                <StackPanel><TextBlock Text="Break" Foreground="#C9D6E8" FontSize="12" HorizontalAlignment="Center"/><TextBlock Text="{Binding TodaySummaryRows[1].Value}" Foreground="#F4F8FF" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,6,0,0"/></StackPanel>
+                                                                <StackPanel><TextBlock Text="Lunch" Foreground="#C9D6E8" FontSize="12" HorizontalAlignment="Center"/><TextBlock Text="{Binding TodaySummaryRows[2].Value}" Foreground="#F4F8FF" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,6,0,0"/></StackPanel>
+                                                                <StackPanel><TextBlock Text="Overtime" Foreground="#C9D6E8" FontSize="12" HorizontalAlignment="Center"/><TextBlock Text="{Binding TodaySummaryRows[3].Value}" Foreground="#F5A623" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,6,0,0"/></StackPanel>
+                                                                <StackPanel><TextBlock Text="Daily Target" Foreground="#C9D6E8" FontSize="12" HorizontalAlignment="Center"/><TextBlock Text="8h 00m" Foreground="#F4F8FF" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,6,0,0"/></StackPanel>
+                                                            </UniformGrid>
+                                                            <Grid Grid.Row="8">
+                                                                <Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                                                <Border Height="28" CornerRadius="4" Background="#102238" BorderBrush="#2A405A" BorderThickness="1">
+                                                                    <ProgressBar Value="{Binding TodaySummaryRows[0].ProgressValue}" Maximum="100" Style="{StaticResource RunBook.Style.TimeClockProgressBar}" Height="28" Foreground="#58E58B"/>
+                                                                </Border>
+                                                                <TextBlock Grid.Row="1" Text="{Binding TodaySummaryRows[0].DetailText, StringFormat={}{0}}" Foreground="#C9D6E8" FontSize="15" HorizontalAlignment="Center" Margin="0,9,0,0"/>
+                                                            </Grid>
+                                                        </Grid>
+                                                    </Grid>
+                                                </Border>
+
+                                                <Border Grid.Row="2" Grid.Column="2" CornerRadius="8" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="#1D3A58" BorderThickness="1" Padding="22">
+                                                    <Grid>
+                                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="14"/><RowDefinition Height="*"/><RowDefinition Height="22"/></Grid.RowDefinitions>
+                                                        <TextBlock Text="☚  PUNCH ACTIONS" Foreground="#F4F8FF" FontSize="16" FontWeight="Bold"/>
+                                                        <UniformGrid Grid.Row="2" Columns="2" Rows="3" Margin="0,0,0,8">
+                                                            <Button Command="{Binding ClockInCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="#2D8B55" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.SuccessTile}" Margin="0,0,8,8"><StackPanel><TextBlock Text="↪" Foreground="#7BE6A2" FontSize="34" HorizontalAlignment="Center"/><TextBlock Text="CLOCK IN" Foreground="#76B5FF" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel></Button>
+                                                            <Button Command="{Binding BreakStartCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="#9B6813" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.WarningTile}" Margin="0,0,0,8"><StackPanel><TextBlock Text="☕" Foreground="#F5A623" FontSize="30" HorizontalAlignment="Center"/><TextBlock Text="START BREAK" Foreground="#F5A623" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel></Button>
+                                                            <Button Command="{Binding BreakEndCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="#2B6FB2" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.InfoTile}" Margin="0,0,8,8"><StackPanel><TextBlock Text="▶" Foreground="#76B5FF" FontSize="34" HorizontalAlignment="Center"/><TextBlock Text="END BREAK" Foreground="#76B5FF" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel></Button>
+                                                            <Button Command="{Binding LunchStartCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="#B85B16" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.WarningTile}" Margin="0,0,0,8"><StackPanel><TextBlock Text="🍴" Foreground="#FF873B" FontSize="28" HorizontalAlignment="Center"/><TextBlock Text="START LUNCH" Foreground="#FF873B" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel></Button>
+                                                            <Button Command="{Binding LunchEndCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="#2B6FB2" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.InfoTile}" Margin="0,0,8,0"><StackPanel><TextBlock Text="🍴" Foreground="#76B5FF" FontSize="28" HorizontalAlignment="Center"/><TextBlock Text="END LUNCH" Foreground="#76B5FF" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel></Button>
+                                                            <Button Command="{Binding ClockOutCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="#8E3140" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.ErrorTile}"><StackPanel><TextBlock Text="⇥" Foreground="#FF5B6E" FontSize="34" HorizontalAlignment="Center"/><TextBlock Text="CLOCK OUT" Foreground="#FF5B6E" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel></Button>
+                                                        </UniformGrid>
+                                                        <TextBlock Grid.Row="3" Text="ⓘ  Make sure to punch for all breaks and lunch." Foreground="#8D9FB5" FontSize="12" VerticalAlignment="Bottom"/>
+                                                    </Grid>
+                                                </Border>
+
+                                                <Border Grid.Row="2" Grid.Column="4" CornerRadius="8" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.PurplePanel}" BorderBrush="#5D3A99" BorderThickness="1" Padding="26">
+                                                    <Grid>
+                                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="*"/><RowDefinition Height="1"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                                        <TextBlock Text="▣  PAID TIME OFF (PTO)" Foreground="#B88CFF" FontSize="18" FontWeight="Bold"/>
+                                                        <Border Grid.Row="1" Background="#33476B" Margin="0,18,0,0"/>
+                                                        <Grid Grid.Row="2" Margin="0,26,0,18">
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="1*"/><ColumnDefinition Width="1"/><ColumnDefinition Width="1.15*"/></Grid.ColumnDefinitions>
+                                                            <StackPanel>
+                                                                <TextBlock Text="AVAILABLE PTO" Foreground="#A8B9CF" FontSize="13"/>
+                                                                <TextBlock Text="{Binding PtoAvailableHoursText}" Foreground="#EAF0FF" FontSize="46" FontWeight="Bold" Margin="0,18,0,0"/>
+                                                                <TextBlock Text="{Binding PtoBenefitsSummary}" Foreground="#C9D6E8" FontSize="15"/>
+                                                            </StackPanel>
+                                                            <Border Grid.Column="1" Background="#33476B" Width="1"/>
+                                                            <StackPanel Grid.Column="2" Margin="28,0,0,0">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="PENDING REQUEST" Foreground="#A8B9CF" FontSize="13"/>
+                                                                    <Border CornerRadius="5" Background="#58338A" Padding="9,4" Margin="12,-3,0,0"><TextBlock Text="{Binding PtoLatestApprovalStatus}" Foreground="#CBA8FF" FontSize="11" FontWeight="SemiBold"/></Border>
+                                                                </StackPanel>
+                                                                <TextBlock Text="{Binding PtoLatestDateRange}" Foreground="#EAF0FF" FontSize="22" FontWeight="SemiBold" Margin="0,24,0,0"/>
+                                                                <TextBlock Text="{Binding PtoRequestCountSummary}" Foreground="#C9D6E8" FontSize="15" Margin="0,15,0,0"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                        <Grid Grid.Row="4">
+                                                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="22"/><RowDefinition Height="56"/></Grid.RowDefinitions>
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions><ColumnDefinition Width="1*"/><ColumnDefinition Width="1"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
+                                                                <StackPanel Margin="22,0,0,0"><TextBlock Text="NEXT ELIGIBLE DATE" Foreground="#A8B9CF" FontSize="13"/><TextBlock Text="{Binding PtoNextEligibleText}" Foreground="#EAF0FF" FontSize="18" FontWeight="SemiBold" Margin="0,10,0,0"/></StackPanel>
+                                                                <Border Grid.Column="1" Background="#33476B" Width="1"/>
+                                                                <StackPanel Grid.Column="2" Margin="28,0,0,0"><TextBlock Text="ACCRUAL RATE" Foreground="#A8B9CF" FontSize="13"/><TextBlock Text="{Binding PtoBenefitsEligibilitySummary}" Foreground="#EAF0FF" FontSize="18" FontWeight="SemiBold" Margin="0,10,0,0"/></StackPanel>
+                                                            </Grid>
+                                                            <Button Grid.Row="2" Content="▣  VIEW / MANAGE PTO REQUEST" Command="{Binding OpenPtoBenefitsCommand}" Background="#6F35C8" BorderBrush="#8E5CFF" Foreground="#DCC9FF" FontSize="17" FontWeight="Bold"/>
+                                                        </Grid>
+                                                    </Grid>
+                                                </Border>
+
+                                                <Border Grid.Row="4" Grid.Column="0" CornerRadius="8" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="#1D3A58" BorderThickness="1" Padding="22">
+                                                    <Grid>
+                                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="12"/><RowDefinition Height="*"/><RowDefinition Height="54"/></Grid.RowDefinitions>
+                                                        <TextBlock Text="◷  TODAY'S TIMELINE" Foreground="#DDE8F6" FontSize="16" FontWeight="Bold"/>
+                                                        <ItemsControl Grid.Row="2" ItemsSource="{Binding TodayShiftTimelineEntries}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Grid Height="37">
+                                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="98"/><ColumnDefinition Width="*"/><ColumnDefinition Width="96"/></Grid.ColumnDefinitions>
+                                                                        <Grid Width="22" HorizontalAlignment="Left">
+                                                                            <Border Width="3" Background="{Binding AccentBrush}" Opacity="0.34" HorizontalAlignment="Center"/>
+                                                                            <Ellipse Width="16" Height="16" Fill="{Binding AccentBrush}" Stroke="#071321" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                        </Grid>
+                                                                        <TextBlock Grid.Column="1" Text="{Binding TimestampDisplay}" Foreground="#DCE7F6" FontSize="15" VerticalAlignment="Center"/>
+                                                                        <TextBlock Grid.Column="2" Text="{Binding Title}" Foreground="#DCE7F6" FontSize="15" VerticalAlignment="Center"/>
+                                                                        <TextBlock Grid.Column="3" Text="{Binding Subtitle}" Foreground="{Binding AccentBrush}" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <Button Grid.Row="3" Content="☷  VIEW FULL TIMELINE" Style="{StaticResource RB.Button.Ghost}" Foreground="#76B5FF" FontWeight="SemiBold"/>
+                                                    </Grid>
+                                                </Border>
+
+                                                <Border Grid.Row="4" Grid.Column="2" CornerRadius="8" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="#1D3A58" BorderThickness="1" Padding="22">
+                                                    <Grid>
+                                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="76"/></Grid.RowDefinitions>
+                                                        <Grid><TextBlock Text="▥  WEEKLY HOURS" Foreground="#DDE8F6" FontSize="16" FontWeight="Bold"/><TextBlock Text="{Binding TimeClockWeeklyDateRange}" Foreground="#A8B9CF" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                                                        <ItemsControl Grid.Row="1" ItemsSource="{Binding TimeClockHistoryDayRows}" Margin="0,18,0,0">
+                                                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="7"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate><DataTemplate><Grid><Grid.RowDefinitions><RowDefinition Height="150"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid Width="34" Height="138" VerticalAlignment="Bottom"><Border Width="34" Height="138" Background="#13243A" CornerRadius="3"/><Border Width="34" Height="{Binding BarHeight}" Background="#3A66D8" CornerRadius="3" VerticalAlignment="Bottom"/></Grid><TextBlock Grid.Row="1" Text="{Binding DayText}" Foreground="#F4F8FF" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,8,0,0"/><TextBlock Grid.Row="2" Text="{Binding HoursText}" Foreground="#9CB5D0" FontSize="11" HorizontalAlignment="Center"/></Grid></DataTemplate></ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <UniformGrid Grid.Row="2" Columns="3"><StackPanel><TextBlock Text="WEEKLY TOTAL" Foreground="#9CB5D0" FontSize="12" HorizontalAlignment="Center"/><TextBlock Text="{Binding TimeClockWeeklyTotalText}" Foreground="#DCE7F6" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,8,0,0"/></StackPanel><StackPanel><TextBlock Text="WEEKLY TARGET" Foreground="#9CB5D0" FontSize="12" HorizontalAlignment="Center"/><TextBlock Text="40h 00m" Foreground="#DCE7F6" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,8,0,0"/></StackPanel><StackPanel><TextBlock Text="WEEKLY PROGRESS" Foreground="#9CB5D0" FontSize="12" HorizontalAlignment="Center"/><TextBlock Text="{Binding WeeklySummaryRows[0].ProgressValue, StringFormat={}{0:0}%}" Foreground="#4A7BFF" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,8,0,0"/></StackPanel></UniformGrid>
+                                                    </Grid>
+                                                </Border>
+
+                                                <Grid Grid.Row="4" Grid.Column="4">
+                                                    <Grid.RowDefinitions><RowDefinition Height="1*"/><RowDefinition Height="10"/><RowDefinition Height="0.86*"/></Grid.RowDefinitions>
+                                                    <Border CornerRadius="8" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="#1D3A58" BorderThickness="1" Padding="20">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                                            <Grid><TextBlock Text="↺  ATTENDANCE HISTORY" Foreground="#DDE8F6" FontSize="16" FontWeight="Bold"/><TextBlock Text="VIEW ALL  ›" Foreground="#76B5FF" FontSize="11" FontWeight="Bold" HorizontalAlignment="Right"/></Grid>
+                                                            <ItemsControl Grid.Row="1" ItemsSource="{Binding TimeClockHistoryDayRows}" Margin="0,10,0,0">
+                                                                <ItemsControl.ItemTemplate><DataTemplate><Grid Height="28"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="160"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions><TextBlock Text="{Binding DateText}" Foreground="#EAF4FF" FontSize="13"/><TextBlock Grid.Column="1" Text="7:00 AM - 3:30 PM" Foreground="#B5C6DA" FontSize="13"/><TextBlock Grid.Column="2" Text="{Binding HoursText}" Foreground="#EAF4FF" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Right"/></Grid></DataTemplate></ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </Grid>
+                                                    </Border>
+                                                    <Border Grid.Row="2" CornerRadius="8" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="#1D3A58" BorderThickness="1" Padding="20">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="46"/></Grid.RowDefinitions>
+                                                            <TextBlock Text="☁  SYSTEM &amp; SYNC STATUS" Foreground="#DDE8F6" FontSize="16" FontWeight="Bold"/>
+                                                            <UniformGrid Grid.Row="1" Columns="4" Margin="0,18,0,0">
+                                                                <StackPanel><TextBlock Text="●" Foreground="#58E58B" FontSize="22" HorizontalAlignment="Center"/><TextBlock Text="Service" Foreground="#F4F8FF" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="Connected" Foreground="#DCE7F6" HorizontalAlignment="Center"/></StackPanel>
+                                                                <StackPanel><TextBlock Text="●" Foreground="#58E58B" FontSize="22" HorizontalAlignment="Center"/><TextBlock Text="Local API" Foreground="#F4F8FF" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="Online" Foreground="#DCE7F6" HorizontalAlignment="Center"/></StackPanel>
+                                                                <StackPanel><TextBlock Text="●" Foreground="#58E58B" FontSize="22" HorizontalAlignment="Center"/><TextBlock Text="Sync Queue" Foreground="#F4F8FF" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="{Binding PendingSyncItems.Count, StringFormat={}{0} Pending}" Foreground="#DCE7F6" HorizontalAlignment="Center"/></StackPanel>
+                                                                <StackPanel><TextBlock Text="Last Sync" Foreground="#9CB5D0" HorizontalAlignment="Center"/><TextBlock Text="{Binding HeaderTimeText}" Foreground="#EAF4FF" FontWeight="SemiBold" HorizontalAlignment="Center"/></StackPanel>
+                                                            </UniformGrid>
+                                                            <Button Grid.Row="2" Content="⌁  VIEW SYNC DETAILS" Style="{StaticResource RB.Button.Ghost}" Foreground="#76B5FF" FontWeight="SemiBold"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </Grid>
+                                            </Grid>
+
+                                            <Grid Visibility="Collapsed">
+                                                <Grid.Style>
+                                                    <Style TargetType="Grid">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsPtoBenefitsDialogOpen}" Value="True">
+                                                                <Setter Property="Effect">
+                                                                    <Setter.Value>
+                                                                        <BlurEffect Radius="7"/>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                                <Setter Property="Opacity" Value="0.55"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Grid.Style>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="190"/>
+                                                    <RowDefinition Height="12"/>
+                                                    <RowDefinition Height="166"/>
+                                                    <RowDefinition Height="12"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+
+                                                <Grid Grid.Row="0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="1.12*"/>
+                                                        <ColumnDefinition Width="14"/>
+                                                        <ColumnDefinition Width="0.88*"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <Border Style="{StaticResource RunBook.Style.TimeClockHeroCard}"
+                                                            Background="{Binding TimeClockHeroGradientBrush}"
+                                                            BorderBrush="{Binding TimeClockHeroBorderBrush}"
+                                                            Padding="16">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="160"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="340"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border Grid.ColumnSpan="3" Background="{Binding TimeClockHeroGlowWashBrush}" CornerRadius="18" Margin="-16"/>
+                                                            <StackPanel Width="140" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                <Grid Width="108" Height="108" HorizontalAlignment="Center">
+                                                                    <Ellipse Fill="{Binding TimeClockHeroBackgroundBrush}" Stroke="{Binding TimeClockHeroBorderBrush}" StrokeThickness="7" Opacity="0.34"/>
+                                                                    <Ellipse Width="98" Height="98" Fill="{Binding TimeClockHeroBackgroundBrush}" Stroke="{Binding TimeClockHeroAccentBrush}" StrokeThickness="3" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                        <Ellipse.Effect>
+                                                                            <DropShadowEffect Color="{Binding TimeClockHeroAccentBrush}" BlurRadius="30" ShadowDepth="0" Opacity="0.72"/>
+                                                                        </Ellipse.Effect>
+                                                                    </Ellipse>
+                                                                    <Ellipse Width="80" Height="80" Stroke="{Binding TimeClockHeroBorderBrush}" StrokeThickness="1.4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                        <Ellipse.Style>
+                                                                            <Style TargetType="Ellipse">
+                                                                                <Setter Property="Fill" Value="{Binding SessionEmployeeAvatarBrush}"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding SessionEmployeeHasAvatarDisplayUrl}" Value="True">
+                                                                                        <Setter Property="Fill">
+                                                                                            <Setter.Value>
+                                                                                                <ImageBrush ImageSource="{Binding SessionEmployeeAvatarDisplayUrl}" Stretch="UniformToFill"/>
+                                                                                            </Setter.Value>
+                                                                                        </Setter>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Ellipse.Style>
+                                                                    </Ellipse>
+                                                                    <TextBlock Text="{Binding SessionEmployeeInitials}" Foreground="#FFF4F7FB" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding SessionEmployeeHasAvatarDisplayUrl}" Value="True">
+                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+                                                                </Grid>
+                                                                <TextBlock Text="{Binding SessionEmployeeName}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13" FontWeight="SemiBold" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,7,0,0"/>
+                                                            </StackPanel>
+                                                            <Grid Grid.Column="1" Margin="16,0,18,0" VerticalAlignment="Center">
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="7"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="8"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="12"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                </Grid.RowDefinitions>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <Ellipse Width="10" Height="10" Fill="{Binding TimeClockHeroAccentBrush}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                                                    <TextBlock Text="CURRENT STATUS" Style="{StaticResource TimeClockHeroEyebrow}" VerticalAlignment="Center"/>
+                                                                </StackPanel>
+                                                                <TextBlock Grid.Row="2" Text="{Binding TimeClockHeroTitle}" Style="{StaticResource TimeClockHeroTitle}" Foreground="{Binding TimeClockHeroAccentBrush}"/>
+                                                                <TextBlock Grid.Row="4" Text="{Binding TimeClockHeroSinceLine}" Style="{StaticResource TimeClockHeroStatus}" Foreground="{Binding TimeClockHeroAccentBrush}"/>
+                                                                <TextBlock Grid.Row="6" Text="{Binding TimeClockHeroShiftDisplay}" Foreground="{Binding TimeClockStatusPillForegroundBrush}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                            </Grid>
+                                                            <Grid Grid.Column="2" VerticalAlignment="Center">
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="12"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                </Grid.RowDefinitions>
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="1"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <StackPanel Margin="0,0,20,0">
+                                                                        <TextBlock Text="CLOCK IN" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Muted}" FontSize="11" FontWeight="SemiBold"/>
+                                                                        <TextBlock Text="{Binding TimeClockHeroClockInTime}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="27" FontWeight="SemiBold" Margin="0,5,0,0"/>
+                                                                        <TextBlock Text="{Binding TimeClockHeroClockInDate}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.5" Margin="0,3,0,0"/>
+                                                                    </StackPanel>
+                                                                    <Border Grid.Column="1" Background="{StaticResource RunBook.Brush.TimeClock.Border.Default}" Width="1" Opacity="0.9"/>
+                                                                    <StackPanel Grid.Column="2" Margin="20,0,0,0">
+                                                                        <TextBlock Text="ELAPSED TIME" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Muted}" FontSize="11" FontWeight="SemiBold"/>
+                                                                        <TextBlock Text="{Binding TimeClockHeroElapsedValue}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="27" FontWeight="SemiBold" Margin="0,5,0,0"/>
+                                                                        <TextBlock Text="{Binding TimeClockHeroElapsedCaption}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.5" Margin="0,3,0,0"/>
+                                                                    </StackPanel>
+                                                                </Grid>
+                                                                <Border Grid.Row="2" Background="{Binding TimeClockHeroBackgroundBrush}" BorderBrush="{Binding TimeClockHeroBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14,10" HorizontalAlignment="Stretch" MinHeight="54" Opacity="0.9">
+                                                                    <TextBlock Text="{Binding TimeClockHeroHelperText}" Foreground="{Binding TimeClockHeroAccentBrush}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" LineHeight="18"/>
+                                                                </Border>
+                                                            </Grid>
+                                                        </Grid>
+                                                    </Border>
+
+                                                    <Border Grid.Column="2" Style="{StaticResource TimeClockSummaryGroupCard}" Margin="0">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="12"/>
+                                                                <RowDefinition Height="*"/>
+                                                            </Grid.RowDefinitions>
+                                                            <TextBlock Text="TODAY" Style="{StaticResource TimeClockSectionTitle}"/>
+                                                            <ItemsControl Grid.Row="2" ItemsSource="{Binding TodaySummaryRows}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <UniformGrid Columns="4"/>
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <Border Style="{StaticResource RunBook.Style.TimeClockMetricCard}" Padding="14,12" Margin="0,0,8,0">
+                                                                            <StackPanel>
+                                                                                <StackPanel Orientation="Horizontal">
+                                                                                    <Border Width="22" Height="22" CornerRadius="11" Background="{Binding AccentBrush}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1">
+                                                                                        <TextBlock Text="{Binding IconText}" Foreground="#06101C" FontSize="9" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                                    </Border>
+                                                                                    <TextBlock Text="{Binding Label}" Style="{StaticResource TimeClockMetricLabel}" Margin="8,3,0,0"/>
+                                                                                </StackPanel>
+                                                                                <TextBlock Text="{Binding Value}" Foreground="{Binding AccentBrush}" FontSize="24" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                                                                                <TextBlock Text="{Binding DetailText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12"/>
+                                                                                <ProgressBar Value="{Binding ProgressValue}" Maximum="100" Style="{StaticResource RunBook.Style.TimeClockProgressBar}" Margin="0,11,0,0" Foreground="{Binding AccentBrush}"/>
+                                                                            </StackPanel>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </Grid>
+                                                    </Border>
+                                                </Grid>
+
+                                                <Grid Grid.Row="2">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="1.12*"/>
+                                                        <ColumnDefinition Width="14"/>
+                                                        <ColumnDefinition Width="0.88*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Style="{StaticResource TimeClockPanelCard}" Padding="12" Margin="0">
+                                                    <Grid>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="12"/>
+                                                            <RowDefinition Height="*"/>
+                                                        </Grid.RowDefinitions>
+                                                        <StackPanel>
+                                                            <TextBlock Text="ACTIONS" Style="{StaticResource TimeClockSectionTitle}"/>
+                                                        </StackPanel>
+                                                        <Grid Grid.Row="2">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="8"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="8"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Button Grid.Column="0" Command="{Binding ClockInCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Success.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.SuccessTile}" Width="178" Height="48" HorizontalAlignment="Left">
+                                                                <Grid Margin="8,3">
+                                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/></Grid.ColumnDefinitions>
+                                                                    <Border Width="32" Height="32" CornerRadius="16" Background="{StaticResource RunBook.Brush.TimeClock.Success.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Success}" BorderThickness="1.5"><TextBlock Text="IN" Foreground="{StaticResource RunBook.Brush.TimeClock.Success}" FontSize="10.5" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Clock In" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="Bold"/><TextBlock Text="Start shift" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="9.5" Margin="0,1,0,0"/></StackPanel>
+                                                                    <TextBlock Grid.Column="2" Text=">" Foreground="{StaticResource RunBook.Brush.TimeClock.Success}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                                </Grid>
+                                                            </Button>
+                                                            <Button Grid.Column="0" Command="{Binding BreakStartCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.WarningTile}" Width="178" Height="48" HorizontalAlignment="Left">
+                                                                <Grid Margin="8,3"><Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/></Grid.ColumnDefinitions>
+                                                                    <Border Width="32" Height="32" CornerRadius="16" Background="{StaticResource RunBook.Brush.TimeClock.Warning.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning}" BorderThickness="1.5"><Viewbox Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M4,8 L15,8 L15,14 C15,16.2 13.2,18 11,18 L8,18 C5.8,18 4,16.2 4,14 Z M15,10 L17,10 C18.7,10 20,11.3 20,13 C20,14.7 18.7,16 17,16 L15,16 M6,21 L17,21" Stroke="{StaticResource RunBook.Brush.TimeClock.Warning}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox></Border>
+                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Start Break" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="Bold"/><TextBlock Text="Break" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="9.5" Margin="0,1,0,0"/></StackPanel>
+                                                                    <TextBlock Grid.Column="2" Text=">" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                                </Grid>
+                                                            </Button>
+                                                            <Button Grid.Column="2" Command="{Binding LunchStartCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Info.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.InfoTile}" Width="178" Height="48" HorizontalAlignment="Left">
+                                                                <Grid Margin="8,3"><Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/></Grid.ColumnDefinitions>
+                                                                    <Border Width="32" Height="32" CornerRadius="16" Background="{StaticResource RunBook.Brush.TimeClock.Info.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Info}" BorderThickness="1.5"><Viewbox Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M6,3 L6,10 M9,3 L9,10 M12,3 L12,10 M6,10 C6,12 12,12 12,10 M9,12 L9,21 M17,3 C15.4,4.8 15,7.1 15,10 L15,13 L19,13 M19,3 L19,21" Stroke="{StaticResource RunBook.Brush.TimeClock.Info}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox></Border>
+                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Start Lunch" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="Bold"/><TextBlock Text="Lunch" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="9.5" Margin="0,1,0,0"/></StackPanel>
+                                                                    <TextBlock Grid.Column="2" Text=">" Foreground="{StaticResource RunBook.Brush.TimeClock.Info}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                                </Grid>
+                                                            </Button>
+                                                            <Button Grid.Column="4" Command="{Binding ClockOutCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Error.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.ErrorTile}" Width="178" Height="48" HorizontalAlignment="Left">
+                                                                <Grid Margin="8,3"><Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/></Grid.ColumnDefinitions>
+                                                                    <Border Width="32" Height="32" CornerRadius="16" Background="{StaticResource RunBook.Brush.TimeClock.Error.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Error}" BorderThickness="1.5"><Viewbox Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M9,5 L5,5 L5,19 L9,19 M13,8 L17,12 L13,16 M17,12 L8,12" Stroke="{StaticResource RunBook.Brush.TimeClock.Error}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox></Border>
+                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Clock Out" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="Bold"/><TextBlock Text="End day" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="9.5" Margin="0,1,0,0"/></StackPanel>
+                                                                    <TextBlock Grid.Column="2" Text=">" Foreground="{StaticResource RunBook.Brush.TimeClock.Error}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                                </Grid>
+                                                            </Button>
+                                                            <Button Grid.Column="0" Grid.ColumnSpan="5" Content="End Break" Command="{Binding BreakEndCommand}" Style="{StaticResource TimeClockActionPrimary}" Background="{StaticResource RunBook.Brush.TimeClock.Warning}" Height="58"/>
+                                                            <Button Grid.Column="0" Grid.ColumnSpan="5" Content="End Lunch" Command="{Binding LunchEndCommand}" Style="{StaticResource TimeClockActionPrimary}" Background="{StaticResource RunBook.Brush.TimeClock.Info}" Height="58"/>
+                                                        </Grid>
+                                                    </Grid>
+                                                </Border>
+                                                    <Border Grid.Column="2" Style="{StaticResource TimeClockPanelCard}" Margin="0" Padding="14">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="10"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                                            <StackPanel><TextBlock Text="TODAY'S SHIFT FLOW" Style="{StaticResource TimeClockSectionTitle}"/><TextBlock Text="Track your progress through today's shift." Style="{StaticResource TimeClockSectionBody}" Margin="0,3,0,0"/></StackPanel>
+                                                            <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Padding="0,2,0,2" Visibility="{Binding HasTodayShiftTimeline, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <ItemsControl ItemsSource="{Binding TodayShiftTimelineEntries}">
+                                                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Grid Width="128">
+                                                                                <Grid.RowDefinitions><RowDefinition Height="46"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                                                                <Grid VerticalAlignment="Center">
+                                                                                    <Rectangle Height="3" Fill="{Binding LeftConnectorBrush}" Opacity="{Binding LeftConnectorOpacity}" VerticalAlignment="Center" Margin="0,0,64,0" RadiusX="2" RadiusY="2"/>
+                                                                                    <Rectangle Height="3" Fill="{Binding RightConnectorBrush}" Opacity="{Binding RightConnectorOpacity}" VerticalAlignment="Center" Margin="64,0,0,0" RadiusX="2" RadiusY="2"/>
+                                                                                    <Border Width="46" Height="46" CornerRadius="23" Background="{Binding BackgroundBrush}" BorderBrush="{Binding BorderBrush}" BorderThickness="1.6" HorizontalAlignment="Center"><TextBlock Text="{Binding SequenceNumber}" Foreground="{Binding AccentBrush}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                                                                </Grid>
+                                                                                <StackPanel Grid.Row="1" Margin="4,7,4,0">
+                                                                                    <TextBlock Text="{Binding Title}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                                                    <TextBlock Text="{Binding Subtitle}" Foreground="{Binding AccentBrush}" FontSize="10.5" FontWeight="SemiBold" Margin="0,4,0,0" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                                                                </StackPanel>
+                                                                            </Grid>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </ScrollViewer>
+                                                        </Grid>
+                                                    </Border>
+                                                </Grid>
+
+                                                <Grid Grid.Row="4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="1.12*"/>
+                                                        <ColumnDefinition Width="14"/>
+                                                        <ColumnDefinition Width="0.88*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid Grid.Column="0">
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="0"/>
+                                                            <RowDefinition Height="0"/>
+                                                            <RowDefinition Height="*"/>
+                                                        </Grid.RowDefinitions>
+                                                        <Border Style="{StaticResource TimeClockPanelCard}" Margin="0" Padding="14" Visibility="Collapsed">
+                                                            <Grid>
+                                                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="8"/><RowDefinition Height="Auto"/><RowDefinition Height="10"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                                                <StackPanel><TextBlock Text="TODAY'S SHIFT FLOW" Style="{StaticResource TimeClockSectionTitle}"/><TextBlock Text="Track your progress through today's shift." Style="{StaticResource TimeClockSectionBody}" Margin="0,3,0,0"/></StackPanel>
+                                                                <Grid Grid.Row="2" Height="50">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="8"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="8"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <Button Grid.Column="0" Command="{Binding ClockInCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Success.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.SuccessTile}" Width="178" Height="48" HorizontalAlignment="Left">
+                                                                        <Grid Margin="8,3">
+                                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/></Grid.ColumnDefinitions>
+                                                                            <Border Width="32" Height="32" CornerRadius="16" Background="{StaticResource RunBook.Brush.TimeClock.Success.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Success}" BorderThickness="1.5"><TextBlock Text="IN" Foreground="{StaticResource RunBook.Brush.TimeClock.Success}" FontSize="10.5" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Clock In" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="Bold"/><TextBlock Text="Start shift" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="9.5" Margin="0,1,0,0"/></StackPanel>
+                                                                            <TextBlock Grid.Column="2" Text=">" Foreground="{StaticResource RunBook.Brush.TimeClock.Success}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                                        </Grid>
+                                                                    </Button>
+                                                                    <Button Grid.Column="0" Command="{Binding BreakStartCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.WarningTile}" Width="178" Height="48" HorizontalAlignment="Left">
+                                                                        <Grid Margin="8,3"><Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/></Grid.ColumnDefinitions>
+                                                                            <Border Width="32" Height="32" CornerRadius="16" Background="{StaticResource RunBook.Brush.TimeClock.Warning.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning}" BorderThickness="1.5"><Viewbox Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M4,8 L15,8 L15,14 C15,16.2 13.2,18 11,18 L8,18 C5.8,18 4,16.2 4,14 Z M15,10 L17,10 C18.7,10 20,11.3 20,13 C20,14.7 18.7,16 17,16 L15,16 M6,21 L17,21" Stroke="{StaticResource RunBook.Brush.TimeClock.Warning}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox></Border>
+                                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Start Break" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="Bold"/><TextBlock Text="Break" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="9.5" Margin="0,1,0,0"/></StackPanel>
+                                                                            <TextBlock Grid.Column="2" Text=">" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                                        </Grid>
+                                                                    </Button>
+                                                                    <Button Grid.Column="2" Command="{Binding LunchStartCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Info.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.InfoTile}" Width="178" Height="48" HorizontalAlignment="Left">
+                                                                        <Grid Margin="8,3"><Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/></Grid.ColumnDefinitions>
+                                                                            <Border Width="32" Height="32" CornerRadius="16" Background="{StaticResource RunBook.Brush.TimeClock.Info.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Info}" BorderThickness="1.5"><Viewbox Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M6,3 L6,10 M9,3 L9,10 M12,3 L12,10 M6,10 C6,12 12,12 12,10 M9,12 L9,21 M17,3 C15.4,4.8 15,7.1 15,10 L15,13 L19,13 M19,3 L19,21" Stroke="{StaticResource RunBook.Brush.TimeClock.Info}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox></Border>
+                                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Start Lunch" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="Bold"/><TextBlock Text="Lunch" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="9.5" Margin="0,1,0,0"/></StackPanel>
+                                                                            <TextBlock Grid.Column="2" Text=">" Foreground="{StaticResource RunBook.Brush.TimeClock.Info}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                                        </Grid>
+                                                                    </Button>
+                                                                    <Button Grid.Column="4" Command="{Binding ClockOutCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Error.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.ErrorTile}" Width="178" Height="48" HorizontalAlignment="Left">
+                                                                        <Grid Margin="8,3"><Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/></Grid.ColumnDefinitions>
+                                                                            <Border Width="32" Height="32" CornerRadius="16" Background="{StaticResource RunBook.Brush.TimeClock.Error.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Error}" BorderThickness="1.5"><Viewbox Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M9,5 L5,5 L5,19 L9,19 M13,8 L17,12 L13,16 M17,12 L8,12" Stroke="{StaticResource RunBook.Brush.TimeClock.Error}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox></Border>
+                                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Clock Out" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="Bold"/><TextBlock Text="End day" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="9.5" Margin="0,1,0,0"/></StackPanel>
+                                                                            <TextBlock Grid.Column="2" Text=">" Foreground="{StaticResource RunBook.Brush.TimeClock.Error}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                                        </Grid>
+                                                                    </Button>
+                                                                    <Button Grid.Column="0" Grid.ColumnSpan="5" Content="End Break" Command="{Binding BreakEndCommand}" Style="{StaticResource TimeClockActionPrimary}" Background="{StaticResource RunBook.Brush.TimeClock.Warning}" Height="48"/>
+                                                                    <Button Grid.Column="0" Grid.ColumnSpan="5" Content="End Lunch" Command="{Binding LunchEndCommand}" Style="{StaticResource TimeClockActionPrimary}" Background="{StaticResource RunBook.Brush.TimeClock.Info}" Height="48"/>
+                                                                </Grid>
+                                                                <ScrollViewer Grid.Row="4" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Padding="0,2,0,2" Visibility="{Binding HasTodayShiftTimeline, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                    <ItemsControl ItemsSource="{Binding TodayShiftTimelineEntries}">
+                                                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate>
+                                                                                <Grid Width="164">
+                                                                                    <Grid.RowDefinitions><RowDefinition Height="52"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                                                                    <Grid VerticalAlignment="Center">
+                                                                                        <Rectangle Height="4" Fill="{Binding LeftConnectorBrush}" Opacity="{Binding LeftConnectorOpacity}" VerticalAlignment="Center" Margin="0,0,82,0" RadiusX="2" RadiusY="2"/>
+                                                                                        <Rectangle Height="4" Fill="{Binding RightConnectorBrush}" Opacity="{Binding RightConnectorOpacity}" VerticalAlignment="Center" Margin="82,0,0,0" RadiusX="2" RadiusY="2"/>
+                                                                                        <Border Width="54" Height="54" CornerRadius="27" Background="{Binding BackgroundBrush}" BorderBrush="{Binding BorderBrush}" BorderThickness="1.8" HorizontalAlignment="Center"><TextBlock Text="{Binding SequenceNumber}" Foreground="{Binding AccentBrush}" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                                                                    </Grid>
+                                                                                    <StackPanel Grid.Row="1" Margin="6,9,6,0">
+                                                                                        <TextBlock Text="{Binding Title}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                                                                        <TextBlock Text="{Binding TimestampDisplay}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="11" Margin="0,5,0,0" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                                                                        <TextBlock Text="{Binding Subtitle}" Foreground="{Binding AccentBrush}" FontSize="11.5" FontWeight="SemiBold" Margin="0,5,0,0" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                                                                    </StackPanel>
+                                                                                </Grid>
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                </ScrollViewer>
+                                                            </Grid>
+                                                        </Border>
+                                                        <Border Grid.Row="2" Style="{StaticResource TimeClockPanelCard}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" Padding="14,12" Margin="0">
+                                                            <Grid>
+                                                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="10"/><RowDefinition Height="72"/><RowDefinition Height="10"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                                                <Grid><StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="▭" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="16" Margin="0,0,8,0"/><TextBlock Text="PTO Benefits" Style="{StaticResource TimeClockSectionTitle}"/></StackPanel><TextBlock Text="Balance and request status at a glance." Style="{StaticResource TimeClockSectionBody}" Margin="0,3,0,0"/></StackPanel><Button Content="View Details" Command="{Binding OpenPtoBenefitsCommand}" Style="{StaticResource RB.Button.Ghost}" Width="128" Height="32" HorizontalAlignment="Right"/></Grid>
+                                                                <Grid Grid.Row="2">
+                                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                                    <Border Background="{StaticResource RunBook.Brush.TimeClock.Warning.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" BorderThickness="1" CornerRadius="10" Padding="12,8"><StackPanel><TextBlock Text="Available" Style="{StaticResource TimeClockMetricLabel}"/><TextBlock Text="{Binding PtoAvailableHoursText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="21" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel></Border>
+                                                                    <Border Grid.Column="2" Background="{StaticResource RunBook.Brush.TimeClock.Warning.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" BorderThickness="1" CornerRadius="10" Padding="12,8"><StackPanel><TextBlock Text="Pending" Style="{StaticResource TimeClockMetricLabel}"/><TextBlock Text="{Binding PtoPendingHoursText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="21" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel></Border>
+                                                                    <Border Grid.Column="4" Background="{StaticResource RunBook.Brush.TimeClock.Surface.Elevated}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="10" Padding="12,8"><StackPanel><TextBlock Text="Next eligible" Style="{StaticResource TimeClockMetricLabel}"/><TextBlock Text="{Binding PtoNextEligibleText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="15.5" FontWeight="SemiBold" Margin="0,7,0,0" TextTrimming="CharacterEllipsis"/></StackPanel></Border>
+                                                                </Grid>
+                                                                <Grid Grid.Row="4">
+                                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="0.78*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="1.22*"/></Grid.ColumnDefinitions>
+                                                                    <Border Background="{StaticResource RunBook.Brush.TimeClock.Surface.Elevated}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="10" Padding="12,10">
+                                                                        <StackPanel>
+                                                                            <TextBlock Text="Approval" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                            <TextBlock Text="{Binding PtoLatestApprovalStatus}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="16" FontWeight="SemiBold" Margin="0,5,0,0" TextTrimming="CharacterEllipsis"/>
+                                                                            <TextBlock Text="{Binding PtoLatestDateRange}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="11.5" Margin="0,5,0,0" TextTrimming="CharacterEllipsis"/>
+                                                                        </StackPanel>
+                                                                    </Border>
+                                                                    <Border Grid.Column="2" Background="{StaticResource RunBook.Brush.TimeClock.Surface.Elevated}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="10" Padding="12,10">
+                                                                        <StackPanel>
+                                                                            <TextBlock Text="Manager note" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                            <TextBlock Text="{Binding PtoLatestManagerNote}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="12.5" Margin="0,6,0,0" TextWrapping="Wrap" MaxHeight="44"/>
+                                                                        </StackPanel>
+                                                                    </Border>
+                                                                </Grid>
+                                                            </Grid>
+                                                        </Border>
+                                                    </Grid>
+
+                                                    <Border Grid.Column="2" Style="{StaticResource TimeClockSummaryGroupCard}" Margin="0">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="12"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="12"/>
+                                                                <RowDefinition Height="*"/>
+                                                            </Grid.RowDefinitions>
+                                                            <Grid>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <Border Background="{StaticResource RunBook.Brush.TimeClock.Info.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Info.Border}" BorderThickness="1" CornerRadius="8" Padding="10,5" Margin="0,0,8,0"><TextBlock Text="History" Foreground="{StaticResource RunBook.Brush.TimeClock.Info}" FontSize="12" FontWeight="SemiBold"/></Border>
+                                                                    <Border Background="{StaticResource RunBook.Brush.TimeClock.Surface.Elevated}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="8" Padding="10,5"><TextBlock Text="PTO" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" FontWeight="SemiBold"/></Border>
+                                                                </StackPanel>
+                                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                                    <Button Content="‹" Command="{Binding PreviousTimeClockWeekCommand}" Style="{StaticResource TimeClockWeekNavButton}" Margin="0,0,8,0"/>
+                                                                    <TextBlock Text="{Binding TimeClockWeeklyDateRange}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" VerticalAlignment="Center" FontSize="12.5" FontWeight="SemiBold"/>
+                                                                    <Button Content="›" Command="{Binding NextTimeClockWeekCommand}" Style="{StaticResource TimeClockWeekNavButton}" Margin="8,0,0,0"/>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                            <ItemsControl Grid.Row="2" ItemsSource="{Binding WeeklySummaryRows}">
+                                                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate><DataTemplate><Border Style="{StaticResource RunBook.Style.TimeClockMetricCard}" Padding="14,12"><StackPanel><TextBlock Text="{Binding Label}" Style="{StaticResource TimeClockMetricLabel}"/><TextBlock Text="{Binding Value}" Style="{StaticResource TimeClockMetricValue}" Margin="0,8,0,0"/><TextBlock Text="{Binding DetailText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12"/><ProgressBar Value="{Binding ProgressValue}" Maximum="100" Style="{StaticResource RunBook.Style.TimeClockProgressBar}" Margin="0,10,0,0" Foreground="{Binding AccentBrush}"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                            <Grid Grid.Row="4">
+                                                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                                                <Grid><TextBlock Text="WEEKLY HOURS" Style="{StaticResource TimeClockSectionTitle}"/><TextBlock Text="{Binding TimeClockWeeklyTotalText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Info}" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Right"/></Grid>
+                                                                <ItemsControl Grid.Row="1" ItemsSource="{Binding TimeClockHistoryDayRows}" Margin="0,10,0,0">
+                                                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="7"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Grid Margin="4,0">
+                                                                                <Grid.RowDefinitions><RowDefinition Height="92"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                                                                <Grid Width="14" Height="88" VerticalAlignment="Bottom" HorizontalAlignment="Center">
+                                                                                    <Border Width="12" Height="88" CornerRadius="6" Background="{StaticResource RunBook.Brush.TimeClock.Surface.Elevated}" Opacity="0.92"/>
+                                                                                    <Border Width="12" Height="{Binding BarHeight}" CornerRadius="6" Background="{StaticResource RunBook.Brush.TimeClock.Info}" VerticalAlignment="Bottom"/>
+                                                                                </Grid>
+                                                                                <TextBlock Grid.Row="1" Text="{Binding DayText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,7,0,0"/>
+                                                                                <TextBlock Grid.Row="2" Text="{Binding HoursText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                                                                            </Grid>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </Grid>
+                                                        </Grid>
+                                                    </Border>
+                                                </Grid>
+                                            </Grid>
+                                        <Grid Visibility="Collapsed">
                                             <Grid.Style>
                                                 <Style TargetType="Grid">
                                                     <Style.Triggers>
@@ -2169,7 +2896,7 @@
                                                                 <ColumnDefinition Width="12"/>
                                                                 <ColumnDefinition Width="*"/>
                                                             </Grid.ColumnDefinitions>
-                                                            <Button Grid.Column="0" Grid.ColumnSpan="5" Command="{Binding ClockInCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" Visibility="{Binding ShowClockInAction, Converter={StaticResource BooleanToVisibilityConverter}}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Success.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.SuccessTile}">
+                                                            <Button Grid.Column="0" Grid.ColumnSpan="5" Command="{Binding ClockInCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Success.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.SuccessTile}">
                                                                 <Grid Margin="12,10" MaxWidth="520">
                                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="78"/><ColumnDefinition Width="*"/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>
                                                                     <Border Width="66" Height="66" CornerRadius="33" Background="{StaticResource RunBook.Brush.TimeClock.Success.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Success}" BorderThickness="2"><Border.Effect><DropShadowEffect Color="#58E58B" BlurRadius="16" ShadowDepth="0" Opacity="0.45"/></Border.Effect><TextBlock Text="IN" Foreground="{StaticResource RunBook.Brush.TimeClock.Success}" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
@@ -2177,21 +2904,21 @@
                                                                     <TextBlock Grid.Column="2" Text=">" Foreground="{StaticResource RunBook.Brush.TimeClock.Success}" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                                                 </Grid>
                                                             </Button>
-                                                            <Button Grid.Column="0" Command="{Binding BreakStartCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" Visibility="{Binding ShowWorkingActions, Converter={StaticResource BooleanToVisibilityConverter}}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.WarningTile}">
+                                                            <Button Grid.Column="0" Command="{Binding BreakStartCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.WarningTile}">
                                                                 <Grid Margin="12,10"><Grid.ColumnDefinitions><ColumnDefinition Width="78"/><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/></Grid.ColumnDefinitions>
                                                                     <Border Width="66" Height="66" CornerRadius="33" HorizontalAlignment="Left" Margin="-2,0,0,0" Background="{StaticResource RunBook.Brush.TimeClock.Warning.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning}" BorderThickness="2"><Border.Effect><DropShadowEffect Color="#F5A623" BlurRadius="18" ShadowDepth="0" Opacity="0.48"/></Border.Effect><Viewbox Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M4,8 L15,8 L15,14 C15,16.2 13.2,18 11,18 L8,18 C5.8,18 4,16.2 4,14 Z M15,10 L17,10 C18.7,10 20,11.3 20,13 C20,14.7 18.7,16 17,16 L15,16 M6,21 L17,21" Stroke="{StaticResource RunBook.Brush.TimeClock.Warning}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox></Border>
-                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Start Break" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="19.5" FontWeight="Bold"/><TextBlock Text="Take a short break." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.2" Margin="0,4,0,0"/><Border Background="{StaticResource RunBook.Brush.TimeClock.Warning.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" BorderThickness="1" CornerRadius="6" Padding="8,3" MinHeight="24" HorizontalAlignment="Left" Margin="0,7,0,0"><TextBlock Text="PAID" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="10.5" FontWeight="SemiBold"/></Border></StackPanel>
+                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Start Break" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="19.5" FontWeight="Bold"/><TextBlock Text="Take a short break." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.2" Margin="0,4,0,0"/></StackPanel>
                                                                     <TextBlock Grid.Column="2" Text=">" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                                                 </Grid>
                                                             </Button>
-                                                            <Button Grid.Column="2" Command="{Binding LunchStartCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" Visibility="{Binding ShowLunchStartAction, Converter={StaticResource BooleanToVisibilityConverter}}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Info.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.InfoTile}">
+                                                            <Button Grid.Column="2" Command="{Binding LunchStartCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Info.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.InfoTile}">
                                                                 <Grid Margin="12,10"><Grid.ColumnDefinitions><ColumnDefinition Width="78"/><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/></Grid.ColumnDefinitions>
                                                                     <Border Width="66" Height="66" CornerRadius="33" HorizontalAlignment="Left" Margin="-2,0,0,0" Background="{StaticResource RunBook.Brush.TimeClock.Info.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Info}" BorderThickness="2"><Border.Effect><DropShadowEffect Color="#49A7FF" BlurRadius="18" ShadowDepth="0" Opacity="0.48"/></Border.Effect><Viewbox Width="30" Height="30" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M6,3 L6,10 M9,3 L9,10 M12,3 L12,10 M6,10 C6,12 12,12 12,10 M9,12 L9,21 M17,3 C15.4,4.8 15,7.1 15,10 L15,13 L19,13 M19,3 L19,21" Stroke="{StaticResource RunBook.Brush.TimeClock.Info}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox></Border>
-                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Start Lunch" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="19.5" FontWeight="Bold"/><TextBlock Text="Take your lunch break." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.2" Margin="0,4,0,0"/><Border Background="{StaticResource RunBook.Brush.TimeClock.Info.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Info.Border}" BorderThickness="1" CornerRadius="6" Padding="8,3" MinHeight="24" HorizontalAlignment="Left" Margin="0,7,0,0"><TextBlock Text="UNPAID" Foreground="{StaticResource RunBook.Brush.TimeClock.Info}" FontSize="10.5" FontWeight="SemiBold"/></Border></StackPanel>
+                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Start Lunch" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="19.5" FontWeight="Bold"/><TextBlock Text="Take your lunch break." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.2" Margin="0,4,0,0"/></StackPanel>
                                                                     <TextBlock Grid.Column="2" Text=">" Foreground="{StaticResource RunBook.Brush.TimeClock.Info}" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                                                 </Grid>
                                                             </Button>
-                                                            <Button Grid.Column="4" Command="{Binding ClockOutCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" Visibility="{Binding ShowWorkingActions, Converter={StaticResource BooleanToVisibilityConverter}}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Error.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.ErrorTile}">
+                                                            <Button Grid.Column="4" Command="{Binding ClockOutCommand}" Style="{StaticResource RunBook.Style.TimeClockActionTile}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Error.Border}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.ErrorTile}">
                                                                 <Grid Margin="12,10"><Grid.ColumnDefinitions><ColumnDefinition Width="78"/><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/></Grid.ColumnDefinitions>
                                                                     <Border Width="66" Height="66" CornerRadius="33" HorizontalAlignment="Left" Margin="-2,0,0,0" Background="{StaticResource RunBook.Brush.TimeClock.Error.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Error}" BorderThickness="2"><Border.Effect><DropShadowEffect Color="#FF5B6E" BlurRadius="22" ShadowDepth="0" Opacity="0.58"/></Border.Effect><Viewbox Width="30" Height="30" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24"><Path Data="M9,5 L5,5 L5,19 L9,19 M13,8 L17,12 L13,16 M17,12 L8,12" Stroke="{StaticResource RunBook.Brush.TimeClock.Error}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Canvas></Viewbox></Border>
                                                                     <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Clock Out" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="19.5" FontWeight="Bold"/><TextBlock Text="End your work day." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.2" Margin="0,4,0,0"/></StackPanel>
@@ -2199,10 +2926,10 @@
                                                                 </Grid>
                                                             </Button>
                                                         </Grid>
-                                                        <StackPanel Grid.Row="2" Visibility="{Binding ShowBreakEndAction, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <StackPanel Grid.Row="2">
                                                             <Button Content="End Break" Command="{Binding BreakEndCommand}" Style="{StaticResource TimeClockActionPrimary}" Background="{StaticResource RunBook.Brush.TimeClock.Warning}" Height="64"/>
                                                         </StackPanel>
-                                                        <StackPanel Grid.Row="2" Visibility="{Binding ShowLunchEndAction, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <StackPanel Grid.Row="2">
                                                             <Button Content="End Lunch" Command="{Binding LunchEndCommand}" Style="{StaticResource TimeClockActionPrimary}" Background="{StaticResource RunBook.Brush.TimeClock.Info}" Height="64"/>
                                                         </StackPanel>
                                                     </Grid>
@@ -2330,14 +3057,12 @@
                                                     </Grid>
                                                 </Border>
 
-                                                <Border Grid.Row="6" Style="{StaticResource TimeClockPanelCard}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.PurplePanel}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Purple.Border}" MinHeight="216" Padding="16,14">
+                                                <Border Grid.Row="6" Style="{StaticResource TimeClockPanelCard}" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" MinHeight="146" Padding="14,12">
                                                     <Grid>
                                                         <Grid.RowDefinitions>
                                                             <RowDefinition Height="Auto"/>
                                                             <RowDefinition Height="14"/>
                                                             <RowDefinition Height="*"/>
-                                                            <RowDefinition Height="14"/>
-                                                            <RowDefinition Height="Auto"/>
                                                         </Grid.RowDefinitions>
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
@@ -2351,53 +3076,42 @@
                                                                         <Canvas Width="24" Height="24">
                                                                             <Path Data="M9,6 L9,4 L15,4 L15,6 M4,9 L20,9 M5,6 L19,6 C20.1,6 21,6.9 21,8 L21,18 C21,19.1 20.1,20 19,20 L5,20 C3.9,20 3,19.1 3,18 L3,8 C3,6.9 3.9,6 5,6 Z" Stroke="{StaticResource RunBook.Brush.TimeClock.Purple}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                                                                         </Canvas>
-                                                                    </Viewbox>
-                                                                    <TextBlock Text="{Binding PtoBenefitsTitle}" Style="{StaticResource TimeClockSectionTitle}"/>
-                                                                </StackPanel>
-                                                                <TextBlock Text="PTO balances, eligibility, expiration, and requests." Style="{StaticResource TimeClockSectionBody}" Margin="0,5,0,0"/>
-                                                            </StackPanel>
-                                                            <Button Grid.Column="2" Content="{Binding TimeOffRequestsButtonText}" Command="{Binding OpenTimeOffRequestsDialogCommand}" Style="{StaticResource RB.Button.Ghost}" Width="150" Height="34"/>
-                                                        </Grid>
-                                                        <Grid Grid.Row="2">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="14"/>
-                                                                <ColumnDefinition Width="180"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <Border Grid.Column="0" Background="{StaticResource RunBook.Brush.TimeClock.Purple.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Purple.Border}" BorderThickness="1" CornerRadius="14" Padding="16,14">
-                                                                <Grid>
-                                                                    <Grid.RowDefinitions>
-                                                                        <RowDefinition Height="Auto"/>
-                                                                        <RowDefinition Height="10"/>
-                                                                        <RowDefinition Height="Auto"/>
-                                                                        <RowDefinition Height="8"/>
-                                                                        <RowDefinition Height="Auto"/>
-                                                                    </Grid.RowDefinitions>
-                                                                    <TextBlock Text="{Binding PtoBenefitsSummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Purple}" FontSize="21" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                                                    <TextBlock Grid.Row="2" Text="{Binding PtoBenefitsEligibilitySummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.5" TextWrapping="Wrap"/>
-                                                                    <TextBlock Grid.Row="4" Text="{Binding PtoBenefitsResetSummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.5" TextWrapping="Wrap"/>
-                                                                </Grid>
-                                                            </Border>
-                                                            <Border Grid.Column="2" Background="{StaticResource RunBook.Brush.TimeClock.Purple.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Purple.Border}" BorderThickness="1" CornerRadius="14" Padding="14,12" VerticalAlignment="Stretch">
-                                                                <StackPanel VerticalAlignment="Center">
-                                                                    <TextBlock Text="Recent Requests" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="12.5" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                                                                    <TextBlock Text="{Binding TimeClockPendingApprovalCount}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="30" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,6,0,3"/>
-                                                                    <TextBlock Text="{Binding PtoRequestCountSummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" LineHeight="15" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
-                                                                </StackPanel>
-                                                            </Border>
-                                                        </Grid>
-                                                        <Grid Grid.Row="4">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="260"/>
-                                                                <ColumnDefinition Width="12"/>
-                                                                <ColumnDefinition Width="180"/>
-                                                                <ColumnDefinition Width="*"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <Button Grid.Column="0" Content="View PTO / Request Time Off" Command="{Binding OpenPtoBenefitsCommand}" Style="{StaticResource RB.Button.Primary}" Background="{StaticResource RunBook.Brush.TimeClock.Purple}" Height="42"/>
-                                                            <Button Grid.Column="2" Content="Sync Pending" Command="{Binding SyncPendingCommand}" Style="{StaticResource RB.Button.Ghost}" Height="42"/>
-                                                        </Grid>
-                                                    </Grid>
-                                                </Border>
+                                                                     </Viewbox>
+                                                                     <TextBlock Text="PTO Benefits" Style="{StaticResource TimeClockSectionTitle}"/>
+                                                                 </StackPanel>
+                                                                 <TextBlock Text="Balance and request status at a glance." Style="{StaticResource TimeClockSectionBody}" Margin="0,5,0,0"/>
+                                                             </StackPanel>
+                                                             <Button Grid.Column="2" Content="View Details" Command="{Binding OpenPtoBenefitsCommand}" Style="{StaticResource RB.Button.Ghost}" Width="128" Height="32"/>
+                                                         </Grid>
+                                                         <Grid Grid.Row="2">
+                                                             <Grid.ColumnDefinitions>
+                                                                 <ColumnDefinition Width="*"/>
+                                                                 <ColumnDefinition Width="10"/>
+                                                                 <ColumnDefinition Width="*"/>
+                                                                 <ColumnDefinition Width="10"/>
+                                                                 <ColumnDefinition Width="*"/>
+                                                             </Grid.ColumnDefinitions>
+                                                             <Border Background="{StaticResource RunBook.Brush.TimeClock.Warning.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" BorderThickness="1" CornerRadius="12" Padding="12,9">
+                                                                 <StackPanel>
+                                                                     <TextBlock Text="Available" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                     <TextBlock Text="{Binding PtoAvailableHoursText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="22" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                                                 </StackPanel>
+                                                             </Border>
+                                                             <Border Grid.Column="2" Background="{StaticResource RunBook.Brush.TimeClock.Warning.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" BorderThickness="1" CornerRadius="12" Padding="12,9">
+                                                                 <StackPanel>
+                                                                     <TextBlock Text="Pending" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                     <TextBlock Text="{Binding PtoPendingHoursText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="22" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                                                 </StackPanel>
+                                                             </Border>
+                                                             <Border Grid.Column="4" Background="{StaticResource RunBook.Brush.TimeClock.Surface.Elevated}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="12" Padding="12,9">
+                                                                 <StackPanel>
+                                                                     <TextBlock Text="Next eligible" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                     <TextBlock Text="{Binding PtoNextEligibleText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                                                 </StackPanel>
+                                                             </Border>
+                                                         </Grid>
+                                                     </Grid>
+                                                 </Border>
                                             </Grid>
 
                                             <Grid Grid.Column="2">
@@ -2421,7 +3135,14 @@
                                                                 <ColumnDefinition Width="*"/>
                                                                 <ColumnDefinition Width="Auto"/>
                                                             </Grid.ColumnDefinitions>
-                                                            <TextBlock Text="THIS WEEK" Style="{StaticResource TimeClockSectionTitle}"/>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Border Background="{StaticResource RunBook.Brush.TimeClock.Info.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Info.Border}" BorderThickness="1" CornerRadius="8" Padding="10,5" Margin="0,0,8,0">
+                                                                    <TextBlock Text="History" Foreground="{StaticResource RunBook.Brush.TimeClock.Info}" FontSize="12" FontWeight="SemiBold"/>
+                                                                </Border>
+                                                                <Border Background="{StaticResource RunBook.Brush.TimeClock.Surface.Elevated}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="8" Padding="10,5">
+                                                                    <TextBlock Text="PTO" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" FontWeight="SemiBold"/>
+                                                                </Border>
+                                                            </StackPanel>
                                                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                                                 <Button Content="‹"
                                                                         Command="{Binding PreviousTimeClockWeekCommand}"
@@ -2471,8 +3192,34 @@
                                                     </Grid>
                                                 </Border>
                                                 <Border Grid.Row="4" Style="{StaticResource TimeClockSummaryGroupCard}">
-                                                    <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="14"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="CURRENT STATUS" Style="{StaticResource TimeClockSectionTitle}"/>
-                                                        <ItemsControl Grid.Row="2" ItemsSource="{Binding CurrentStatusSummaryRows}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="12" Padding="13" Margin="0,0,8,0" Effect="{StaticResource SoftFloatShadow}"><StackPanel><TextBlock Text="{Binding Label}" Style="{StaticResource TimeClockMetricLabel}"/><TextBlock Text="{Binding Value}" Foreground="{Binding AccentBrush}" FontSize="16.5" FontWeight="SemiBold" Margin="0,8,0,0" TextWrapping="Wrap"/><TextBlock Text="{Binding DetailText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="11" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                                    <Grid>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="12"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+                                                        <Grid>
+                                                            <TextBlock Text="WEEKLY HOURS" Style="{StaticResource TimeClockSectionTitle}"/>
+                                                            <TextBlock Text="{Binding TimeClockWeeklyTotalText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Info}" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                                        </Grid>
+                                                        <ItemsControl Grid.Row="2" ItemsSource="{Binding TimeClockHistoryDayRows}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Grid Margin="0,0,0,8">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="52"/>
+                                                                            <ColumnDefinition Width="64"/>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="70"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <TextBlock Text="{Binding DayText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                                        <TextBlock Grid.Column="1" Text="{Binding DateText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Muted}" FontSize="12" VerticalAlignment="Center"/>
+                                                                        <ProgressBar Grid.Column="2" Value="{Binding ProgressValue}" Maximum="100" Style="{StaticResource RunBook.Style.TimeClockProgressBar}" Foreground="{StaticResource RunBook.Brush.TimeClock.Info}" Height="8" VerticalAlignment="Center"/>
+                                                                        <TextBlock Grid.Column="3" Text="{Binding HoursText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
                                                     </Grid>
                                                 </Border>
                                                 <Border Grid.Row="6" Style="{StaticResource TimeClockSummaryGroupCard}" Margin="0">
@@ -2517,7 +3264,7 @@
                                                 </Border>
                                             </Grid>
                                         </Grid>
-                                        <Border Grid.Row="2" Background="{StaticResource RunBook.Brush.TimeClock.Surface.Panel}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="16" Padding="14,10" Margin="0,0,0,8">
+                                        <Border Grid.Row="2" Visibility="Collapsed" Background="{StaticResource RunBook.Brush.TimeClock.Surface.Panel}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="16" Padding="14,10" Margin="0,0,0,8">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
@@ -2527,36 +3274,34 @@
                                                     <Ellipse Width="10" Height="10" Fill="{StaticResource RunBook.Brush.TimeClock.Success}" Margin="0,0,10,0"/>
                                                     <TextBlock Text="{Binding TimeClockFooterStatusLine}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" TextTrimming="CharacterEllipsis"/>
                                                 </StackPanel>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                    <TextBlock Text="Secure Connection" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12"/>
-                                                    <Border Width="1" Height="18" Background="{StaticResource RunBook.Brush.TimeClock.Border.Default}" Margin="18,0"/>
-                                                    <TextBlock Text="{Binding WorkstationVersionLabel}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Muted}" FontSize="12"/>
-                                                    <Border Width="1" Height="18" Background="{StaticResource RunBook.Brush.TimeClock.Border.Default}" Margin="18,0"/>
-                                                    <TextBlock Text="{Binding TimeClockSyncStatusLabel}" Foreground="{StaticResource RunBook.Brush.TimeClock.Success}" FontSize="12" FontWeight="SemiBold"/>
-                                                </StackPanel>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding TimeClockSyncStatusLabel}"
+                                                           Foreground="{StaticResource RunBook.Brush.TimeClock.Success}"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center"/>
                                             </Grid>
                                         </Border>
                                         <Grid Grid.RowSpan="3"
                                               Panel.ZIndex="100"
                                               Visibility="{Binding IsPtoBenefitsDialogOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                            <Rectangle Fill="#B2070A0F"/>
-                                            <Border Width="900"
-                                                    MaxWidth="940"
-                                                    MaxHeight="780"
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    CornerRadius="28"
-                                                    Padding="24"
-                                                    Background="#F40B111A"
-                                                    BorderBrush="#FF6F3CCB"
-                                                    BorderThickness="1">
+                                            <Rectangle Fill="#66070A0F"/>
+                                            <Border Width="430"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Stretch"
+                                                    CornerRadius="18,0,0,18"
+                                                    Padding="22"
+                                                    Background="#FA0B1424"
+                                                    BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}"
+                                                    BorderThickness="1,0,0,0">
                                                 <Border.Effect>
-                                                    <DropShadowEffect BlurRadius="34" ShadowDepth="0" Color="#6F9F82FF"/>
+                                                    <DropShadowEffect BlurRadius="26" ShadowDepth="0" Color="#AA000000"/>
                                                 </Border.Effect>
                                                 <Grid>
                                                     <Grid.RowDefinitions>
                                                         <RowDefinition Height="Auto"/>
-                                                        <RowDefinition Height="18"/>
+                                                        <RowDefinition Height="16"/>
                                                         <RowDefinition Height="*"/>
                                                     </Grid.RowDefinitions>
                                                     <Grid>
@@ -2565,77 +3310,94 @@
                                                             <ColumnDefinition Width="Auto"/>
                                                         </Grid.ColumnDefinitions>
                                                         <StackPanel>
-                                                            <TextBlock Text="{Binding PtoBenefitsTitle}" Foreground="#FFF4F7FB" FontSize="26" FontWeight="SemiBold"/>
-                                                            <TextBlock Text="{Binding PtoBenefitsSummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Purple}" FontSize="20" FontWeight="SemiBold" Margin="0,8,0,0"/>
-                                                            <TextBlock Text="{Binding PtoBenefitsEligibilitySummary}" Foreground="#FFAAB6C8" FontSize="13" Margin="0,6,0,0"/>
-                                                            <TextBlock Text="{Binding PtoBenefitsResetSummary}" Foreground="#FFAAB6C8" FontSize="13" Margin="0,4,0,0"/>
+                                                            <TextBlock Text="PTO Details" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="24" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding PtoBenefitsSummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
                                                         </StackPanel>
-                                                        <Button Grid.Column="1" Content="Close" Command="{Binding ClosePtoBenefitsCommand}" Style="{StaticResource RB.Button.Ghost}" Width="120" Height="40"/>
+                                                        <Button Grid.Column="1" Content="Close" Command="{Binding ClosePtoBenefitsCommand}" Style="{StaticResource RB.Button.Ghost}" Width="92" Height="36"/>
                                                     </Grid>
                                                     <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,6">
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="1.05*"/>
-                                                                <ColumnDefinition Width="18"/>
-                                                                <ColumnDefinition Width="0.95*"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <StackPanel Grid.Column="0">
-                                                                <TextBlock Text="PTO Balance Buckets" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold"/>
-                                                                <ItemsControl ItemsSource="{Binding PtoBenefitBuckets}" Margin="0,10,0,0">
-                                                                    <ItemsControl.ItemTemplate>
-                                                                        <DataTemplate>
-                                                                            <Border Style="{StaticResource TimeClockActivityCard}" Margin="0,0,0,10">
-                                                                                <Grid>
-                                                                                    <Grid.ColumnDefinitions>
-                                                                                        <ColumnDefinition Width="*"/>
-                                                                                        <ColumnDefinition Width="Auto"/>
-                                                                                    </Grid.ColumnDefinitions>
+                                                        <StackPanel>
+                                                            <Border Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="14" Padding="16" Margin="0,0,0,12">
+                                                                <StackPanel>
+                                                                    <TextBlock Text="Balance" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="16" FontWeight="SemiBold"/>
+                                                                    <Grid Margin="0,12,0,0">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <StackPanel>
+                                                                            <TextBlock Text="Available" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                            <TextBlock Text="{Binding PtoAvailableHoursText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="24" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                                                        </StackPanel>
+                                                                        <StackPanel Grid.Column="1">
+                                                                            <TextBlock Text="Pending" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                            <TextBlock Text="{Binding PtoPendingHoursText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="24" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </StackPanel>
+                                                            </Border>
+                                                            <Border Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="14" Padding="16" Margin="0,0,0,12">
+                                                                <StackPanel>
+                                                                    <TextBlock Text="Requests" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="16" FontWeight="SemiBold"/>
+                                                                    <ItemsControl ItemsSource="{Binding RecentTimeOffRequests}" Margin="0,10,0,0">
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate>
+                                                                                <Border Background="{StaticResource RunBook.Brush.TimeClock.Surface.Elevated}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8">
                                                                                     <StackPanel>
-                                                                                        <TextBlock Text="{Binding Label}" Foreground="#FFF4F7FB" FontSize="14" FontWeight="SemiBold"/>
-                                                                                        <TextBlock Text="{Binding PendingHours, StringFormat=Pending {0:0.##}h}" Foreground="#FFAAB6C8" FontSize="12.5" Margin="0,5,0,0"/>
-                                                                                        <TextBlock Text="{Binding ExpiresOn, StringFormat=Expires {0}}" Foreground="#FF6F7C8F" FontSize="12" Margin="0,3,0,0"/>
+                                                                                        <Grid>
+                                                                                            <Grid.ColumnDefinitions>
+                                                                                                <ColumnDefinition Width="*"/>
+                                                                                                <ColumnDefinition Width="Auto"/>
+                                                                                            </Grid.ColumnDefinitions>
+                                                                                            <TextBlock Text="{Binding RequestType}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13" FontWeight="SemiBold"/>
+                                                                                            <TextBlock Grid.Column="1" Text="{Binding Status}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="12" FontWeight="SemiBold"/>
+                                                                                        </Grid>
+                                                                                        <Grid Margin="0,8,0,0">
+                                                                                            <Grid.ColumnDefinitions>
+                                                                                                <ColumnDefinition Width="*"/>
+                                                                                                <ColumnDefinition Width="12"/>
+                                                                                                <ColumnDefinition Width="Auto"/>
+                                                                                            </Grid.ColumnDefinitions>
+                                                                                            <TextBlock Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" TextTrimming="CharacterEllipsis">
+                                                                                                <Run Text="{Binding StartDate}"/>
+                                                                                                <Run Text=" - "/>
+                                                                                                <Run Text="{Binding EndDate}"/>
+                                                                                            </TextBlock>
+                                                                                            <TextBlock Grid.Column="2" Text="{Binding HoursRequested, StringFormat={}{0:0.##}h}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" FontWeight="SemiBold"/>
+                                                                                        </Grid>
+                                                                                        <Border Background="{StaticResource RunBook.Brush.TimeClock.Warning.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,10,0,0">
+                                                                                            <StackPanel>
+                                                                                                <TextBlock Text="Employee note" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                                                <TextBlock Text="{Binding EmployeeNote}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="12.2" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                                                                                            </StackPanel>
+                                                                                        </Border>
+                                                                                        <Border Background="{StaticResource RunBook.Brush.TimeClock.Surface.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,8,0,0">
+                                                                                            <StackPanel>
+                                                                                                <TextBlock Text="Manager note" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                                                <TextBlock Text="{Binding ManagerNote}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="12.2" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                                                                                            </StackPanel>
+                                                                                        </Border>
                                                                                     </StackPanel>
-                                                                                    <TextBlock Grid.Column="1" Text="{Binding AvailableHours, StringFormat={}{0:0.##}h}" Foreground="{StaticResource RunBook.Brush.TimeClock.Purple}" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                                                                </Grid>
-                                                                            </Border>
-                                                                        </DataTemplate>
-                                                                    </ItemsControl.ItemTemplate>
-                                                                </ItemsControl>
-                                                                <Border Style="{StaticResource TimeClockActivityCard}" Padding="16,14" Visibility="{Binding ShowNoPtoBenefitBuckets, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                                    <TextBlock Text="No PTO balances have been synced for this employee yet." Foreground="#FFAAB6C8" FontSize="12.5" TextWrapping="Wrap"/>
-                                                                </Border>
-
-                                                                <TextBlock Text="Recent PTO Ledger Activity" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold" Margin="0,18,0,0"/>
-                                                                <ItemsControl ItemsSource="{Binding PtoRecentLedger}" Margin="0,10,0,0">
-                                                                    <ItemsControl.ItemTemplate>
-                                                                        <DataTemplate>
-                                                                            <Border Style="{StaticResource TimeClockActivityCard}" Margin="0,0,0,10">
-                                                                                <Grid>
-                                                                                    <Grid.ColumnDefinitions>
-                                                                                        <ColumnDefinition Width="*"/>
-                                                                                        <ColumnDefinition Width="Auto"/>
-                                                                                    </Grid.ColumnDefinitions>
-                                                                                    <StackPanel>
-                                                                                        <TextBlock Text="{Binding Label}" Foreground="#FFF4F7FB" FontSize="13" FontWeight="SemiBold"/>
-                                                                                        <TextBlock Text="{Binding Date}" Foreground="#FFAAB6C8" FontSize="12.5" Margin="0,5,0,0"/>
-                                                                                        <TextBlock Text="{Binding Note}" Foreground="#FF6F7C8F" FontSize="12" Margin="0,3,0,0" TextWrapping="Wrap"/>
-                                                                                    </StackPanel>
-                                                                                    <TextBlock Grid.Column="1" Text="{Binding Hours, StringFormat={}{0:0.##}h}" Foreground="#FF38D5FF" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                                                                </Grid>
-                                                                            </Border>
-                                                                        </DataTemplate>
-                                                                    </ItemsControl.ItemTemplate>
-                                                                </ItemsControl>
-                                                                <Border Style="{StaticResource TimeClockActivityCard}" Padding="16,14" Visibility="{Binding ShowNoPtoRecentLedger, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                                    <TextBlock Text="No recent PTO ledger activity has been synced." Foreground="#FFAAB6C8" FontSize="12.5" TextWrapping="Wrap"/>
-                                                                </Border>
-                                                            </StackPanel>
-
-                                                            <Border Grid.Column="2" Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="18" Padding="16">
+                                                                                </Border>
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                    <Border Background="{StaticResource RunBook.Brush.TimeClock.Surface.Elevated}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="10" Padding="12" Visibility="{Binding ShowNoRecentTimeOffRequests, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                        <TextBlock Text="No recent PTO requests." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.5"/>
+                                                                    </Border>
+                                                                </StackPanel>
+                                                            </Border>
+                                                            <Border Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="14" Padding="16" Margin="0,0,0,12">
+                                                                <StackPanel>
+                                                                    <TextBlock Text="Eligibility" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="16" FontWeight="SemiBold"/>
+                                                                    <TextBlock Text="{Binding PtoBenefitsEligibilitySummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.5" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                                                                    <TextBlock Text="{Binding PtoBenefitsResetSummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.5" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                                                    <TextBlock Text="{Binding PtoNextEligibleText, StringFormat=Next eligible: {0}}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="12.5" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                                                                </StackPanel>
+                                                            </Border>
+                                                            <Border Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="14" Padding="16">
                                                                 <Grid>
                                                                     <Grid.RowDefinitions>
-                                                                        <RowDefinition Height="Auto"/>
-                                                                        <RowDefinition Height="12"/>
                                                                         <RowDefinition Height="Auto"/>
                                                                         <RowDefinition Height="10"/>
                                                                         <RowDefinition Height="Auto"/>
@@ -2646,54 +3408,31 @@
                                                                         <RowDefinition Height="12"/>
                                                                         <RowDefinition Height="Auto"/>
                                                                     </Grid.RowDefinitions>
-                                                                    <StackPanel>
-                                                                        <TextBlock Text="Request Time Off" Foreground="#FFF4F7FB" FontSize="18" FontWeight="SemiBold"/>
-                                                                        <TextBlock Text="{Binding PtoRequestCountSummary}" Foreground="#FFAAB6C8" FontSize="12.5" Margin="0,6,0,0"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Grid.Row="2">
-                                                                        <TextBlock Text="Type" Style="{StaticResource Label}" Margin="0,0,0,5"/>
-                                                                        <ComboBox SelectedValue="{Binding TimeOffType}" SelectedValuePath="Tag" Style="{StaticResource TimeOffComboBox}" Height="40">
-                                                                            <ComboBoxItem Content="Vacation" Tag="VACATION"/>
-                                                                            <ComboBoxItem Content="Sick" Tag="SICK"/>
-                                                                            <ComboBoxItem Content="Personal" Tag="PERSONAL"/>
-                                                                            <ComboBoxItem Content="Unpaid" Tag="UNPAID"/>
-                                                                        </ComboBox>
-                                                                    </StackPanel>
+                                                                    <TextBlock Text="Request PTO" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="16" FontWeight="SemiBold"/>
+                                                                    <ComboBox Grid.Row="2" SelectedValue="{Binding TimeOffType}" SelectedValuePath="Tag" Style="{StaticResource TimeOffComboBox}" Height="40">
+                                                                        <ComboBoxItem Content="Vacation" Tag="VACATION"/>
+                                                                        <ComboBoxItem Content="Sick" Tag="SICK"/>
+                                                                        <ComboBoxItem Content="Personal" Tag="PERSONAL"/>
+                                                                        <ComboBoxItem Content="Unpaid" Tag="UNPAID"/>
+                                                                    </ComboBox>
                                                                     <Grid Grid.Row="4">
                                                                         <Grid.ColumnDefinitions>
                                                                             <ColumnDefinition Width="*"/>
                                                                             <ColumnDefinition Width="10"/>
                                                                             <ColumnDefinition Width="*"/>
                                                                         </Grid.ColumnDefinitions>
-                                                                        <StackPanel Grid.Column="0">
-                                                                            <TextBlock Text="Start Date" Style="{StaticResource Label}" Margin="0,0,0,5"/>
-                                                                            <DatePicker SelectedDate="{Binding TimeOffStartDateValue, Mode=TwoWay}" SelectedDateFormat="Short" Style="{StaticResource TimeOffDatePicker}" Height="40"/>
-                                                                        </StackPanel>
-                                                                        <StackPanel Grid.Column="2">
-                                                                            <TextBlock Text="End Date" Style="{StaticResource Label}" Margin="0,0,0,5"/>
-                                                                            <DatePicker SelectedDate="{Binding TimeOffEndDateValue, Mode=TwoWay}" SelectedDateFormat="Short" Style="{StaticResource TimeOffDatePicker}" Height="40"/>
-                                                                        </StackPanel>
+                                                                        <DatePicker SelectedDate="{Binding TimeOffStartDateValue, Mode=TwoWay}" SelectedDateFormat="Short" Style="{StaticResource TimeOffDatePicker}" Height="40"/>
+                                                                        <DatePicker Grid.Column="2" SelectedDate="{Binding TimeOffEndDateValue, Mode=TwoWay}" SelectedDateFormat="Short" Style="{StaticResource TimeOffDatePicker}" Height="40"/>
                                                                     </Grid>
-                                                                    <StackPanel Grid.Row="6">
-                                                                        <TextBlock Text="Hours" Style="{StaticResource Label}" Margin="0,0,0,5"/>
-                                                                        <Border Style="{StaticResource FieldOuter}" Height="40">
-                                                                            <Border Style="{StaticResource FieldInner}">
-                                                                                <TextBox Text="{Binding TimeOffHoursText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FieldTextBox}" Height="34"/>
-                                                                            </Border>
+                                                                    <Border Grid.Row="6" Style="{StaticResource FieldOuter}" Height="40">
+                                                                        <Border Style="{StaticResource FieldInner}">
+                                                                            <TextBox Text="{Binding TimeOffHoursText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FieldTextBox}" Height="34"/>
                                                                         </Border>
-                                                                    </StackPanel>
-                                                                    <StackPanel Grid.Row="8">
-                                                                        <TextBlock Text="Reason (optional)" Style="{StaticResource Label}" Margin="0,0,0,5"/>
-                                                                        <Border Style="{StaticResource FieldOuter}" Height="72">
-                                                                            <Border Style="{StaticResource FieldInner}">
-                                                                                <TextBox Text="{Binding TimeOffNote, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FieldTextBox}" Height="66" TextWrapping="Wrap" AcceptsReturn="True"/>
-                                                                            </Border>
-                                                                        </Border>
-                                                                    </StackPanel>
-                                                                    <Button Grid.Row="10" Content="Submit Time Off Request" Command="{Binding SubmitTimeOffCommand}" Style="{StaticResource RB.Button.Primary}" Background="{StaticResource RunBook.Brush.TimeClock.Purple}" Height="42"/>
+                                                                    </Border>
+                                                                    <Button Grid.Row="8" Content="Request PTO" Command="{Binding SubmitTimeOffCommand}" Style="{StaticResource RB.Button.Primary}" Background="{StaticResource RunBook.Brush.TimeClock.Warning}" Height="42"/>
                                                                 </Grid>
                                                             </Border>
-                                                        </Grid>
+                                                        </StackPanel>
                                                     </ScrollViewer>
                                                 </Grid>
                                             </Border>
@@ -2749,8 +3488,8 @@
                                                     <TextBlock Text="Only the actions that make sense right now are shown." Style="{StaticResource TimeClockSectionBody}" Margin="0,6,0,0"/>
                                                 </StackPanel>
                                                 <StackPanel Grid.Row="2">
-                                                    <Button Content="Clock In" Command="{Binding ClockInCommand}" Style="{StaticResource TimeClockActionPrimary}" Visibility="{Binding ShowClockInAction, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                                    <Grid Visibility="{Binding ShowWorkingActions, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <Button Content="Clock In" Command="{Binding ClockInCommand}" Style="{StaticResource TimeClockActionPrimary}"/>
+                                                    <Grid>
                                                         <Grid.RowDefinitions>
                                                             <RowDefinition Height="Auto"/>
                                                             <RowDefinition Height="10"/>
@@ -2763,10 +3502,10 @@
                                                         </Grid.ColumnDefinitions>
                                                         <Button Grid.Row="0" Grid.Column="0" Content="Start Break" Command="{Binding BreakStartCommand}" Style="{StaticResource TimeClockActionSecondary}"/>
                                                         <Button Grid.Row="0" Grid.Column="2" Content="Clock Out" Command="{Binding ClockOutCommand}" Style="{StaticResource TimeClockActionSecondary}"/>
-                                                        <Button Grid.Row="2" Grid.ColumnSpan="3" Content="Start Lunch" Command="{Binding LunchStartCommand}" Style="{StaticResource TimeClockActionSecondary}" Visibility="{Binding ShowLunchStartAction, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                        <Button Grid.Row="2" Grid.ColumnSpan="3" Content="Start Lunch" Command="{Binding LunchStartCommand}" Style="{StaticResource TimeClockActionSecondary}"/>
                                                     </Grid>
-                                                    <Button Content="End Break" Command="{Binding BreakEndCommand}" Style="{StaticResource TimeClockActionPrimary}" Visibility="{Binding ShowBreakEndAction, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                                    <Button Content="End Lunch" Command="{Binding LunchEndCommand}" Style="{StaticResource TimeClockActionPrimary}" Visibility="{Binding ShowLunchEndAction, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                    <Button Content="End Break" Command="{Binding BreakEndCommand}" Style="{StaticResource TimeClockActionPrimary}"/>
+                                                    <Button Content="End Lunch" Command="{Binding LunchEndCommand}" Style="{StaticResource TimeClockActionPrimary}"/>
                                                 </StackPanel>
                                             </Grid>
                                         </Border>

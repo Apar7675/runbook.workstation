@@ -29,7 +29,7 @@
       "options": {
         "env": {
           "DOTNET_CLI_HOME": "${workspaceFolder}\\.dotnet_cli",
-          "NUGET_PACKAGES": "C:\\Users\\aptenmfgcom\\.nuget\\packages"
+          "NUGET_PACKAGES": "${workspaceFolder}\\.nuget\\packages"
         }
       },
       "problemMatcher": "$msCompile",

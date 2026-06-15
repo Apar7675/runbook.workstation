@@ -10,6 +10,7 @@ artifacts/**
 .vs/
 .dotnet/
 .dotnet_cli/
+.nuget/
 .expo/
 .next/
 temp-*/

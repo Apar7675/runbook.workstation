@@ -337,6 +337,7 @@ namespace RunBook.Workstation.ViewModels
         public ObservableCollection<WorkstationTimeClockActivityRow> TimeClockActivityRows { get; } = new();
         public ObservableCollection<WorkstationTimeClockActivityRow> AllTimeClockActivityRows { get; } = new();
         public ObservableCollection<WorkstationShiftTimelineEntry> TodayShiftTimelineEntries { get; } = new();
+        public ObservableCollection<WorkstationTimeClockHistoryDayRow> TimeClockHistoryDayRows { get; } = new();
         public ObservableCollection<WorkstationWorkOrderSummary> WorkOrders { get; } = new();
         public ObservableCollection<WorkstationWorkOrderSummary> AssignedWorkOrders { get; } = new();
         public ObservableCollection<WorkstationWorkOrderSummary> AvailableWorkOrders { get; } = new();
@@ -1103,6 +1104,7 @@ namespace RunBook.Workstation.ViewModels
         public string TimeClockHeroShiftLine => BuildHeroShiftLine();
         public string TimeClockHeroShiftDisplay => TimeClockHeroShiftLine == "Current shift" ? "Shift: Not assigned" : $"Shift: {TimeClockHeroShiftLine}";
         public string TimeClockWeeklyDateRange => BuildWeeklyDateRange();
+        public string TimeClockWeeklyTotalText => BuildWeeklyTotalText();
         public bool IsViewingCurrentTimeClockWeek => _selectedTimeClockWeekStart.Date == GetWeekStart(DateTime.Now.Date);
         public bool CanGoToNextTimeClockWeek => _selectedTimeClockWeekStart.Date < GetWeekStart(DateTime.Now.Date);
         public bool ShowCurrentTimeClockWeekButton => !IsViewingCurrentTimeClockWeek;
@@ -1112,8 +1114,8 @@ namespace RunBook.Workstation.ViewModels
         public string TimeClockPendingApprovalCount => RecentTimeOffRequests.Count.ToString(CultureInfo.InvariantCulture);
         public string TimeClockPendingApprovalText => HasRecentTimeOffRequests ? "Pending requests loaded" : "No pending requests";
         public string TimeOffRequestsButtonText => "View My Requests";
-        public string TimeClockFooterStatusLine => string.IsNullOrWhiteSpace(TimeClockStatus) ? $"Loaded service timeclock state for {SessionEmployeeName}." : TimeClockStatus;
-        public string TimeClockSyncStatusLabel => HasPendingSyncItems ? "Pending Sync" : "Synced";
+        public string TimeClockFooterStatusLine => BuildTimeClockFooterStatusLine();
+        public string TimeClockSyncStatusLabel => HasPendingSyncItems ? "Saving" : "Saved";
         public string TimeClockSyncDetailText => BuildSyncSummaryValue();
         public string WorkstationVersionLabel => $"v{typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"}";
         public string TimeClockTimelineClockInText => TimeClockStateKey == "out" ? "Ready" : BuildStatusTimeValue();
@@ -1206,8 +1208,15 @@ namespace RunBook.Workstation.ViewModels
             ? "PTO Benefits"
             : PtoBenefits.PolicyName;
         public string PtoBenefitsSummary => HasPtoBenefitBuckets
-            ? $"{PtoBenefits.TotalPaidHours:0.##} paid hours available"
-            : "PTO balances will appear here after the service syncs benefits.";
+            ? $"{PtoBenefits.TotalPaidHours:0.##}h available"
+            : "PTO balances unavailable";
+        public string PtoAvailableHoursText => HasPtoBenefitBuckets
+            ? $"{PtoBenefits.TotalPaidHours:0.##}h"
+            : "--";
+        public string PtoPendingHoursText => HasPtoBenefitBuckets
+            ? $"{PtoBenefits.Buckets.Sum(bucket => bucket.PendingHours):0.##}h"
+            : "--";
+        public string PtoNextEligibleText => BuildPtoNextEligibleText();
         public string PtoBenefitsEligibilitySummary => string.IsNullOrWhiteSpace(PtoBenefits.EligibilitySummary)
             ? (PtoBenefits.IsEligible ? "Eligible now" : "Eligibility date not set")
             : PtoBenefits.EligibilitySummary;
@@ -1217,6 +1226,23 @@ namespace RunBook.Workstation.ViewModels
         public string PtoRequestCountSummary => HasRecentTimeOffRequests
             ? $"{RecentTimeOffRequests.Count} recent request{(RecentTimeOffRequests.Count == 1 ? "" : "s")}"
             : "No recent requests";
+        public WorkstationTimeOffRequestRecord? LatestPtoRequest => RecentTimeOffRequests.FirstOrDefault();
+        public string PtoLatestApprovalStatus => LatestPtoRequest == null
+            ? "No approval activity"
+            : NormalizePtoStatusText(LatestPtoRequest.Status);
+        public string PtoLatestDateRange => LatestPtoRequest == null
+            ? "No recent request"
+            : FormatPtoRequestDateRange(LatestPtoRequest);
+        public string PtoLatestManagerNote => LatestPtoRequest == null
+            ? "Manager approval notes will appear here."
+            : string.IsNullOrWhiteSpace(LatestPtoRequest.ManagerNote)
+                ? "No manager note yet."
+                : LatestPtoRequest.ManagerNote;
+        public string PtoLatestEmployeeNote => LatestPtoRequest == null
+            ? "Employee request notes will appear here."
+            : string.IsNullOrWhiteSpace(LatestPtoRequest.EmployeeNote)
+                ? "No employee note entered."
+                : LatestPtoRequest.EmployeeNote;
         public WorkstationShopAwareness ShopAwareness
         {
             get => _shopAwareness;
@@ -1431,7 +1457,9 @@ namespace RunBook.Workstation.ViewModels
             ? $"Status: {(HasCurrentJob ? "Working" : "Ready")}"
             : "Status: Waiting for operator sign-in";
         public string PrimaryOperatorActionText => IsLoggedIn ? "Go to Work" : "Select Operator";
-        public string WorkstationIdentityLine => $"{Settings.WorkstationName}  |  {Settings.WorkstationId}";
+        public string WorkstationIdentityLine => string.IsNullOrWhiteSpace(Settings.WorkstationName)
+            ? "Office Workstation"
+            : Settings.WorkstationName;
         public IReadOnlyList<WorkstationRosterEmployee> RecentRosterEmployees => RosterEmployees.Take(8).ToList();
         public bool HasMoreRosterEmployees => RosterEmployees.Count > RecentRosterEmployees.Count;
         public bool HasRosterEmployees => RosterEmployees.Count > 0;
@@ -5255,6 +5283,10 @@ namespace RunBook.Workstation.ViewModels
             foreach (var entry in BuildTodayShiftTimelineEntries())
                 TodayShiftTimelineEntries.Add(entry);
 
+            TimeClockHistoryDayRows.Clear();
+            foreach (var row in BuildTimeClockHistoryDayRows())
+                TimeClockHistoryDayRows.Add(row);
+
             TimeClockActivityRows.Clear();
             foreach (var row in BuildTimeClockActivityRows(8))
                 TimeClockActivityRows.Add(row);
@@ -5323,6 +5355,7 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(ShowEmptyTodayShiftTimeline));
             OnPropertyChanged(nameof(TimeOffSectionSubtitle));
             OnPropertyChanged(nameof(PtoRequestCountSummary));
+            OnPropertyChanged(nameof(TimeClockWeeklyTotalText));
             RaisePtoBenefitsProperties();
             _lastTimeClockPresentationSignature = signature;
         }
@@ -5341,6 +5374,14 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(PtoBenefitsEligibilitySummary));
             OnPropertyChanged(nameof(PtoBenefitsResetSummary));
             OnPropertyChanged(nameof(PtoRequestCountSummary));
+            OnPropertyChanged(nameof(LatestPtoRequest));
+            OnPropertyChanged(nameof(PtoLatestApprovalStatus));
+            OnPropertyChanged(nameof(PtoLatestDateRange));
+            OnPropertyChanged(nameof(PtoLatestManagerNote));
+            OnPropertyChanged(nameof(PtoLatestEmployeeNote));
+            OnPropertyChanged(nameof(PtoAvailableHoursText));
+            OnPropertyChanged(nameof(PtoPendingHoursText));
+            OnPropertyChanged(nameof(PtoNextEligibleText));
         }
 
         private string BuildTimeClockPresentationSignature()
@@ -5465,6 +5506,63 @@ namespace RunBook.Workstation.ViewModels
                 AccentBrush = "#F5B642",
                 ProgressValue = SupportsLunch ? GetProgressPercent(summary.LunchTotal, TimeSpan.FromHours(5)) : 0
             };
+        }
+
+        private IEnumerable<WorkstationTimeClockHistoryDayRow> BuildTimeClockHistoryDayRows()
+        {
+            for (var dayOffset = 0; dayOffset < 7; dayOffset++)
+            {
+                var day = _selectedTimeClockWeekStart.Date.AddDays(dayOffset);
+                var summary = SummarizePunchRange(day, day.AddDays(1));
+                var isWeekday = day.DayOfWeek != DayOfWeek.Saturday && day.DayOfWeek != DayOfWeek.Sunday;
+
+                var progress = summary.HasActivity
+                    ? GetProgressPercent(summary.WorkTotal, TimeSpan.FromHours(8))
+                    : (isWeekday ? 0 : 0);
+
+                yield return new WorkstationTimeClockHistoryDayRow
+                {
+                    DayText = day.ToString("ddd", CultureInfo.InvariantCulture),
+                    DateText = day.ToString("MMM d", CultureInfo.InvariantCulture),
+                    HoursText = summary.HasActivity ? FormatDuration(summary.WorkTotal) : "--",
+                    ProgressValue = progress,
+                    BarHeight = progress <= 0 ? 0 : Math.Max(8, progress / 100.0 * 86.0)
+                };
+            }
+        }
+
+        private string BuildWeeklyTotalText()
+        {
+            var summary = BuildSelectedWeekSummary();
+            return $"Total {FormatDuration(summary.WorkTotal)}";
+        }
+
+        private string BuildPtoNextEligibleText()
+        {
+            if (!string.IsNullOrWhiteSpace(PtoBenefits.EligibleDate))
+                return PtoBenefits.EligibleDate;
+
+            return PtoBenefits.IsEligible ? "Now" : "Not set";
+        }
+
+        private static string FormatPtoRequestDateRange(WorkstationTimeOffRequestRecord request)
+        {
+            var start = string.IsNullOrWhiteSpace(request.StartDate) ? "Start not set" : request.StartDate;
+            var end = string.IsNullOrWhiteSpace(request.EndDate) ? start : request.EndDate;
+            var hours = request.HoursRequested.HasValue ? $" · {request.HoursRequested.Value:0.##}h requested" : "";
+
+            return string.Equals(start, end, StringComparison.OrdinalIgnoreCase)
+                ? $"{start}{hours}"
+                : $"{start} - {end}{hours}";
+        }
+
+        private static string NormalizePtoStatusText(string status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+                return "Awaiting review";
+
+            var normalized = status.Replace("_", " ").Replace("-", " ").Trim().ToLowerInvariant();
+            return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(normalized);
         }
 
         private IEnumerable<WorkstationTimeClockSummaryRow> BuildCurrentStatusSummaryRows()
@@ -5747,6 +5845,16 @@ namespace RunBook.Workstation.ViewModels
             return "Synced";
         }
 
+        private string BuildTimeClockFooterStatusLine()
+        {
+            if (HasPendingSyncItems)
+                return "Saving recent time clock changes.";
+
+            return HasTimeClockActivity
+                ? $"Loaded {RecentPunches.Count} recent punches."
+                : $"Time clock ready for {SessionEmployeeName}.";
+        }
+
         private sealed class TimeClockRangeSummary
         {
             public DateTime? FirstClockIn { get; set; }
@@ -5807,7 +5915,7 @@ namespace RunBook.Workstation.ViewModels
                 var entry = entries[index];
                 var eventType = (entry.Punch.EventType ?? "").Trim().ToUpperInvariant();
                 var isLast = index == entries.Count - 1;
-                var isCurrent = isLast && !string.Equals(TimeClockStateKey, "out", StringComparison.OrdinalIgnoreCase);
+                var isCurrent = IsTimelineEventCurrent(eventType, isLast);
                 var isCompleted = !isCurrent;
                 var accent = GetTimelineAccentBrush(eventType, isCurrent, isCompleted);
                 var background = isCurrent
@@ -5833,7 +5941,7 @@ namespace RunBook.Workstation.ViewModels
                 {
                     SequenceNumber = index + 1,
                     Title = ToEventLabel((entry.Punch.EventType ?? "").Trim().ToLowerInvariant()),
-                    TimestampDisplay = entry.LocalTime!.Value.ToString("MM/dd/yyyy HH:mm", CultureInfo.InvariantCulture),
+                    TimestampDisplay = entry.LocalTime!.Value.ToString("h:mm tt", CultureInfo.InvariantCulture),
                     Subtitle = subtitle,
                     AccentBrush = accent,
                     BackgroundBrush = background,
@@ -5848,6 +5956,20 @@ namespace RunBook.Workstation.ViewModels
                     IsLast = isLast
                 };
             }
+        }
+
+        private bool IsTimelineEventCurrent(string eventType, bool isLast)
+        {
+            if (!isLast)
+                return false;
+
+            return TimeClockStateKey switch
+            {
+                "working" => eventType == "CLOCK_IN",
+                "break" => eventType == "BREAK_START",
+                "lunch" => eventType == "LUNCH_START",
+                _ => false
+            };
         }
 
         private string BuildHeroPrimaryLine()
@@ -7472,7 +7594,16 @@ namespace RunBook.Workstation.ViewModels
 
             ConnectionStatuses.Clear();
             foreach (var status in statuses)
-                ConnectionStatuses.Add(status);
+            {
+                var key = (status.Key ?? "").Trim().ToLowerInvariant();
+                if (key == "local_host" || key == "desktop_link")
+                {
+                    status.Label = key == "local_host"
+                        ? (status.Health == ConnectionHealth.Healthy ? "Service Connected" : "Service Offline")
+                        : (status.Health == ConnectionHealth.Healthy ? "Desktop Connected" : "Desktop Offline");
+                    ConnectionStatuses.Add(status);
+                }
+            }
         }
 
         private bool RegistrationMissingDesktopProbePrerequisites()

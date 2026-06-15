@@ -847,6 +847,15 @@ namespace RunBook.Workstation.Models
         public string AccentBrush { get; set; } = "#7EABD9";
     }
 
+    public sealed class WorkstationTimeClockHistoryDayRow
+    {
+        public string DayText { get; set; } = "";
+        public string DateText { get; set; } = "";
+        public string HoursText { get; set; } = "";
+        public double ProgressValue { get; set; }
+        public double BarHeight { get; set; }
+    }
+
     public sealed class WorkstationShiftTimelineEntry
     {
         public int SequenceNumber { get; set; }
