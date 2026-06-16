@@ -248,6 +248,55 @@
             <Setter Property="BorderBrush" Value="#FF243246"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
+        <Style x:Key="PremiumPtoModalCard" TargetType="Border">
+            <Setter Property="Width" Value="920"/>
+            <Setter Property="MaxWidth" Value="980"/>
+            <Setter Property="MaxHeight" Value="740"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="32"/>
+            <Setter Property="CornerRadius" Value="22"/>
+            <Setter Property="Padding" Value="26"/>
+            <Setter Property="Background" Value="#F70A1322"/>
+            <Setter Property="BorderBrush" Value="#FF3B526F"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="34" ShadowDepth="0" Color="#A0000000"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PremiumPtoSummaryCard" TargetType="Border">
+            <Setter Property="Background" Value="#D0121D2C"/>
+            <Setter Property="BorderBrush" Value="#583B526F"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16,14"/>
+            <Setter Property="MinHeight" Value="96"/>
+        </Style>
+        <Style x:Key="PremiumPtoRequestCard" TargetType="Border">
+            <Setter Property="Background" Value="#B8142233"/>
+            <Setter Property="BorderBrush" Value="#553B526F"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <Style x:Key="PremiumPtoNoteBox" TargetType="Border">
+            <Setter Property="Background" Value="#B00B1421"/>
+            <Setter Property="BorderBrush" Value="#553B526F"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="MinHeight" Value="70"/>
+        </Style>
+        <Style x:Key="PremiumPtoStatusBadge" TargetType="Border">
+            <Setter Property="Padding" Value="9,4"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Background" Value="#263F2B69"/>
+            <Setter Property="BorderBrush" Value="#7A9B6BFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
     </Window.Resources>
     <Grid>
         <Grid.Background>
@@ -3286,24 +3335,17 @@
                                         <Grid Grid.RowSpan="3"
                                               Panel.ZIndex="100"
                                               Visibility="{Binding IsPtoBenefitsDialogOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                            <Rectangle Fill="#66070A0F"/>
-                                            <Border Width="430"
-                                                    HorizontalAlignment="Right"
-                                                    VerticalAlignment="Stretch"
-                                                    CornerRadius="18,0,0,18"
-                                                    Padding="22"
-                                                    Background="#FA0B1424"
-                                                    BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}"
-                                                    BorderThickness="1,0,0,0">
-                                                <Border.Effect>
-                                                    <DropShadowEffect BlurRadius="26" ShadowDepth="0" Color="#AA000000"/>
-                                                </Border.Effect>
+                                            <Rectangle Fill="#B8070A0F"/>
+                                            <Border Style="{StaticResource PremiumPtoModalCard}">
                                                 <Grid>
                                                     <Grid.RowDefinitions>
                                                         <RowDefinition Height="Auto"/>
-                                                        <RowDefinition Height="16"/>
+                                                        <RowDefinition Height="18"/>
                                                         <RowDefinition Height="*"/>
+                                                        <RowDefinition Height="16"/>
+                                                        <RowDefinition Height="Auto"/>
                                                     </Grid.RowDefinitions>
+
                                                     <Grid>
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="*"/>
@@ -3313,127 +3355,328 @@
                                                             <TextBlock Text="PTO Details" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="24" FontWeight="SemiBold"/>
                                                             <TextBlock Text="{Binding PtoBenefitsSummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/>
                                                         </StackPanel>
-                                                        <Button Grid.Column="1" Content="Close" Command="{Binding ClosePtoBenefitsCommand}" Style="{StaticResource RB.Button.Ghost}" Width="92" Height="36"/>
+                                                        <Button Grid.Column="1"
+                                                                Content="Close"
+                                                                Command="{Binding ClosePtoBenefitsCommand}"
+                                                                Style="{StaticResource RB.Button.Ghost}"
+                                                                Width="92"
+                                                                Height="36"/>
                                                     </Grid>
-                                                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,6">
+
+                                                    <ScrollViewer Grid.Row="2"
+                                                                  VerticalScrollBarVisibility="Auto"
+                                                                  HorizontalScrollBarVisibility="Disabled"
+                                                                  Padding="0,0,6,0">
                                                         <StackPanel>
-                                                            <Border Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="14" Padding="16" Margin="0,0,0,12">
-                                                                <StackPanel>
-                                                                    <TextBlock Text="Balance" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="16" FontWeight="SemiBold"/>
-                                                                    <Grid Margin="0,12,0,0">
-                                                                        <Grid.ColumnDefinitions>
-                                                                            <ColumnDefinition Width="*"/>
-                                                                            <ColumnDefinition Width="*"/>
-                                                                        </Grid.ColumnDefinitions>
-                                                                        <StackPanel>
-                                                                            <TextBlock Text="Available" Style="{StaticResource TimeClockMetricLabel}"/>
-                                                                            <TextBlock Text="{Binding PtoAvailableHoursText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="24" FontWeight="SemiBold" Margin="0,6,0,0"/>
-                                                                        </StackPanel>
-                                                                        <StackPanel Grid.Column="1">
-                                                                            <TextBlock Text="Pending" Style="{StaticResource TimeClockMetricLabel}"/>
-                                                                            <TextBlock Text="{Binding PtoPendingHoursText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="24" FontWeight="SemiBold" Margin="0,6,0,0"/>
-                                                                        </StackPanel>
-                                                                    </Grid>
-                                                                </StackPanel>
-                                                            </Border>
-                                                            <Border Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="14" Padding="16" Margin="0,0,0,12">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="16"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="16"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <Border Style="{StaticResource PremiumPtoSummaryCard}">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="Available PTO" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="SemiBold"/>
+                                                                        <Grid Margin="0,10,0,0">
+                                                                            <TextBlock Text="{Binding PtoAvailableHoursText}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="22" FontWeight="SemiBold">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding PtoAvailableHoursText}" Value="--">
+                                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                            <TextBlock Text="Not available" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="20" FontWeight="SemiBold">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding PtoAvailableHoursText}" Value="--">
+                                                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                        </Grid>
+                                                                        <TextBlock Text="{Binding PtoBenefitsSummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                                                    </StackPanel>
+                                                                </Border>
+
+                                                                <Border Grid.Column="2" Style="{StaticResource PremiumPtoSummaryCard}" BorderBrush="#665E44A8">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="Pending PTO" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="SemiBold"/>
+                                                                        <Grid Margin="0,10,0,0">
+                                                                            <TextBlock Text="{Binding PtoPendingHoursText}" Foreground="#FFE5AA38" FontSize="22" FontWeight="SemiBold">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding PtoPendingHoursText}" Value="--">
+                                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                            <TextBlock Text="Not available" Foreground="#FFE5AA38" FontSize="20" FontWeight="SemiBold">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding PtoPendingHoursText}" Value="--">
+                                                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                        </Grid>
+                                                                        <TextBlock Text="{Binding PtoRequestCountSummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                                                    </StackPanel>
+                                                                </Border>
+
+                                                                <Border Grid.Column="4" Style="{StaticResource PremiumPtoSummaryCard}" BorderBrush="#665E44A8">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="Next Eligible" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="SemiBold"/>
+                                                                        <TextBlock Text="{Binding PtoNextEligibleText}" Foreground="#FFC79BFF" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,10,0,0"/>
+                                                                        <TextBlock Text="{Binding PtoBenefitsEligibilitySummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </Grid>
+
+                                                            <Border Background="#B00E1827" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="14" Padding="16" Margin="0,16,0,0">
                                                                 <StackPanel>
                                                                     <TextBlock Text="Requests" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="16" FontWeight="SemiBold"/>
-                                                                    <ItemsControl ItemsSource="{Binding RecentTimeOffRequests}" Margin="0,10,0,0">
+                                                                    <ItemsControl ItemsSource="{Binding RecentTimeOffRequests}" Margin="0,12,0,0">
                                                                         <ItemsControl.ItemTemplate>
                                                                             <DataTemplate>
-                                                                                <Border Background="{StaticResource RunBook.Brush.TimeClock.Surface.Elevated}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8">
-                                                                                    <StackPanel>
+                                                                                <Border x:Name="RequestCard" Style="{StaticResource PremiumPtoRequestCard}">
+                                                                                    <Grid>
+                                                                                        <Grid.RowDefinitions>
+                                                                                            <RowDefinition Height="Auto"/>
+                                                                                            <RowDefinition Height="8"/>
+                                                                                            <RowDefinition Height="Auto"/>
+                                                                                            <RowDefinition Height="14"/>
+                                                                                            <RowDefinition Height="Auto"/>
+                                                                                        </Grid.RowDefinitions>
                                                                                         <Grid>
                                                                                             <Grid.ColumnDefinitions>
                                                                                                 <ColumnDefinition Width="*"/>
                                                                                                 <ColumnDefinition Width="Auto"/>
                                                                                             </Grid.ColumnDefinitions>
-                                                                                            <TextBlock Text="{Binding RequestType}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13" FontWeight="SemiBold"/>
-                                                                                            <TextBlock Grid.Column="1" Text="{Binding Status}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="12" FontWeight="SemiBold"/>
+                                                                                            <TextBlock Text="{Binding RequestType}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="14" FontWeight="SemiBold"/>
+                                                                                            <Border x:Name="StatusBadge" Grid.Column="1" Style="{StaticResource PremiumPtoStatusBadge}">
+                                                                                                <TextBlock x:Name="StatusBadgeText" Text="{Binding Status}" Foreground="#FFD8C8FF" FontSize="11" FontWeight="SemiBold"/>
+                                                                                            </Border>
                                                                                         </Grid>
-                                                                                        <Grid Margin="0,8,0,0">
+
+                                                                                        <Grid Grid.Row="2">
                                                                                             <Grid.ColumnDefinitions>
                                                                                                 <ColumnDefinition Width="*"/>
-                                                                                                <ColumnDefinition Width="12"/>
                                                                                                 <ColumnDefinition Width="Auto"/>
                                                                                             </Grid.ColumnDefinitions>
-                                                                                            <TextBlock Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" TextTrimming="CharacterEllipsis">
+                                                                                            <TextBlock Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="13.5" TextTrimming="CharacterEllipsis">
                                                                                                 <Run Text="{Binding StartDate}"/>
                                                                                                 <Run Text=" - "/>
                                                                                                 <Run Text="{Binding EndDate}"/>
                                                                                             </TextBlock>
-                                                                                            <TextBlock Grid.Column="2" Text="{Binding HoursRequested, StringFormat={}{0:0.##}h}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12" FontWeight="SemiBold"/>
+                                                                                            <Grid Grid.Column="1" Margin="18,0,0,0">
+                                                                                                <TextBlock Text="{Binding HoursRequested, StringFormat={}{0:0.##}h}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="SemiBold">
+                                                                                                    <TextBlock.Style>
+                                                                                                        <Style TargetType="TextBlock">
+                                                                                                            <Style.Triggers>
+                                                                                                                <DataTrigger Binding="{Binding HoursRequested}" Value="{x:Null}">
+                                                                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                                                </DataTrigger>
+                                                                                                            </Style.Triggers>
+                                                                                                        </Style>
+                                                                                                    </TextBlock.Style>
+                                                                                                </TextBlock>
+                                                                                                <TextBlock Text="Not set" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="13.5" FontWeight="SemiBold">
+                                                                                                    <TextBlock.Style>
+                                                                                                        <Style TargetType="TextBlock">
+                                                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                                            <Style.Triggers>
+                                                                                                                <DataTrigger Binding="{Binding HoursRequested}" Value="{x:Null}">
+                                                                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                                                                </DataTrigger>
+                                                                                                            </Style.Triggers>
+                                                                                                        </Style>
+                                                                                                    </TextBlock.Style>
+                                                                                                </TextBlock>
+                                                                                            </Grid>
                                                                                         </Grid>
-                                                                                        <Border Background="{StaticResource RunBook.Brush.TimeClock.Warning.Subtle}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Warning.Border}" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,10,0,0">
-                                                                                            <StackPanel>
-                                                                                                <TextBlock Text="Employee note" Style="{StaticResource TimeClockMetricLabel}"/>
-                                                                                                <TextBlock Text="{Binding EmployeeNote}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="12.2" TextWrapping="Wrap" Margin="0,5,0,0"/>
-                                                                                            </StackPanel>
-                                                                                        </Border>
-                                                                                        <Border Background="{StaticResource RunBook.Brush.TimeClock.Surface.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,8,0,0">
-                                                                                            <StackPanel>
-                                                                                                <TextBlock Text="Manager note" Style="{StaticResource TimeClockMetricLabel}"/>
-                                                                                                <TextBlock Text="{Binding ManagerNote}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="12.2" TextWrapping="Wrap" Margin="0,5,0,0"/>
-                                                                                            </StackPanel>
-                                                                                        </Border>
-                                                                                    </StackPanel>
+
+                                                                                        <Grid Grid.Row="4">
+                                                                                            <Grid.ColumnDefinitions>
+                                                                                                <ColumnDefinition Width="*"/>
+                                                                                                <ColumnDefinition Width="14"/>
+                                                                                                <ColumnDefinition Width="*"/>
+                                                                                            </Grid.ColumnDefinitions>
+                                                                                            <Border Style="{StaticResource PremiumPtoNoteBox}">
+                                                                                                <StackPanel>
+                                                                                                    <TextBlock Text="Employee note" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                                                    <Grid Margin="0,7,0,0">
+                                                                                                        <TextBlock Text="{Binding EmployeeNote}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="12.5" TextWrapping="Wrap">
+                                                                                                            <TextBlock.Style>
+                                                                                                                <Style TargetType="TextBlock">
+                                                                                                                    <Style.Triggers>
+                                                                                                                        <DataTrigger Binding="{Binding EmployeeNote}" Value="">
+                                                                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                                                        </DataTrigger>
+                                                                                                                    </Style.Triggers>
+                                                                                                                </Style>
+                                                                                                            </TextBlock.Style>
+                                                                                                        </TextBlock>
+                                                                                                        <TextBlock Text="No note provided." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.5" TextWrapping="Wrap">
+                                                                                                            <TextBlock.Style>
+                                                                                                                <Style TargetType="TextBlock">
+                                                                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                                                    <Style.Triggers>
+                                                                                                                        <DataTrigger Binding="{Binding EmployeeNote}" Value="">
+                                                                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                                                                        </DataTrigger>
+                                                                                                                    </Style.Triggers>
+                                                                                                                </Style>
+                                                                                                            </TextBlock.Style>
+                                                                                                        </TextBlock>
+                                                                                                    </Grid>
+                                                                                                </StackPanel>
+                                                                                            </Border>
+                                                                                            <Border Grid.Column="2" Style="{StaticResource PremiumPtoNoteBox}">
+                                                                                                <StackPanel>
+                                                                                                    <TextBlock Text="Manager note" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                                                    <Grid Margin="0,7,0,0">
+                                                                                                        <TextBlock Text="{Binding ManagerNote}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="12.5" TextWrapping="Wrap">
+                                                                                                            <TextBlock.Style>
+                                                                                                                <Style TargetType="TextBlock">
+                                                                                                                    <Style.Triggers>
+                                                                                                                        <DataTrigger Binding="{Binding ManagerNote}" Value="">
+                                                                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                                                        </DataTrigger>
+                                                                                                                    </Style.Triggers>
+                                                                                                                </Style>
+                                                                                                            </TextBlock.Style>
+                                                                                                        </TextBlock>
+                                                                                                        <TextBlock Text="No note provided." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.5" TextWrapping="Wrap">
+                                                                                                            <TextBlock.Style>
+                                                                                                                <Style TargetType="TextBlock">
+                                                                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                                                    <Style.Triggers>
+                                                                                                                        <DataTrigger Binding="{Binding ManagerNote}" Value="">
+                                                                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                                                                        </DataTrigger>
+                                                                                                                    </Style.Triggers>
+                                                                                                                </Style>
+                                                                                                            </TextBlock.Style>
+                                                                                                        </TextBlock>
+                                                                                                    </Grid>
+                                                                                                </StackPanel>
+                                                                                            </Border>
+                                                                                        </Grid>
+                                                                                    </Grid>
                                                                                 </Border>
+                                                                                <DataTemplate.Triggers>
+                                                                                    <DataTrigger Binding="{Binding Status}" Value="Approved">
+                                                                                        <Setter TargetName="RequestCard" Property="BorderBrush" Value="#803CC875"/>
+                                                                                        <Setter TargetName="StatusBadge" Property="Background" Value="#243CC875"/>
+                                                                                        <Setter TargetName="StatusBadge" Property="BorderBrush" Value="#663CC875"/>
+                                                                                        <Setter TargetName="StatusBadgeText" Property="Foreground" Value="#FF7EE6A2"/>
+                                                                                    </DataTrigger>
+                                                                                    <DataTrigger Binding="{Binding Status}" Value="APPROVED">
+                                                                                        <Setter TargetName="RequestCard" Property="BorderBrush" Value="#803CC875"/>
+                                                                                        <Setter TargetName="StatusBadge" Property="Background" Value="#243CC875"/>
+                                                                                        <Setter TargetName="StatusBadge" Property="BorderBrush" Value="#663CC875"/>
+                                                                                        <Setter TargetName="StatusBadgeText" Property="Foreground" Value="#FF7EE6A2"/>
+                                                                                    </DataTrigger>
+                                                                                    <DataTrigger Binding="{Binding Status}" Value="Denied">
+                                                                                        <Setter TargetName="RequestCard" Property="BorderBrush" Value="#80F0525E"/>
+                                                                                        <Setter TargetName="StatusBadge" Property="Background" Value="#24F0525E"/>
+                                                                                        <Setter TargetName="StatusBadge" Property="BorderBrush" Value="#66F0525E"/>
+                                                                                        <Setter TargetName="StatusBadgeText" Property="Foreground" Value="#FFFF8D95"/>
+                                                                                    </DataTrigger>
+                                                                                    <DataTrigger Binding="{Binding Status}" Value="DENIED">
+                                                                                        <Setter TargetName="RequestCard" Property="BorderBrush" Value="#80F0525E"/>
+                                                                                        <Setter TargetName="StatusBadge" Property="Background" Value="#24F0525E"/>
+                                                                                        <Setter TargetName="StatusBadge" Property="BorderBrush" Value="#66F0525E"/>
+                                                                                        <Setter TargetName="StatusBadgeText" Property="Foreground" Value="#FFFF8D95"/>
+                                                                                    </DataTrigger>
+                                                                                    <DataTrigger Binding="{Binding Status}" Value="Cancelled">
+                                                                                        <Setter TargetName="RequestCard" Property="BorderBrush" Value="#6670839F"/>
+                                                                                        <Setter TargetName="StatusBadge" Property="Background" Value="#2470839F"/>
+                                                                                        <Setter TargetName="StatusBadge" Property="BorderBrush" Value="#5570839F"/>
+                                                                                        <Setter TargetName="StatusBadgeText" Property="Foreground" Value="#FFB3BED0"/>
+                                                                                    </DataTrigger>
+                                                                                    <DataTrigger Binding="{Binding Status}" Value="CANCELLED">
+                                                                                        <Setter TargetName="RequestCard" Property="BorderBrush" Value="#6670839F"/>
+                                                                                        <Setter TargetName="StatusBadge" Property="Background" Value="#2470839F"/>
+                                                                                        <Setter TargetName="StatusBadge" Property="BorderBrush" Value="#5570839F"/>
+                                                                                        <Setter TargetName="StatusBadgeText" Property="Foreground" Value="#FFB3BED0"/>
+                                                                                    </DataTrigger>
+                                                                                </DataTemplate.Triggers>
                                                                             </DataTemplate>
                                                                         </ItemsControl.ItemTemplate>
                                                                     </ItemsControl>
-                                                                    <Border Background="{StaticResource RunBook.Brush.TimeClock.Surface.Elevated}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="10" Padding="12" Visibility="{Binding ShowNoRecentTimeOffRequests, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                                        <TextBlock Text="No recent PTO requests." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.5"/>
+                                                                    <Border Style="{StaticResource PremiumPtoRequestCard}"
+                                                                            Visibility="{Binding ShowNoRecentTimeOffRequests, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                        <TextBlock Text="No recent PTO requests." Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="13"/>
                                                                     </Border>
                                                                 </StackPanel>
                                                             </Border>
-                                                            <Border Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="14" Padding="16" Margin="0,0,0,12">
+
+                                                            <Border Background="#B00E1827" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="14" Padding="16" Margin="0,16,0,0">
                                                                 <StackPanel>
                                                                     <TextBlock Text="Eligibility" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="16" FontWeight="SemiBold"/>
-                                                                    <TextBlock Text="{Binding PtoBenefitsEligibilitySummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.5" TextWrapping="Wrap" Margin="0,10,0,0"/>
-                                                                    <TextBlock Text="{Binding PtoBenefitsResetSummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}" FontSize="12.5" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                                                                    <TextBlock Text="{Binding PtoNextEligibleText, StringFormat=Next eligible: {0}}" Foreground="{StaticResource RunBook.Brush.TimeClock.Warning}" FontSize="12.5" FontWeight="SemiBold" Margin="0,10,0,0"/>
-                                                                </StackPanel>
-                                                            </Border>
-                                                            <Border Background="{StaticResource RunBook.Brush.TimeClock.Gradient.Card}" BorderBrush="{StaticResource RunBook.Brush.TimeClock.Border.Default}" BorderThickness="1" CornerRadius="14" Padding="16">
-                                                                <Grid>
-                                                                    <Grid.RowDefinitions>
-                                                                        <RowDefinition Height="Auto"/>
-                                                                        <RowDefinition Height="10"/>
-                                                                        <RowDefinition Height="Auto"/>
-                                                                        <RowDefinition Height="10"/>
-                                                                        <RowDefinition Height="Auto"/>
-                                                                        <RowDefinition Height="10"/>
-                                                                        <RowDefinition Height="Auto"/>
-                                                                        <RowDefinition Height="12"/>
-                                                                        <RowDefinition Height="Auto"/>
-                                                                    </Grid.RowDefinitions>
-                                                                    <TextBlock Text="Request PTO" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="16" FontWeight="SemiBold"/>
-                                                                    <ComboBox Grid.Row="2" SelectedValue="{Binding TimeOffType}" SelectedValuePath="Tag" Style="{StaticResource TimeOffComboBox}" Height="40">
-                                                                        <ComboBoxItem Content="Vacation" Tag="VACATION"/>
-                                                                        <ComboBoxItem Content="Sick" Tag="SICK"/>
-                                                                        <ComboBoxItem Content="Personal" Tag="PERSONAL"/>
-                                                                        <ComboBoxItem Content="Unpaid" Tag="UNPAID"/>
-                                                                    </ComboBox>
-                                                                    <Grid Grid.Row="4">
+                                                                    <Grid Margin="0,12,0,0">
                                                                         <Grid.ColumnDefinitions>
                                                                             <ColumnDefinition Width="*"/>
-                                                                            <ColumnDefinition Width="10"/>
+                                                                            <ColumnDefinition Width="16"/>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="16"/>
                                                                             <ColumnDefinition Width="*"/>
                                                                         </Grid.ColumnDefinitions>
-                                                                        <DatePicker SelectedDate="{Binding TimeOffStartDateValue, Mode=TwoWay}" SelectedDateFormat="Short" Style="{StaticResource TimeOffDatePicker}" Height="40"/>
-                                                                        <DatePicker Grid.Column="2" SelectedDate="{Binding TimeOffEndDateValue, Mode=TwoWay}" SelectedDateFormat="Short" Style="{StaticResource TimeOffDatePicker}" Height="40"/>
+                                                                        <StackPanel>
+                                                                            <TextBlock Text="Eligibility date" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                            <TextBlock Text="{Binding PtoBenefitsEligibilitySummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                                                        </StackPanel>
+                                                                        <StackPanel Grid.Column="2">
+                                                                            <TextBlock Text="Expiration / reset date" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                            <TextBlock Text="{Binding PtoBenefitsResetSummary}" Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Primary}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                                                        </StackPanel>
+                                                                        <StackPanel Grid.Column="4">
+                                                                            <TextBlock Text="Next eligible" Style="{StaticResource TimeClockMetricLabel}"/>
+                                                                            <TextBlock Text="{Binding PtoNextEligibleText}" Foreground="#FFC79BFF" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                                                        </StackPanel>
                                                                     </Grid>
-                                                                    <Border Grid.Row="6" Style="{StaticResource FieldOuter}" Height="40">
-                                                                        <Border Style="{StaticResource FieldInner}">
-                                                                            <TextBox Text="{Binding TimeOffHoursText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FieldTextBox}" Height="34"/>
-                                                                        </Border>
-                                                                    </Border>
-                                                                    <Button Grid.Row="8" Content="Request PTO" Command="{Binding SubmitTimeOffCommand}" Style="{StaticResource RB.Button.Primary}" Background="{StaticResource RunBook.Brush.TimeClock.Warning}" Height="42"/>
-                                                                </Grid>
+                                                                </StackPanel>
                                                             </Border>
                                                         </StackPanel>
                                                     </ScrollViewer>
+
+                                                    <Grid Grid.Row="4">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="PTO balances are provided by your organization and may not reflect real-time updates."
+                                                                   Foreground="{StaticResource RunBook.Brush.TimeClock.Text.Secondary}"
+                                                                   FontSize="12"
+                                                                   TextWrapping="Wrap"
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="0,0,24,0"/>
+                                                        <Button Grid.Column="1"
+                                                                Content="Close"
+                                                                Command="{Binding ClosePtoBenefitsCommand}"
+                                                                Style="{StaticResource RB.Button.Ghost}"
+                                                                Width="92"
+                                                                Height="36"/>
+                                                    </Grid>
                                                 </Grid>
                                             </Border>
                                         </Grid>
