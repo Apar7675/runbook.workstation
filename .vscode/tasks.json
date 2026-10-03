@@ -2,18 +2,50 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "stop existing RunBook Workstation",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "$ErrorActionPreference='SilentlyContinue'; Get-Process RunBook.Workstation | Stop-Process -Force; Start-Sleep -Milliseconds 350; exit 0"
+      ],
+      "problemMatcher": []
+    },
+    {
       "label": "build RunBook Workstation",
       "type": "process",
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/src/RunBook.Workstation/RunBook.Workstation.csproj"
+        "${workspaceFolder}/src/RunBook.Workstation/RunBook.Workstation.csproj",
+        "-c",
+        "Debug",
+        "-p:RestoreIgnoreFailedSources=true",
+        "-p:NuGetAudit=false"
       ],
+      "options": {
+        "env": {
+          "DOTNET_CLI_HOME": "${workspaceFolder}\\.dotnet_cli",
+          "NUGET_PACKAGES": "${workspaceFolder}\\.nuget\\packages"
+        }
+      },
       "problemMatcher": "$msCompile",
       "group": {
         "kind": "build",
         "isDefault": true
       }
+    },
+    {
+      "label": "reboot RunBook Workstation",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "stop existing RunBook Workstation",
+        "build RunBook Workstation"
+      ],
+      "problemMatcher": []
     }
   ]
 }

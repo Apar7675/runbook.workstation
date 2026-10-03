@@ -1,0 +1,9 @@
+{
+  "ControlBaseUrl": "http://localhost:3000",
+  "DesktopBaseUrl": "http://localhost:30112",
+  "ShopId": "",
+  "WorkstationId": "",
+  "WorkstationName": "SYNTHETIC-WORKSTATION",
+  "ShopName": "Synthetic RunBook Shop",
+  "PairingCode": ""
+}

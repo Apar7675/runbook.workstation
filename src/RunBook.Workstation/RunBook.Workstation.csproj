@@ -10,10 +10,33 @@
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
     <LangVersion>latest</LangVersion>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Data\**;App\_machine\**</DefaultItemExcludes>
+    <RunBookIncludeInternalDiagnostics Condition="'$(RunBookIncludeInternalDiagnostics)' == '' and '$(Configuration)' != 'Release'">true</RunBookIncludeInternalDiagnostics>
+    <RunBookIncludeInternalDiagnostics Condition="'$(RunBookIncludeInternalDiagnostics)' == ''">false</RunBookIncludeInternalDiagnostics>
+    <DefineConstants Condition="'$(Configuration)' != 'Release' and '$(RunBookIncludeInternalDiagnostics)' == 'true'">$(DefineConstants);RUNBOOK_INTERNAL_DIAGNOSTICS</DefineConstants>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Data\**;App\_machine\**" />
+    <Content Remove="Data\**;App\_machine\**" />
+    <EmbeddedResource Remove="Data\**;App\_machine\**" />
+    <None Remove="Data\**;App\_machine\**;Assets\Images\Avatars\avatar_*.jpg" />
+    <Page Remove="Data\**;App\_machine\**" />
+    <Resource Remove="Data\**;App\_machine\**;Assets\Images\Avatars\avatar_*.jpg" />
+    <Compile Remove="Services\ControlIndependenceVerifier.cs"
+             Condition="'$(Configuration)' == 'Release' or '$(RunBookIncludeInternalDiagnostics)' != 'true'" />
+  </ItemGroup>
   <ItemGroup>
     <Resource Include="Assets\Images\logo.png" />
     <Resource Include="Assets\Images\chatgpt_space_bg.png" />
+    <Resource Include="Assets\Images\Icons\workorders.png" />
     <Resource Include="Themes\RunBookTheme.xaml" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+  </ItemGroup>
+  <Target Name="VerifyRunBookProductionArtifact"
+          AfterTargets="Publish"
+          Condition="'$(RunBookVerifyProductionArtifact)' == 'true'">
+    <Exec Command="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\Scripts\Test-ProductionArtifact.ps1&quot; -ArtifactRoot &quot;$(PublishDir).&quot; -ExpectedApplication &quot;RunBook.Workstation&quot; -Quiet" />
+  </Target>
 </Project>

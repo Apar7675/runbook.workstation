@@ -1,5 +1,6 @@
 using RunBook.Workstation.Models;
 using RunBook.Workstation.Services;
+using QRCoder;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -9,20 +10,28 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Threading;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace RunBook.Workstation.ViewModels
 {
     public sealed class MainViewModel : INotifyPropertyChanged
     {
-        private readonly RunBookWorkstationApiClient _api = new RunBookWorkstationApiClient();
+        private readonly RunBookWorkstationApiClient _api;
         private readonly WorkstationConnectionStatusService _connectionStatusService = new WorkstationConnectionStatusService();
+        private readonly bool _suppressAutomaticConnectionProbes;
         private readonly DispatcherTimer _sessionTimer;
         private readonly DispatcherTimer _syncTimer;
         private static readonly TimeSpan AuthRefreshInterval = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan IdleLogoutTimeout = TimeSpan.FromMinutes(5);
 
         private WorkstationSettings _settings;
         private WorkstationSessionSnapshot? _session;
@@ -34,9 +43,16 @@ namespace RunBook.Workstation.ViewModels
         private WorkstationWorkOrderSummary? _selectedWorkOrder;
         private WorkstationWorkOrderDetail? _workOrderDetail;
         private WorkstationWorkOrderOperationSummary? _selectedOperation;
+        private BitmapImage? _operationAttachmentIntakeQrImage;
+        private string _operationAttachmentIntakeUrl = "";
+        private string _operationAttachmentIntakeStatusText = "Select an operation to create an attachment intake QR.";
         private WorkstationDrawingReference? _selectedDrawing;
         private WorkstationInspectionTaskPackage? _inspectionPackage;
         private WorkstationInspectionTask? _selectedInspectionTask;
+        private bool _isInspectionOverlayOpen;
+        private RunBookWorkstationApiClient.OperationPacket? _operationPacket;
+        private string _operationPacketLoadStatus = "Operation packet has not loaded yet.";
+        private BitmapImage? _currentWorkOrderThumbnailImage;
         private WorkstationActiveContext? _activeContext;
         private WorkstationCurrentJobContext? _currentJob;
         private WorkstationCurrentJobContext? _recentJob;
@@ -46,7 +62,7 @@ namespace RunBook.Workstation.ViewModels
         private string _passcode = "";
         private string _timeClockStatus = "No punches yet.";
         private string _offlineStatus = "Offline status unknown";
-        private string _authCacheStatus = "No Desktop employee auth cache loaded.";
+        private string _authCacheStatus = "No local employee auth cache loaded.";
         private bool _isBusy;
         private DateTime _lastAuthRefreshAttemptUtc = DateTime.MinValue;
         private string _settingsBaseUrl = "";
@@ -58,6 +74,8 @@ namespace RunBook.Workstation.ViewModels
         private string _settingsControlEmail = "";
         private string _settingsControlPassword = "";
         private string _controlSessionStatus = "Not signed in";
+        private string _headerDateText = DateTime.Now.ToString("dddd, MMMM d, yyyy");
+        private string _headerTimeText = DateTime.Now.ToString("h:mm tt");
         private string _currentShiftStatus = "CLOCKED OUT";
         private string _currentShiftDetail = "No shift loaded yet.";
         private string _pendingSyncSummary = "No pending sync items.";
@@ -66,31 +84,108 @@ namespace RunBook.Workstation.ViewModels
         private string _timeOffEndDate = "";
         private string _timeOffHoursText = "";
         private string _timeOffNote = "";
+        private string _employeeQuickSearchText = "";
+        private string _pendingWelcomeModuleKey = "";
         private bool _isPasscodeDialogOpen;
+        private bool _isSupervisorDialogOpen;
+        private bool _isEmployeeBrowserOpen;
+        private bool _isRunBookAlertOpen;
+        private string _runBookAlertTitle = "";
+        private string _runBookAlertBody = "";
+        private string _runBookAlertPrimaryText = "OK";
+        private string _runBookAlertSecondaryText = "";
+        private bool _showRunBookAlertSecondaryAction;
+        private TaskCompletionSource<bool>? _runBookAlertCompletion;
+        private string _lastRunBookIssueAlertKey = "";
         private string _workOrdersStatus = "Work orders will load when this module opens.";
+        private WorkstationCurrentJobContext? _pendingResumeOperation;
+        private bool _pendingResumeOperationCapturedFromPunchOut;
+        private DateTime _lastInteractionUtc = DateTime.UtcNow;
         private const int MaxProductionQuantityValue = 1000000;
         private const int MaxWorkstationNoteLength = 1000;
         private const int MaxInspectionActualValueLength = 256;
+        private static readonly TimeSpan DesktopProbeForceInterval = TimeSpan.FromSeconds(15);
+        private static readonly TimeSpan DesktopProbePassiveInterval = TimeSpan.FromSeconds(60);
+        private const string ClockedOutOperationStartMessage = "You must be clocked in before starting this operation.\nPlease punch in to begin recording production time.";
+        private const string ActiveOperationPausedForClockOutMessage = "Your active operation has been paused because you are clocked out.\nProduction time will resume when you clock in and restart the operation.";
+        private const string WorkstationRegistrationRequiredRawMessage = "Workstation registration with RunBook Service is required.";
+        private const string WorkstationRegistrationRequiredUserMessage = "Workstation registration/trust is required before employee auth can sync. The Service health check can be green while this device is still not trusted.";
 
         private string _quantityReportText = "";
         private string _scrapReportText = "";
         private string _operationNoteText = "";
         private string _operationActionNoteText = "";
+        private string _receivedMaterialSpec = "";
+        private string _receivedMaterialShape = "";
+        private string _receivedMaterialSize = "";
+        private string _receivedMaterialGrade = "";
+        private string _receivedMaterialQuantity = "";
+        private string _receivedMaterialUnit = "Bars";
+        private string _receivedMaterialCondition = "OK";
+        private string _receivedMaterialNotes = "";
+        private string _receivedMaterialStorageLocation = "";
+        private bool _receiveMaterialMultipleHeatLots;
+        private int _savedMaterialReceiptId;
         private string _inspectionActualValue = "";
         private string _inspectionResultNoteText = "";
+        private string _quantityEventQuantity = "";
+        private string _quantityEventGoodQuantity = "";
+        private string _quantityEventScrapQuantity = "";
+        private string _quantityEventNotes = "";
+        private bool _isRecordQuantityPanelOpen;
+        private bool _inspectionResultSubmissionAvailable;
+        private bool _isMobileCaptureDialogOpen;
+        private bool _isTimeOffRequestsDialogOpen;
+        private bool _isPtoBenefitsDialogOpen;
+        private bool _isTimeClockActivityDialogOpen;
+        private DateTime _selectedTimeClockWeekStart = GetWeekStart(DateTime.Now.Date);
+        private string _selectedMobileCaptureType = "Damage Photo";
+        private string _mobileCaptureUrl = "";
+        private string _mobileCaptureExpiresText = "";
+        private BitmapImage? _mobileCaptureQrImage;
         private int _assignedWorkOrderCount;
         private int _backupWorkOrderCount;
+        private DateTime? _lastLocalHostSuccessUtc;
+        private DateTime? _lastLocalHostFailureUtc;
+        private string _lastLocalHostFailureReason = "";
+        private DateTime? _lastLocalHostProbeCheckedUtc;
         private DateTime? _lastDesktopSuccessUtc;
         private DateTime? _lastDesktopFailureUtc;
         private string _lastDesktopFailureReason = "";
+        private DateTime? _lastDesktopProbeCheckedUtc;
+        private DateTime? _lastDesktopProbeSuccessUtc;
+        private DateTime? _lastDesktopProbeFailureUtc;
+        private string _lastDesktopProbeFailureReason = "";
+        private DateTime _lastConnectionStatusRefreshUtc = DateTime.MinValue;
+        private bool _isLocalHostProbeInFlight;
+        private bool _pendingLocalHostProbeRefresh;
+        private int _localHostProbeGeneration;
+        private bool _isControlConfirmedAvailable;
+        private bool _isBackgroundSyncRunning;
+        private bool _isPostLoginHydrationRunning;
+        private bool _serviceWriteBlocked = true;
+        private string _lastTimeClockPresentationSignature = "";
+        private DateTime _lastPassiveConnectionRefreshUtc = DateTime.MinValue;
+        private UnlockTimingTrace? _unlockTimingTrace;
+        private string _selectedWorkOrderQueueTab = "assigned";
+        private string _selectedPacketTab = "packet";
+        private string _selectedDataEntryTab = "production";
 
         public MainViewModel()
+            : this(new RunBookWorkstationApiClient(), suppressAutomaticConnectionProbes: false)
         {
+        }
+
+        internal MainViewModel(Uri localServiceBaseUri)
+            : this(new RunBookWorkstationApiClient(localServiceBaseUri), suppressAutomaticConnectionProbes: true)
+        {
+        }
+
+        private MainViewModel(RunBookWorkstationApiClient api, bool suppressAutomaticConnectionProbes)
+        {
+            _api = api ?? throw new ArgumentNullException(nameof(api));
+            _suppressAutomaticConnectionProbes = suppressAutomaticConnectionProbes;
             _settings = WorkstationStorageService.LoadSettings();
-            _registration = WorkstationStorageService.LoadRegistration();
-            _session = WorkstationStorageService.LoadSession();
-            _timeclockSnapshot = WorkstationStorageService.LoadTimeclockState();
-            _authCache = WorkstationStorageService.LoadAuthCache();
             _settingsBaseUrl = _settings.ControlBaseUrl;
             _settingsDesktopBaseUrl = _settings.DesktopBaseUrl;
             _settingsShopId = _settings.ShopId;
@@ -98,14 +193,54 @@ namespace RunBook.Workstation.ViewModels
             _settingsWorkstationName = _settings.WorkstationName;
             _settingsPairingCode = _settings.PairingCode;
             _controlSessionStatus = ControlSessionService.GetStatusLabel();
+            _isControlConfirmedAvailable = false;
+            NormalizeDesktopBaseUrl();
+            BindToServiceAuthorityOnBoot();
+            _registration = WorkstationStorageService.LoadRegistration();
+            _session = WorkstationStorageService.LoadSession();
+            _timeclockSnapshot = WorkstationStorageService.LoadTimeclockState();
+            _authCache = WorkstationStorageService.LoadAuthCache();
 
-            LoginCommand = new RelayCommand(async () => await LoginAsync(), () => CanConfirmPasscode);
+            if (_serviceWriteBlocked)
+            {
+                _session = null;
+                _timeclockSnapshot = null;
+                MarkRegistrationValidationDegraded("service_authority_blocked", "Device trust could not be validated because RunBook.Service is unavailable or blocked. Continuing with the last saved workstation pairing.");
+                WorkstationStorageService.SaveSession(null);
+                WorkstationStorageService.SaveTimeclockState(null);
+            }
+
+            if (_registration != null &&
+                !string.IsNullOrWhiteSpace(Settings.ShopId) &&
+                !string.Equals(_registration.ShopId, Settings.ShopId, StringComparison.OrdinalIgnoreCase))
+            {
+                _registration.PairingRequiredReason = "shop_mismatch";
+                _registration = null;
+                WorkstationStorageService.SaveRegistration(null);
+                DebugLogService.Write("Workstation registration cleared | reason=shop_mismatch | paired=false");
+            }
+
+            if (_authCache?.Package != null &&
+                !string.IsNullOrWhiteSpace(Settings.ShopId) &&
+                !string.Equals(_authCache.Package.ShopId, Settings.ShopId, StringComparison.OrdinalIgnoreCase))
+            {
+                _authCache = null;
+                WorkstationStorageService.SaveAuthCache(null);
+            }
+
+            LoginCommand = new RelayCommand(async () => await SubmitPasscodeUnlockAsync(), () => CanConfirmPasscode);
             LogoutCommand = new RelayCommand(Logout, () => CurrentSession != null && !IsBusy);
             OpenSettingsCommand = new RelayCommand(() => StatusText = "Settings stay available from the left rail.", () => !IsBusy);
             SaveSettingsCommand = new RelayCommand(SaveSettings, () => !IsBusy);
             ConnectControlCommand = new RelayCommand(async () => await ConnectControlAsync(), () => !IsBusy);
             DisconnectControlCommand = new RelayCommand(DisconnectControl, () => !IsBusy);
             RefreshRegistrationCommand = new RelayCommand(async () => await RefreshRegistrationAsync(), () => !IsBusy);
+            RefreshEmployeeAuthCommand = new RelayCommand(async () => await RefreshEmployeeAuthAsync(), () => !IsBusy);
+            OpenSupervisorDialogCommand = new RelayCommand(OpenSupervisorDialog, () => !IsBusy);
+            CloseSupervisorDialogCommand = new RelayCommand(CloseSupervisorDialog, () => !IsBusy);
+            RunBookAlertPrimaryCommand = new RelayCommand(() => CompleteRunBookAlert(true), () => IsRunBookAlertOpen);
+            RunBookAlertSecondaryCommand = new RelayCommand(() => CompleteRunBookAlert(false), () => IsRunBookAlertOpen && ShowRunBookAlertSecondaryAction);
+            CloseRunBookAlertCommand = RunBookAlertPrimaryCommand;
             RefreshTimeClockCommand = new RelayCommand(async () => await RefreshTimeClockAsync(), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             ClockInCommand = new RelayCommand(async () => await SubmitPunchAsync("clock_in", ""), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             ClockOutCommand = new RelayCommand(async () => await SubmitPunchAsync("clock_out", ""), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
@@ -115,6 +250,15 @@ namespace RunBook.Workstation.ViewModels
             LunchEndCommand = new RelayCommand(async () => await SubmitPunchAsync("lunch_end", ""), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             SyncPendingCommand = new RelayCommand(async () => await SyncPendingQueueAsync(true), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             SubmitTimeOffCommand = new RelayCommand(async () => await SubmitTimeOffAsync(), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
+            OpenTimeOffRequestsDialogCommand = new RelayCommand(OpenTimeOffRequestsDialog, () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
+            CloseTimeOffRequestsDialogCommand = new RelayCommand(CloseTimeOffRequestsDialog, () => IsTimeOffRequestsDialogOpen && !IsBusy);
+            OpenPtoBenefitsCommand = new RelayCommand(OpenPtoBenefitsDialog, () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
+            ClosePtoBenefitsCommand = new RelayCommand(ClosePtoBenefitsDialog, () => IsPtoBenefitsDialogOpen && !IsBusy);
+            OpenTimeClockActivityDialogCommand = new RelayCommand(OpenTimeClockActivityDialog, () => CurrentSession != null && HasTimeClockAccess && HasMoreTimeClockActivity && !IsBusy);
+            CloseTimeClockActivityDialogCommand = new RelayCommand(CloseTimeClockActivityDialog, () => IsTimeClockActivityDialogOpen && !IsBusy);
+            PreviousTimeClockWeekCommand = new RelayCommand(GoToPreviousTimeClockWeek, () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
+            NextTimeClockWeekCommand = new RelayCommand(GoToNextTimeClockWeek, () => CurrentSession != null && HasTimeClockAccess && CanGoToNextTimeClockWeek && !IsBusy);
+            CurrentTimeClockWeekCommand = new RelayCommand(GoToCurrentTimeClockWeek, () => CurrentSession != null && HasTimeClockAccess && !IsViewingCurrentTimeClockWeek && !IsBusy);
             SelectModuleCommand = new RelayCommand<WorkstationModuleCard>(SelectModule);
             SelectModuleKeyCommand = new RelayCommand<string>(SelectModuleByKey, key => !string.IsNullOrWhiteSpace(key) && CurrentSession != null && !IsBusy);
             RefreshWorkOrdersCommand = new RelayCommand(async () => await RefreshWorkOrdersAsync(true), () => CurrentSession != null && HasWorkOrdersAccess && !IsBusy);
@@ -123,17 +267,37 @@ namespace RunBook.Workstation.ViewModels
             SelectWorkOrderCommand = new RelayCommand<WorkstationWorkOrderSummary>(async workOrder => await SelectWorkOrderAsync(workOrder), workOrder => workOrder != null && CurrentSession != null && HasWorkOrdersAccess && !IsBusy);
             OpenDrawingCommand = new RelayCommand<WorkstationDrawingReference>(async drawing => await OpenDrawingAsync(drawing), drawing => drawing != null && CurrentSession != null && HasDrawingsAccess && !IsBusy);
             SelectOperationCommand = new RelayCommand<WorkstationWorkOrderOperationSummary>(async operation => await SelectOperationAsync(operation), operation => operation != null && CurrentSession != null && HasWorkOrdersAccess && !IsBusy);
-            StartOperationCommand = new RelayCommand(async () => await ExecuteOperationAsync("start"), () => CurrentSession != null && HasOperationExecutionAccess && SelectedOperation?.CanStart == true && !IsBusy);
+            SelectWorkOrderQueueTabCommand = new RelayCommand<string>(SelectWorkOrderQueueTab, key => !string.IsNullOrWhiteSpace(key));
+            SelectPacketTabCommand = new RelayCommand<string>(SelectPacketTab, key => !string.IsNullOrWhiteSpace(key));
+            SelectDataEntryTabCommand = new RelayCommand<string>(SelectDataEntryTab, key => !string.IsNullOrWhiteSpace(key));
+            StartOperationCommand = new RelayCommand(async () => await ExecuteOperationAsync("start"), () => CurrentSession != null && HasOperationExecutionAccess && SelectedOperation != null && !IsBusy);
             StopOperationCommand = new RelayCommand(async () => await ExecuteOperationAsync("stop"), () => CurrentSession != null && HasOperationExecutionAccess && SelectedOperation?.CanStop == true && !IsBusy);
             CompleteOperationCommand = new RelayCommand(async () => await ExecuteOperationAsync("complete"), () => CurrentSession != null && HasOperationExecutionAccess && SelectedOperation?.CanComplete == true && !IsBusy);
+            SaveDataEntryCommand = new RelayCommand(async () => await SaveDataEntryAsync(), () => CurrentSession != null && SelectedOperation != null && !IsBusy);
             SubmitQuantityCommand = new RelayCommand(async () => await SubmitQuantityAsync(), () => CurrentSession != null && HasProductionQuantityAccess && SelectedOperation != null && !IsBusy);
             SubmitScrapCommand = new RelayCommand(async () => await SubmitScrapAsync(), () => CurrentSession != null && HasProductionScrapAccess && SelectedOperation != null && !IsBusy);
+            BeginRecordQuantityCommand = new RelayCommand(BeginRecordQuantity, () => CurrentSession != null && SelectedWorkOrder != null && SelectedOperation != null && HasProductionQuantityAccess && !IsBusy);
+            CancelRecordQuantityCommand = new RelayCommand(CancelRecordQuantity, () => !IsBusy && IsRecordQuantityPanelOpen);
+            SaveQuantityEventCommand = new RelayCommand(async () => await SaveQuantityEventAsync(), () => CurrentSession != null && SelectedWorkOrder != null && SelectedOperation != null && HasProductionQuantityAccess && CanSaveQuantityEvent && !IsBusy);
             SubmitOperationNoteCommand = new RelayCommand(async () => await SubmitOperationNoteAsync(), () => CurrentSession != null && HasProductionNoteAccess && SelectedOperation != null && !IsBusy);
             SubmitOperationHelpCommand = new RelayCommand(async () => await SubmitOperationHelpAsync(), () => CurrentSession != null && HasWorkOrdersAccess && SelectedOperation != null && !IsBusy);
             RefreshInspectionTasksCommand = new RelayCommand(async () => await RefreshInspectionTasksAsync(false), () => CurrentSession != null && HasInspectionViewAccess && SelectedWorkOrder != null && !IsBusy);
             SelectInspectionTaskCommand = new RelayCommand<WorkstationInspectionTask>(SelectInspectionTask, task => task != null && !IsBusy);
-            SubmitInspectionResultCommand = new RelayCommand(async () => await SubmitInspectionResultAsync(), () => CurrentSession != null && HasInspectionEntryAccess && SelectedInspectionTask != null && SelectedWorkOrder != null && !IsBusy);
+            SubmitInspectionResultCommand = new RelayCommand(async () => await SubmitInspectionResultAsync(), () => CurrentSession != null && HasInspectionEntryAccess && _inspectionResultSubmissionAvailable && SelectedInspectionTask != null && SelectedWorkOrder != null && !IsBusy);
+            OpenOperationInspectionCommand = new RelayCommand(OpenOperationInspection, () => HasOperationInspection && !IsBusy);
+            CloseOperationInspectionCommand = new RelayCommand(CloseOperationInspection, () => IsInspectionOverlayOpen && !IsBusy);
+            OpenPacketDocumentCommand = new RelayCommand<RunBookWorkstationApiClient.OperationPacketDocument>(async document => await OpenPacketDocumentAsync(document), document => document != null && CurrentSession != null && !IsBusy);
+            OpenMobileCaptureCommand = new RelayCommand(async () => await OpenMobileCaptureAsync(), () => CurrentSession != null && HasOperationExecutionAccess && SelectedWorkOrder != null && SelectedOperation != null && !IsBusy);
+            CloseMobileCaptureCommand = new RelayCommand(CloseMobileCapture, () => IsMobileCaptureDialogOpen && !IsBusy);
+            RefreshOperationAttachmentsCommand = new RelayCommand(async () => await RefreshOperationAttachmentsAsync(), () => CurrentSession != null && SelectedWorkOrder != null && SelectedOperation != null && !IsBusy);
+            AddMaterialHeatLotCommand = new RelayCommand(AddMaterialHeatLot, () => IsReceiveMaterialOperation && !IsBusy);
+            RemoveMaterialHeatLotCommand = new RelayCommand<WorkstationMaterialHeatLotEntry>(RemoveMaterialHeatLot, row => row != null && MaterialHeatLots.Count > 1 && !IsBusy);
+            PrimaryOperatorActionCommand = new RelayCommand(ExecutePrimaryOperatorAction, () => !IsBusy && (IsLoggedIn || RosterEmployees.Count > 0));
             OpenRosterEmployeeCommand = new RelayCommand<WorkstationRosterEmployee>(OpenRosterEmployee, employee => employee != null && !IsBusy);
+            LaunchWelcomeFlowCommand = new RelayCommand<string>(LaunchWelcomeFlow, key => !IsBusy && !string.IsNullOrWhiteSpace(key));
+            OpenEmployeeBrowserCommand = new RelayCommand(OpenEmployeeBrowser, () => !IsBusy && RosterEmployees.Count > 0);
+            CloseEmployeeBrowserCommand = new RelayCommand(CloseEmployeeBrowser, () => !IsBusy && IsEmployeeBrowserOpen);
+            SubmitEmployeeQuickSearchCommand = new RelayCommand(async () => await SubmitEmployeeQuickSearchAsync(), () => !IsBusy);
             AppendPasscodeDigitCommand = new RelayCommand<string>(AppendPasscodeDigit, digit => !IsBusy && IsPasscodeDialogOpen && !string.IsNullOrWhiteSpace(digit));
             BackspacePasscodeCommand = new RelayCommand(RemovePasscodeDigit, () => !IsBusy && IsPasscodeDialogOpen && _passcode.Length > 0);
             ClearPasscodeCommand = new RelayCommand(ClearPasscode, () => !IsBusy && IsPasscodeDialogOpen && _passcode.Length > 0);
@@ -146,16 +310,30 @@ namespace RunBook.Workstation.ViewModels
             _syncTimer.Tick += async (_, _) => await BackgroundSyncAsync();
             _syncTimer.Start();
 
-            NormalizeLocalShopScope();
-            LoadCachedPunches();
-            LoadCachedSnapshot();
-            LoadCachedAuthCache();
-            RestoreSessionState();
+            if (!_serviceWriteBlocked)
+            {
+                NormalizeLocalShopScope();
+                LoadCachedPunches();
+                LoadCachedSnapshot();
+                LoadCachedAuthCache();
+                RestoreSessionState();
+            }
             BuildVisibleModules();
             if (VisibleModules.Count > 0)
                 SelectedModule = VisibleModules[0];
 
-            _ = InitializeFromControlSessionAsync();
+            if (_serviceWriteBlocked)
+            {
+                OfflineStatus = Registration == null
+                    ? "RunBook.Service cannot validate workstation trust because local authority is unavailable."
+                    : "Device trust could not be validated because RunBook.Service is unavailable. Continuing with the last saved workstation pairing.";
+                if (string.IsNullOrWhiteSpace(StatusText) || string.Equals(StatusText, "Workstation ready.", StringComparison.Ordinal))
+                    StatusText = OfflineStatus;
+            }
+            else
+            {
+                _ = InitializeFromControlSessionSafeAsync();
+            }
             RefreshConnectionStatuses();
             RefreshTimeClockPresentation();
         }
@@ -170,12 +348,38 @@ namespace RunBook.Workstation.ViewModels
         public ObservableCollection<WorkstationTimeClockSummaryRow> WeeklySummaryRows { get; } = new();
         public ObservableCollection<WorkstationTimeClockSummaryRow> CurrentStatusSummaryRows { get; } = new();
         public ObservableCollection<WorkstationTimeClockActivityRow> TimeClockActivityRows { get; } = new();
+        public ObservableCollection<WorkstationTimeClockActivityRow> AllTimeClockActivityRows { get; } = new();
+        public ObservableCollection<WorkstationShiftTimelineEntry> TodayShiftTimelineEntries { get; } = new();
+        public ObservableCollection<WorkstationTimeClockHistoryDayRow> TimeClockHistoryDayRows { get; } = new();
         public ObservableCollection<WorkstationWorkOrderSummary> WorkOrders { get; } = new();
         public ObservableCollection<WorkstationWorkOrderSummary> AssignedWorkOrders { get; } = new();
         public ObservableCollection<WorkstationWorkOrderSummary> AvailableWorkOrders { get; } = new();
         public ObservableCollection<WorkstationOperatorAwareness> ShopOperators { get; } = new();
         public ObservableCollection<WorkstationDrawingReference> DrawingReferences { get; } = new();
         public ObservableCollection<WorkstationInspectionTask> InspectionTasks { get; } = new();
+        public ObservableCollection<RunBookWorkstationApiClient.OperationAttachment> OperationAttachments { get; } = new();
+        public ObservableCollection<RunBookWorkstationApiClient.OperationPacketDocument> PacketDrawingDocuments { get; } = new();
+        public ObservableCollection<RunBookWorkstationApiClient.OperationPacketDocument> PacketBalloonedDrawingDocuments { get; } = new();
+        public ObservableCollection<RunBookWorkstationApiClient.OperationPacketDocument> PacketInspectionDocuments { get; } = new();
+        public ObservableCollection<RunBookWorkstationApiClient.OperationPacketDocument> PacketOperationReferences { get; } = new();
+        public ObservableCollection<RunBookWorkstationApiClient.BalloonMarker> PacketBalloonMarkers { get; } = new();
+        public ObservableCollection<WorkstationQuantityEventEntry> RecentQuantityEvents { get; } = new();
+        public ObservableCollection<WorkstationDataEntrySection> DataEntrySections { get; } = new();
+        public ObservableCollection<string> MaterialUnitOptions { get; } = new()
+        {
+            "Bars", "Pieces", "Feet", "Inches", "Pounds", "Sheets", "Plates", "Tubes", "Coils", "Rolls", "Bundles", "Each", "Other"
+        };
+        public ObservableCollection<string> MaterialConditionOptions { get; } = new() { "OK", "Issue" };
+        public ObservableCollection<WorkstationMaterialHeatLotEntry> MaterialHeatLots { get; } = new();
+        public ObservableCollection<string> MobileCaptureTypes { get; } = new()
+        {
+            "Packing List",
+            "Material Cert",
+            "Damage Photo",
+            "Setup Photo",
+            "Inspection Evidence",
+            "Other Evidence"
+        };
 
         public ICommand LoginCommand { get; }
         public ICommand LogoutCommand { get; }
@@ -184,6 +388,12 @@ namespace RunBook.Workstation.ViewModels
         public ICommand ConnectControlCommand { get; }
         public ICommand DisconnectControlCommand { get; }
         public ICommand RefreshRegistrationCommand { get; }
+        public ICommand RefreshEmployeeAuthCommand { get; }
+        public ICommand OpenSupervisorDialogCommand { get; }
+        public ICommand CloseSupervisorDialogCommand { get; }
+        public ICommand RunBookAlertPrimaryCommand { get; }
+        public ICommand RunBookAlertSecondaryCommand { get; }
+        public ICommand CloseRunBookAlertCommand { get; }
         public ICommand RefreshTimeClockCommand { get; }
         public ICommand ClockInCommand { get; }
         public ICommand ClockOutCommand { get; }
@@ -193,6 +403,15 @@ namespace RunBook.Workstation.ViewModels
         public ICommand LunchEndCommand { get; }
         public ICommand SyncPendingCommand { get; }
         public ICommand SubmitTimeOffCommand { get; }
+        public ICommand OpenTimeOffRequestsDialogCommand { get; }
+        public ICommand CloseTimeOffRequestsDialogCommand { get; }
+        public ICommand OpenPtoBenefitsCommand { get; }
+        public ICommand ClosePtoBenefitsCommand { get; }
+        public ICommand OpenTimeClockActivityDialogCommand { get; }
+        public ICommand CloseTimeClockActivityDialogCommand { get; }
+        public ICommand PreviousTimeClockWeekCommand { get; }
+        public ICommand NextTimeClockWeekCommand { get; }
+        public ICommand CurrentTimeClockWeekCommand { get; }
         public ICommand SelectModuleCommand { get; }
         public ICommand SelectModuleKeyCommand { get; }
         public ICommand RefreshWorkOrdersCommand { get; }
@@ -201,17 +420,37 @@ namespace RunBook.Workstation.ViewModels
         public ICommand SelectWorkOrderCommand { get; }
         public ICommand OpenDrawingCommand { get; }
         public ICommand SelectOperationCommand { get; }
+        public ICommand SelectWorkOrderQueueTabCommand { get; }
+        public ICommand SelectPacketTabCommand { get; }
+        public ICommand SelectDataEntryTabCommand { get; }
         public ICommand StartOperationCommand { get; }
         public ICommand StopOperationCommand { get; }
         public ICommand CompleteOperationCommand { get; }
+        public ICommand SaveDataEntryCommand { get; }
         public ICommand SubmitQuantityCommand { get; }
         public ICommand SubmitScrapCommand { get; }
+        public ICommand BeginRecordQuantityCommand { get; }
+        public ICommand CancelRecordQuantityCommand { get; }
+        public ICommand SaveQuantityEventCommand { get; }
         public ICommand SubmitOperationNoteCommand { get; }
         public ICommand SubmitOperationHelpCommand { get; }
         public ICommand RefreshInspectionTasksCommand { get; }
         public ICommand SelectInspectionTaskCommand { get; }
         public ICommand SubmitInspectionResultCommand { get; }
+        public ICommand OpenOperationInspectionCommand { get; }
+        public ICommand CloseOperationInspectionCommand { get; }
+        public ICommand OpenPacketDocumentCommand { get; }
+        public ICommand OpenMobileCaptureCommand { get; }
+        public ICommand CloseMobileCaptureCommand { get; }
+        public ICommand RefreshOperationAttachmentsCommand { get; }
+        public ICommand AddMaterialHeatLotCommand { get; }
+        public ICommand RemoveMaterialHeatLotCommand { get; }
+        public ICommand PrimaryOperatorActionCommand { get; }
         public ICommand OpenRosterEmployeeCommand { get; }
+        public ICommand LaunchWelcomeFlowCommand { get; }
+        public ICommand OpenEmployeeBrowserCommand { get; }
+        public ICommand CloseEmployeeBrowserCommand { get; }
+        public ICommand SubmitEmployeeQuickSearchCommand { get; }
         public ICommand AppendPasscodeDigitCommand { get; }
         public ICommand BackspacePasscodeCommand { get; }
         public ICommand ClearPasscodeCommand { get; }
@@ -224,6 +463,8 @@ namespace RunBook.Workstation.ViewModels
             {
                 _settings = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(StationAreaLabel));
+                OnPropertyChanged(nameof(StationSubtitle));
                 OnPropertyChanged(nameof(WorkstationIdentityLine));
                 OnPropertyChanged(nameof(ConnectivityLine));
                 RefreshConnectionStatuses();
@@ -242,8 +483,36 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(ShowNoAccessAssigned));
                 OnPropertyChanged(nameof(ShowModulesShell));
                 OnPropertyChanged(nameof(SessionEmployeeName));
+                OnPropertyChanged(nameof(SessionEmployeeFirstName));
+                OnPropertyChanged(nameof(SessionEmployeeInitials));
+                NotifySessionEmployeeAvatarProperties();
                 OnPropertyChanged(nameof(SessionRole));
+                OnPropertyChanged(nameof(LoginHeadline));
+                OnPropertyChanged(nameof(LoginInstructionLine));
+                OnPropertyChanged(nameof(StationAreaLabel));
+                OnPropertyChanged(nameof(StationSubtitle));
+                OnPropertyChanged(nameof(OperatorLauncherTitle));
+                OnPropertyChanged(nameof(OperatorLauncherSubtitle));
+                OnPropertyChanged(nameof(OperatorShiftChipText));
+                OnPropertyChanged(nameof(OperatorShiftChipForeground));
+                OnPropertyChanged(nameof(OperatorShiftChipBackground));
+                OnPropertyChanged(nameof(OperatorShiftChipBorder));
+                OnPropertyChanged(nameof(OperatorTimeClockActionText));
+                OnPropertyChanged(nameof(OperatorTimeClockStatusLine));
+                OnPropertyChanged(nameof(ShowOperatorSessionCountdown));
+                OnPropertyChanged(nameof(OperatorSessionCountdownLabel));
+                OnPropertyChanged(nameof(ShowOperatorCurrentJobCard));
+                OnPropertyChanged(nameof(ShowOperatorRecentJobCard));
+                OnPropertyChanged(nameof(ShowOperatorEmptyWorkState));
+                OnPropertyChanged(nameof(CurrentOperatorLine));
+                OnPropertyChanged(nameof(CurrentOperatorStatusLine));
+                OnPropertyChanged(nameof(PrimaryOperatorActionText));
                 OnPropertyChanged(nameof(SessionModulesLine));
+                OnPropertyChanged(nameof(ShowRecentEmployeeEmptyState));
+                OnPropertyChanged(nameof(RecentEmployeeEmptyText));
+                OnPropertyChanged(nameof(HasMyActiveOperationShortcut));
+                OnPropertyChanged(nameof(ShowIdleLogoutBadge));
+                OnPropertyChanged(nameof(IdleLogoutBadgeText));
                 OnPropertyChanged(nameof(HasTimeClockAccess));
                 OnPropertyChanged(nameof(HasWorkOrdersAccess));
                 OnPropertyChanged(nameof(HasDrawingsAccess));
@@ -254,9 +523,21 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(HasInspectionViewAccess));
                 OnPropertyChanged(nameof(HasInspectionEntryAccess));
                 OnPropertyChanged(nameof(IsTimeClockSelected));
+                OnPropertyChanged(nameof(ShowGlobalStatusFooter));
                 OnPropertyChanged(nameof(IsHomeSelected));
                 OnPropertyChanged(nameof(IsWorkOrdersSelected));
                 OnPropertyChanged(nameof(IsDrawingsSelected));
+                OnPropertyChanged(nameof(ServiceStatusHeadline));
+                OnPropertyChanged(nameof(ServiceStatusDetail));
+                OnPropertyChanged(nameof(ServiceStatusAccentBrush));
+                OnPropertyChanged(nameof(ServiceStatusBackgroundBrush));
+                OnPropertyChanged(nameof(ServiceStatusNote));
+                OnPropertyChanged(nameof(StationStatusDetailText));
+                OnPropertyChanged(nameof(RuntimeAuthorityStatusText));
+                OnPropertyChanged(nameof(RuntimeAuthorityStatusBrush));
+                OnPropertyChanged(nameof(WorkstationOnlineStatusBrush));
+                OnPropertyChanged(nameof(LastSyncDisplayText));
+                RefreshRosterEmployeeStatuses();
                 RefreshConnectionStatuses();
                 RaiseCommandStates();
             }
@@ -270,6 +551,9 @@ namespace RunBook.Workstation.ViewModels
                 _registration = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(ConnectivityLine));
+                OnPropertyChanged(nameof(WorkstationOnlineStatusBrush));
+                OnPropertyChanged(nameof(WorkstationOnlineStatusText));
+                OnPropertyChanged(nameof(LastSyncDisplayText));
                 RefreshConnectionStatuses();
             }
         }
@@ -287,9 +571,11 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(CurrentModuleTitle));
                 OnPropertyChanged(nameof(CurrentModuleSubtitle));
                 OnPropertyChanged(nameof(IsTimeClockSelected));
+                OnPropertyChanged(nameof(ShowGlobalStatusFooter));
                 OnPropertyChanged(nameof(IsHomeSelected));
                 OnPropertyChanged(nameof(IsWorkOrdersSelected));
                 OnPropertyChanged(nameof(IsDrawingsSelected));
+                OnPropertyChanged(nameof(ShowIdleLogoutBadge));
             }
         }
 
@@ -309,6 +595,7 @@ namespace RunBook.Workstation.ViewModels
                     SelectedOperation = null;
                     DrawingReferences.Clear();
                     SelectedDrawing = null;
+                    CurrentWorkOrderThumbnailImage = null;
                     InspectionPackage = null;
                     InspectionTasks.Clear();
                     SelectedInspectionTask = null;
@@ -318,11 +605,23 @@ namespace RunBook.Workstation.ViewModels
                     ScrapReportText = "";
                     OperationNoteText = "";
                     OperationActionNoteText = "";
+                    SelectedPacketTab = "packet";
+                    SelectedDataEntryTab = "production";
                     UpdateActiveContext();
                     OnPropertyChanged(nameof(InspectionSubtitle));
                 }
 
                 OnPropertyChanged();
+                RefreshWorkOrderSelectionStates();
+                OnPropertyChanged(nameof(SelectedWorkOrderStatusText));
+                OnPropertyChanged(nameof(SelectedWorkOrderStatusBackgroundBrush));
+                OnPropertyChanged(nameof(SelectedWorkOrderStatusBorderBrush));
+                OnPropertyChanged(nameof(SelectedWorkOrderStatusForegroundBrush));
+                OnPropertyChanged(nameof(SelectedWorkOrderDueDateText));
+                OnPropertyChanged(nameof(SelectedWorkOrderRevisionText));
+                OnPropertyChanged(nameof(SelectedWorkOrderCustomerText));
+                OnPropertyChanged(nameof(SelectedWorkOrderCellText));
+                OnPropertyChanged(nameof(SelectedWorkOrderProgressPercentText));
                 RaiseCommandStates();
             }
         }
@@ -341,6 +640,10 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged(nameof(SelectedWorkOrderProgressSummary));
                 OnPropertyChanged(nameof(SelectedWorkOrderActiveOperatorsSummary));
                 OnPropertyChanged(nameof(ActiveWorkContextLine));
+                OnPropertyChanged(nameof(SelectedWorkOrderDueDateText));
+                OnPropertyChanged(nameof(SelectedWorkOrderRevisionText));
+                OnPropertyChanged(nameof(SelectedWorkOrderCustomerText));
+                OnPropertyChanged(nameof(SelectedWorkOrderProgressPercentText));
             }
         }
 
@@ -367,11 +670,39 @@ namespace RunBook.Workstation.ViewModels
                 UpdateActiveContext();
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(SelectedOperationTitle));
+                OnPropertyChanged(nameof(SelectedOperationNumberText));
                 OnPropertyChanged(nameof(SelectedOperationContext));
+                OnPropertyChanged(nameof(SelectedOperationDisplayStatus));
+                OnPropertyChanged(nameof(SelectedOperationStatusText));
+                OnPropertyChanged(nameof(SelectedOperationStatusBackgroundBrush));
+                OnPropertyChanged(nameof(SelectedOperationStatusBorderBrush));
+                OnPropertyChanged(nameof(SelectedOperationStatusForegroundBrush));
+                OnPropertyChanged(nameof(OperationStartActionText));
                 OnPropertyChanged(nameof(ActiveWorkContextLine));
+                OnPropertyChanged(nameof(ShowStartOperationAction));
+                OnPropertyChanged(nameof(ShowPauseOperationAction));
+                OnPropertyChanged(nameof(ShowCompleteOperationAction));
+                OnPropertyChanged(nameof(ShowInspectionAction));
+                OnPropertyChanged(nameof(ShowAttachmentActions));
+                OnPropertyChanged(nameof(ShowMobileCaptureAction));
+                OnPropertyChanged(nameof(SelectedOperationWorkCenterText));
+                OnPropertyChanged(nameof(SelectedOperationDepartmentText));
+                OnPropertyChanged(nameof(SelectedOperationTypeText));
+                OnPropertyChanged(nameof(SelectedOperationSetupText));
+                OnPropertyChanged(nameof(SelectedOperationCycleText));
+                OnPropertyChanged(nameof(SelectedOperationStartedText));
+                RebuildDataEntrySections();
+                UpdateOperationAttachmentIntakeQr();
+                RefreshOperationSelectionStates();
+                SelectedPacketTab = "packet";
+                SetDefaultDataEntryTab();
+                if (_selectedOperation == null)
+                {
+                    ClearOperationPacket();
+                }
                 RaiseCommandStates();
-                if (CurrentSession != null && HasInspectionViewAccess && !IsBusy && SelectedWorkOrder != null)
-                    _ = RefreshInspectionTasksAsync(false);
+                if (CurrentSession != null && SelectedWorkOrder != null && _selectedOperation != null && !IsBusy)
+                    _ = RefreshOperationPacketAsync(false);
             }
         }
 
@@ -384,6 +715,9 @@ namespace RunBook.Workstation.ViewModels
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(InspectionTitle));
                 OnPropertyChanged(nameof(InspectionSubtitle));
+                OnPropertyChanged(nameof(InspectionOverlayTypeLabel));
+                OnPropertyChanged(nameof(UseInProcessInspectionLayout));
+                OnPropertyChanged(nameof(UseSideBySideInspectionLayout));
                 RaiseCommandStates();
             }
         }
@@ -397,9 +731,29 @@ namespace RunBook.Workstation.ViewModels
                     return;
 
                 _selectedInspectionTask = value;
+                _inspectionActualValue = value?.ActualValue ?? "";
+                _inspectionResultNoteText = value?.ResultNotes ?? "";
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(SelectedInspectionTaskTitle));
                 OnPropertyChanged(nameof(SelectedInspectionTaskSummary));
+                OnPropertyChanged(nameof(SelectedInspectionBalloonLabel));
+                OnPropertyChanged(nameof(SelectedInspectionFeatureLabel));
+                OnPropertyChanged(nameof(InspectionActualValue));
+                OnPropertyChanged(nameof(InspectionResultNoteText));
+                RaiseCommandStates();
+            }
+        }
+
+        public bool IsInspectionOverlayOpen
+        {
+            get => _isInspectionOverlayOpen;
+            private set
+            {
+                if (_isInspectionOverlayOpen == value)
+                    return;
+
+                _isInspectionOverlayOpen = value;
+                OnPropertyChanged();
                 RaiseCommandStates();
             }
         }
@@ -412,8 +766,15 @@ namespace RunBook.Workstation.ViewModels
                 _selectedRosterEmployee = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(PasscodeDialogTitle));
+                OnPropertyChanged(nameof(PasscodeDialogInstruction));
                 OnPropertyChanged(nameof(PasscodeDialogSubtitle));
                 OnPropertyChanged(nameof(PasscodeDialogModuleSummary));
+                OnPropertyChanged(nameof(PasscodeDialogActionTitle));
+                OnPropertyChanged(nameof(PasscodeDialogEmployeeStatusText));
+                OnPropertyChanged(nameof(ShowPasscodeDialogEmployeeStatus));
+                OnPropertyChanged(nameof(PasscodeDialogEmployeeStatusForeground));
+                OnPropertyChanged(nameof(PasscodeDialogEmployeeStatusBackground));
+                OnPropertyChanged(nameof(PasscodeDialogEmployeeStatusBorder));
                 RaiseCommandStates();
             }
         }
@@ -444,68 +805,390 @@ namespace RunBook.Workstation.ViewModels
                 _isPasscodeDialogOpen = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CanConfirmPasscode));
+                OnPropertyChanged(nameof(PasscodeDialogMessageText));
+                OnPropertyChanged(nameof(ShowPasscodeDialogMessage));
                 RaiseCommandStates();
             }
         }
 
-        public string StatusText { get => _statusText; private set { _statusText = value ?? ""; OnPropertyChanged(); } }
-        public string SessionCountdown { get => _sessionCountdown; private set { _sessionCountdown = value ?? ""; OnPropertyChanged(); } }
+        public bool IsSupervisorDialogOpen
+        {
+            get => _isSupervisorDialogOpen;
+            private set
+            {
+                if (_isSupervisorDialogOpen == value)
+                    return;
+
+                _isSupervisorDialogOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
+
+        public bool IsTimeOffRequestsDialogOpen
+        {
+            get => _isTimeOffRequestsDialogOpen;
+            private set
+            {
+                if (_isTimeOffRequestsDialogOpen == value)
+                    return;
+
+                _isTimeOffRequestsDialogOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
+
+        public bool IsPtoBenefitsDialogOpen
+        {
+            get => _isPtoBenefitsDialogOpen;
+            private set
+            {
+                if (_isPtoBenefitsDialogOpen == value)
+                    return;
+
+                _isPtoBenefitsDialogOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
+
+        public bool IsTimeClockActivityDialogOpen
+        {
+            get => _isTimeClockActivityDialogOpen;
+            private set
+            {
+                if (_isTimeClockActivityDialogOpen == value)
+                    return;
+
+                _isTimeClockActivityDialogOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
+
+        public bool IsRunBookAlertOpen
+        {
+            get => _isRunBookAlertOpen;
+            private set
+            {
+                if (_isRunBookAlertOpen == value)
+                    return;
+
+                _isRunBookAlertOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
+
+        public string RunBookAlertTitle
+        {
+            get => _runBookAlertTitle;
+            private set
+            {
+                if (string.Equals(_runBookAlertTitle, value, StringComparison.Ordinal))
+                    return;
+
+                _runBookAlertTitle = value ?? "";
+                OnPropertyChanged();
+            }
+        }
+
+        public string RunBookAlertBody
+        {
+            get => _runBookAlertBody;
+            private set
+            {
+                if (string.Equals(_runBookAlertBody, value, StringComparison.Ordinal))
+                    return;
+
+                _runBookAlertBody = value ?? "";
+                OnPropertyChanged();
+            }
+        }
+        public string RunBookAlertPrimaryText
+        {
+            get => _runBookAlertPrimaryText;
+            private set
+            {
+                if (string.Equals(_runBookAlertPrimaryText, value, StringComparison.Ordinal))
+                    return;
+
+                _runBookAlertPrimaryText = value ?? "";
+                OnPropertyChanged();
+            }
+        }
+
+        public string RunBookAlertSecondaryText
+        {
+            get => _runBookAlertSecondaryText;
+            private set
+            {
+                if (string.Equals(_runBookAlertSecondaryText, value, StringComparison.Ordinal))
+                    return;
+
+                _runBookAlertSecondaryText = value ?? "";
+                OnPropertyChanged();
+            }
+        }
+
+        public bool ShowRunBookAlertSecondaryAction
+        {
+            get => _showRunBookAlertSecondaryAction;
+            private set
+            {
+                if (_showRunBookAlertSecondaryAction == value)
+                    return;
+
+                _showRunBookAlertSecondaryAction = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
+
+        public string StatusText
+        {
+            get => _statusText;
+            private set
+            {
+                _statusText = value ?? "";
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(StatusTextBrush));
+                OnPropertyChanged(nameof(StatusTextBorderBrush));
+                OnPropertyChanged(nameof(StatusTextBackgroundBrush));
+                OnPropertyChanged(nameof(PasscodeDialogMessageText));
+                OnPropertyChanged(nameof(ShowPasscodeDialogMessage));
+            }
+        }
+        public string StatusTextBrush => IsErrorStatusText ? "#F0525E" : IsWarningStatusText ? "#E8BC52" : IsSuccessStatusText ? "#3CC875" : "#B0BDD0";
+        public string StatusTextBorderBrush => IsErrorStatusText ? "#66F0525E" : IsWarningStatusText ? "#5CE8BC52" : IsSuccessStatusText ? "#553CC875" : "#3B526F";
+        public string StatusTextBackgroundBrush => IsErrorStatusText ? "#18F0525E" : IsWarningStatusText ? "#14E8BC52" : IsSuccessStatusText ? "#123CC875" : "#15162636";
+        private bool IsErrorStatusText => ContainsStatusText("error") || ContainsStatusText("failed") || ContainsStatusText("unable") || ContainsStatusText("unavailable") || ContainsStatusText("invalid") || ContainsStatusText("expired");
+        private bool IsWarningStatusText => ContainsStatusText("waiting") || ContainsStatusText("not configured") || ContainsStatusText("required");
+        private bool IsSuccessStatusText => ContainsStatusText("saved") || ContainsStatusText("complete") || ContainsStatusText("ready") || ContainsStatusText("operational") || ContainsStatusText("connected");
+        private bool ContainsStatusText(string value)
+            => (_statusText ?? "").IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
+        public string SessionCountdown
+        {
+            get => _sessionCountdown;
+            private set
+            {
+                _sessionCountdown = value ?? "";
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ShowOperatorSessionCountdown));
+                OnPropertyChanged(nameof(OperatorSessionCountdownLabel));
+            }
+        }
         public string TimeClockStatus { get => _timeClockStatus; private set { _timeClockStatus = value ?? ""; OnPropertyChanged(); } }
-        public string OfflineStatus { get => _offlineStatus; private set { _offlineStatus = value ?? ""; OnPropertyChanged(); } }
+        public string OfflineStatus
+        {
+            get => _offlineStatus;
+            private set
+            {
+                _offlineStatus = value ?? "";
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(StationStatusDetailText));
+            }
+        }
         public string AuthCacheStatus { get => _authCacheStatus; private set { _authCacheStatus = value ?? ""; OnPropertyChanged(); } }
         public string SettingsBaseUrl { get => _settingsBaseUrl; set { _settingsBaseUrl = value ?? ""; OnPropertyChanged(); } }
         public string SettingsDesktopBaseUrl { get => _settingsDesktopBaseUrl; set { _settingsDesktopBaseUrl = value ?? ""; OnPropertyChanged(); } }
         public string SettingsShopId { get => _settingsShopId; set { _settingsShopId = value ?? ""; OnPropertyChanged(); } }
-        public string SettingsShopName { get => _settingsShopName; set { _settingsShopName = value ?? ""; OnPropertyChanged(); } }
-        public string SettingsWorkstationName { get => _settingsWorkstationName; set { _settingsWorkstationName = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(WorkstationIdentityLine)); } }
+        public string SettingsShopName { get => _settingsShopName; set { _settingsShopName = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(StationAreaLabel)); } }
+        public string SettingsWorkstationName { get => _settingsWorkstationName; set { _settingsWorkstationName = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(StationSubtitle)); OnPropertyChanged(nameof(WorkstationIdentityLine)); } }
         public string SettingsPairingCode { get => _settingsPairingCode; set { _settingsPairingCode = value ?? ""; OnPropertyChanged(); } }
         public string SettingsControlEmail { get => _settingsControlEmail; set { _settingsControlEmail = value ?? ""; OnPropertyChanged(); } }
         public string SettingsControlPassword { get => _settingsControlPassword; set { _settingsControlPassword = value ?? ""; OnPropertyChanged(); } }
         public string ControlSessionStatus { get => _controlSessionStatus; private set { _controlSessionStatus = value ?? ""; OnPropertyChanged(); } }
-        public string CurrentShiftStatus { get => _currentShiftStatus; private set { _currentShiftStatus = value ?? ""; OnPropertyChanged(); } }
-        public string CurrentShiftDetail { get => _currentShiftDetail; private set { _currentShiftDetail = value ?? ""; OnPropertyChanged(); } }
+        public string CurrentShiftStatus
+        {
+            get => _currentShiftStatus;
+            private set
+            {
+                _currentShiftStatus = value ?? "";
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(OperatorLauncherSubtitle));
+                OnPropertyChanged(nameof(OperatorShiftChipText));
+                OnPropertyChanged(nameof(OperatorShiftChipForeground));
+                OnPropertyChanged(nameof(OperatorShiftChipBackground));
+                OnPropertyChanged(nameof(OperatorShiftChipBorder));
+                OnPropertyChanged(nameof(OperatorTimeClockActionText));
+                OnPropertyChanged(nameof(OperatorTimeClockStatusLine));
+            }
+        }
+        public string CurrentShiftDetail
+        {
+            get => _currentShiftDetail;
+            private set
+            {
+                _currentShiftDetail = value ?? "";
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(OperatorTimeClockStatusLine));
+            }
+        }
         public string PendingSyncSummary { get => _pendingSyncSummary; private set { _pendingSyncSummary = value ?? ""; OnPropertyChanged(); } }
         public string WorkOrdersStatus { get => _workOrdersStatus; private set { _workOrdersStatus = value ?? ""; OnPropertyChanged(); } }
-        public string HeaderDateText => DateTime.Now.ToString("dddd, MMMM d, yyyy");
-        public string HeaderTimeText => DateTime.Now.ToString("h:mm tt");
+        public string HeaderDateText => _headerDateText;
+        public string HeaderTimeText => _headerTimeText;
+        public string StationAreaLabel => string.IsNullOrWhiteSpace(Settings.ShopName) ? "WORKSTATION AREA" : Settings.ShopName.ToUpperInvariant();
+        public string StationSubtitle => string.IsNullOrWhiteSpace(Settings.WorkstationName) ? "Workstation" : Settings.WorkstationName;
+        public string SessionEmployeeFirstName => BuildFirstName(SessionEmployeeName);
+        public string SessionEmployeeInitials => BuildInitials(SessionEmployeeName);
+        public string OperatorLauncherTitle => $"Welcome, {SessionEmployeeFirstName}";
+        public string OperatorLauncherSubtitle => TimeClockStateKey switch
+        {
+            "out" => "Clock in to begin work.",
+            "working" => "Open work, enter progress, or print released documents.",
+            "break" => "End break or open work when you are ready to resume.",
+            "lunch" => "Return from lunch or open work when you are ready.",
+            _ => "Choose what you want to do next."
+        };
+        public string RefreshConnectionsButtonText => "Refresh Employee Avatars";
+        public bool HasSupervisorSession => ControlSessionService.HasSession();
+        public bool ShowSupervisorSignInFields => !HasSupervisorSession;
+        public bool ShowSupervisorEnrollmentActions => HasSupervisorSession;
+        public string SupervisorDialogTitle => HasSupervisorSession ? "Supervisor Access Ready" : "Supervisor Sign In";
+        public string SupervisorDialogSubtitle => HasSupervisorSession
+            ? "Supervisor tools are unlocked for registration, reconnects, and codes."
+            : "RunBook supervisor email and password are required before registration codes can be used.";
+        public string IdleLogoutButtonText => "Log Out / Switch User";
+        public string IdleLogoutBadgeText => CurrentSession == null ? "" : FormatIdleLogoutRemaining(GetIdleSecondsRemaining());
+        public bool ShowIdleLogoutBadge => CurrentSession != null && !IsWorkOrdersSelected;
         public string TimeClockStateKey => GetShiftStateKey(CurrentShiftStatus);
+        public string OperatorShiftChipText => TimeClockStateKey switch
+        {
+            "working" => "CLOCKED IN",
+            "break" => "ON BREAK",
+            "lunch" => "AT LUNCH",
+            _ => "CLOCKED OUT"
+        };
+        public string OperatorShiftChipForeground => TimeClockStateKey switch
+        {
+            "working" => "#FF2BD576",
+            "break" => "#FFF5B642",
+            "lunch" => "#FF78A6E8",
+            _ => "#FFFF5A6A"
+        };
+        public string OperatorShiftChipBackground => TimeClockStateKey switch
+        {
+            "working" => "#182BD576",
+            "break" => "#18F5B642",
+            "lunch" => "#1878A6E8",
+            _ => "#18FF5A6A"
+        };
+        public string OperatorShiftChipBorder => TimeClockStateKey switch
+        {
+            "working" => "#662BD576",
+            "break" => "#66F5B642",
+            "lunch" => "#6678A6E8",
+            _ => "#66FF5A6A"
+        };
+        public string OperatorTimeClockActionText => TimeClockStateKey switch
+        {
+            "out" => "Punch In",
+            "working" => "Clock Out / Break",
+            _ => "Open Time Clock"
+        };
+        public string OperatorTimeClockStatusLine => string.IsNullOrWhiteSpace(CurrentShiftDetail) ? OperatorShiftChipText : CurrentShiftDetail;
+        public bool ShowOperatorSessionCountdown => IsLoggedIn && !string.IsNullOrWhiteSpace(SessionCountdown) && !string.Equals(SessionCountdown, "Signed out", StringComparison.OrdinalIgnoreCase);
+        public string OperatorSessionCountdownLabel => SessionCountdown;
         public string TimeClockHeroTitle => TimeClockStateKey switch
         {
-            "working" => "YOU ARE WORKING",
-            "break" => "ON BREAK",
-            "lunch" => "ON LUNCH",
-            _ => "NOT WORKING"
+            "working" => "You Are Clocked In",
+            "break" => "You Are On Break",
+            "lunch" => "You Are At Lunch",
+            _ => "You Are Clocked Out"
         };
         public string TimeClockHeroStatusLabel => CurrentShiftStatus;
         public string TimeClockHeroHelperText => TimeClockStateKey switch
         {
-            "working" => "You are currently on the clock.",
-            "break" => "Tap End Break when you return.",
-            "lunch" => "Tap End Lunch when you return.",
-            _ => "Tap Clock In to start your shift."
+            "working" => "You are currently working. Keep up the great work!",
+            "break" => "Your break is active. End break when you return.",
+            "lunch" => "Your lunch is active. End lunch when you return.",
+            _ => "Clock in when you are ready to start recording time."
         };
         public string TimeClockHeroPrimaryLine => BuildHeroPrimaryLine();
         public string TimeClockHeroSecondaryLine => BuildHeroSecondaryLine();
+        public string TimeClockHeroSinceLine => BuildHeroSinceLine();
+        public string TimeClockHeroClockInTime => BuildHeroClockInTime();
+        public string TimeClockHeroClockInDate => BuildHeroClockInDate();
+        public string TimeClockHeroElapsedValue => BuildHeroElapsedValue();
+        public string TimeClockHeroElapsedCaption => TimeClockStateKey == "out" ? "not currently running" : $"as of {DateTime.Now.ToString("h:mm tt", CultureInfo.InvariantCulture)}";
+        public string TimeClockHeroShiftLine => BuildHeroShiftLine();
+        public string TimeClockHeroShiftDisplay => TimeClockHeroShiftLine == "Current shift" ? "Shift: Not assigned" : $"Shift: {TimeClockHeroShiftLine}";
+        public string TimeClockWeeklyDateRange => BuildWeeklyDateRange();
+        public string TimeClockWeeklyTotalText => BuildWeeklyTotalText();
+        public bool IsViewingCurrentTimeClockWeek => _selectedTimeClockWeekStart.Date == GetWeekStart(DateTime.Now.Date);
+        public bool CanGoToNextTimeClockWeek => _selectedTimeClockWeekStart.Date < GetWeekStart(DateTime.Now.Date);
+        public bool ShowCurrentTimeClockWeekButton => !IsViewingCurrentTimeClockWeek;
+        public bool HasLoadedTimeClockWeekActivity => BuildSelectedWeekSummary().HasActivity;
+        public bool ShowEmptyTimeClockWeek => !HasLoadedTimeClockWeekActivity;
+        public string TimeClockWeeklyHelperText => "No loaded punch activity for this week.";
+        public string TimeClockPendingApprovalCount => RecentTimeOffRequests.Count.ToString(CultureInfo.InvariantCulture);
+        public string TimeClockPendingApprovalText => HasRecentTimeOffRequests ? "Pending requests loaded" : "No pending requests";
+        public string TimeOffRequestsButtonText => "View My Requests";
+        public string TimeClockFooterStatusLine => BuildTimeClockFooterStatusLine();
+        public string TimeClockSyncStatusLabel => HasPendingSyncItems ? "Saving" : "Saved";
+        public string TimeClockSyncDetailText => BuildSyncSummaryValue();
+        public string WorkstationVersionLabel => $"v{typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"}";
+        public string TimeClockTimelineClockInText => TimeClockStateKey == "out" ? "Ready" : BuildStatusTimeValue();
+        public string TimeClockTimelineClockInAccentBrush => TimeClockStateKey == "out" ? "#38D5FF" : "#2BD576";
+        public string TimeClockTimelineClockInBackgroundBrush => TimeClockStateKey == "out" ? "#112D45" : "#0E2F25";
+        public string TimeClockTimelineClockInBorderBrush => TimeClockStateKey == "out" ? "#1F82C7" : "#1F6A4C";
+        public string TimeClockTimelineConnectorBackgroundBrush => TimeClockHeroBackgroundBrush;
+        public string TimeClockTimelineConnectorAccentBrush => TimeClockHeroAccentBrush;
+        public string TimeClockTimelineWorkingText => TimeClockStateKey switch
+        {
+            "working" => "In Progress",
+            "break" => "Paused for break",
+            "lunch" => "Paused for lunch",
+            _ => "Upcoming"
+        };
+        public string TimeClockTimelineLunchText => TimeClockStateKey == "lunch" ? "In Progress" : "Upcoming";
+        public string TimeClockTimelineClockOutText => TimeClockStateKey == "out" ? "Completed" : "Upcoming";
+        public string TimeClockStatusPillBackgroundBrush => TimeClockStateKey switch
+        {
+            "working" => "#182BD576",
+            "break" => "#18F5B642",
+            "lunch" => "#18F5B642",
+            _ => "#2A1015"
+        };
+        public string TimeClockStatusPillBorderBrush => TimeClockStateKey switch
+        {
+            "working" => "#662BD576",
+            "break" => "#66F5B642",
+            "lunch" => "#66F5B642",
+            _ => "#9E2F3E"
+        };
+        public string TimeClockStatusPillForegroundBrush => TimeClockStateKey switch
+        {
+            "working" => "#FF2BD576",
+            "break" => "#FFF5B642",
+            "lunch" => "#FFF5B642",
+            _ => "#FFFF5A6A"
+        };
         public string TimeClockHeroAccentBrush => TimeClockStateKey switch
         {
-            "working" => "#62D89B",
-            "break" => "#E5B05F",
-            "lunch" => "#7FAEEA",
-            _ => "#E77D87"
+            "working" => "#FF2BD576",
+            "break" => "#FFF5B642",
+            "lunch" => "#FFF5B642",
+            _ => "#FFFF5A6A"
         };
+        public Brush TimeClockHeroGradientBrush => BuildTimeClockHeroGradientBrush();
+        public Brush TimeClockHeroGlowWashBrush => BuildTimeClockHeroGlowWashBrush();
         public string TimeClockHeroBorderBrush => TimeClockStateKey switch
         {
-            "working" => "#6662D89B",
-            "break" => "#66E5B05F",
-            "lunch" => "#667FAEEA",
-            _ => "#66E77D87"
+            "working" => "#FF1F6A4C",
+            "break" => "#FF8A5A10",
+            "lunch" => "#FF8A5A10",
+            _ => "#FF9E2F3E"
         };
         public string TimeClockHeroBackgroundBrush => TimeClockStateKey switch
         {
-            "working" => "#CC10251F",
-            "break" => "#CC271C10",
-            "lunch" => "#CC132238",
-            _ => "#CC281419"
+            "working" => "#FF0E2F25",
+            "break" => "#FF31230F",
+            "lunch" => "#FF31230F",
+            _ => "#FF2A1015"
         };
         public bool ShowClockInAction => TimeClockStateKey == "out";
         public bool ShowWorkingActions => TimeClockStateKey == "working";
@@ -516,10 +1199,63 @@ namespace RunBook.Workstation.ViewModels
         public bool ShowNoRecentTimeOffRequests => !HasRecentTimeOffRequests;
         public bool HasTimeClockActivity => TimeClockActivityRows.Count > 0;
         public bool ShowEmptyTimeClockActivity => !HasTimeClockActivity;
+        public bool HasTodayShiftTimeline => TodayShiftTimelineEntries.Count > 0;
+        public bool ShowEmptyTodayShiftTimeline => !HasTodayShiftTimeline;
+        public bool HasMoreTimeClockActivity => RecentPunches.Count > TimeClockActivityRows.Count;
+        public bool ShowTimeClockActivityViewAllButton => HasMoreTimeClockActivity;
+        public string TimeClockActivityViewAllButtonText => HasMoreTimeClockActivity ? "View All" : "All Activity Shown";
+        public bool ShowEmptyTimeOffRequestsDialog => RecentTimeOffRequests.Count == 0;
+        public bool ShowEmptyTimeClockActivityDialog => AllTimeClockActivityRows.Count == 0;
         public string TimeClockActivityTitle => "Recent Activity";
         public string TimeOffSectionSubtitle => HasRecentTimeOffRequests
             ? "Request time away without leaving the punch screen."
             : "Need time away? Submit the request here.";
+        public WorkstationEmployeeBenefitsSummary PtoBenefits => _timeclockSnapshot?.Benefits ?? new WorkstationEmployeeBenefitsSummary();
+        public IEnumerable<WorkstationBenefitBucket> PtoBenefitBuckets => PtoBenefits.Buckets;
+        public IEnumerable<WorkstationBenefitLedgerEntry> PtoRecentLedger => PtoBenefits.RecentLedger;
+        public bool HasPtoBenefitBuckets => PtoBenefits.Buckets.Count > 0;
+        public bool ShowNoPtoBenefitBuckets => !HasPtoBenefitBuckets;
+        public bool HasPtoRecentLedger => PtoBenefits.RecentLedger.Count > 0;
+        public bool ShowNoPtoRecentLedger => !HasPtoRecentLedger;
+        public string PtoBenefitsTitle => string.IsNullOrWhiteSpace(PtoBenefits.PolicyName)
+            ? "PTO Benefits"
+            : PtoBenefits.PolicyName;
+        public string PtoBenefitsSummary => HasPtoBenefitBuckets
+            ? $"{PtoBenefits.TotalPaidHours:0.##}h available"
+            : "PTO balances unavailable";
+        public string PtoAvailableHoursText => HasPtoBenefitBuckets
+            ? $"{PtoBenefits.TotalPaidHours:0.##}h"
+            : "--";
+        public string PtoPendingHoursText => HasPtoBenefitBuckets
+            ? $"{PtoBenefits.Buckets.Sum(bucket => bucket.PendingHours):0.##}h"
+            : "--";
+        public string PtoNextEligibleText => BuildPtoNextEligibleText();
+        public string PtoBenefitsEligibilitySummary => string.IsNullOrWhiteSpace(PtoBenefits.EligibilitySummary)
+            ? (PtoBenefits.IsEligible ? "Eligible now" : "Eligibility date not set")
+            : PtoBenefits.EligibilitySummary;
+        public string PtoBenefitsResetSummary => string.IsNullOrWhiteSpace(PtoBenefits.ResetDate)
+            ? "Expiration/reset date not set"
+            : $"Benefits reset or expire on {PtoBenefits.ResetDate}";
+        public string PtoRequestCountSummary => HasRecentTimeOffRequests
+            ? $"{RecentTimeOffRequests.Count} recent request{(RecentTimeOffRequests.Count == 1 ? "" : "s")}"
+            : "No recent requests";
+        public WorkstationTimeOffRequestRecord? LatestPtoRequest => RecentTimeOffRequests.FirstOrDefault();
+        public string PtoLatestApprovalStatus => LatestPtoRequest == null
+            ? "No approval activity"
+            : NormalizePtoStatusText(LatestPtoRequest.Status);
+        public string PtoLatestDateRange => LatestPtoRequest == null
+            ? "No recent request"
+            : FormatPtoRequestDateRange(LatestPtoRequest);
+        public string PtoLatestManagerNote => LatestPtoRequest == null
+            ? "Manager approval notes will appear here."
+            : string.IsNullOrWhiteSpace(LatestPtoRequest.ManagerNote)
+                ? "No manager note yet."
+                : LatestPtoRequest.ManagerNote;
+        public string PtoLatestEmployeeNote => LatestPtoRequest == null
+            ? "Employee request notes will appear here."
+            : string.IsNullOrWhiteSpace(LatestPtoRequest.EmployeeNote)
+                ? "No employee note entered."
+                : LatestPtoRequest.EmployeeNote;
         public WorkstationShopAwareness ShopAwareness
         {
             get => _shopAwareness;
@@ -542,6 +1278,10 @@ namespace RunBook.Workstation.ViewModels
                 _currentJob = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HasCurrentJob));
+                OnPropertyChanged(nameof(ShowOperatorCurrentJobCard));
+                OnPropertyChanged(nameof(ShowOperatorRecentJobCard));
+                OnPropertyChanged(nameof(ShowOperatorEmptyWorkState));
+                OnPropertyChanged(nameof(CurrentOperatorStatusLine));
                 OnPropertyChanged(nameof(CurrentJobTitle));
                 OnPropertyChanged(nameof(CurrentJobSummary));
                 OnPropertyChanged(nameof(CurrentJobHint));
@@ -556,17 +1296,35 @@ namespace RunBook.Workstation.ViewModels
                 _recentJob = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HasRecentJob));
+                OnPropertyChanged(nameof(ShowOperatorRecentJobCard));
+                OnPropertyChanged(nameof(ShowOperatorEmptyWorkState));
                 OnPropertyChanged(nameof(RecentJobTitle));
                 OnPropertyChanged(nameof(RecentJobSummary));
                 RaiseCommandStates();
             }
         }
-        public string QuantityReportText { get => _quantityReportText; set { _quantityReportText = value ?? ""; OnPropertyChanged(); RaiseCommandStates(); } }
-        public string ScrapReportText { get => _scrapReportText; set { _scrapReportText = value ?? ""; OnPropertyChanged(); RaiseCommandStates(); } }
-        public string OperationNoteText { get => _operationNoteText; set { _operationNoteText = value ?? ""; OnPropertyChanged(); RaiseCommandStates(); } }
+        public string QuantityReportText { get => _quantityReportText; set { _quantityReportText = value ?? ""; OnPropertyChanged(); RaiseDataEntryPropertiesChanged(); RaiseCommandStates(); } }
+        public string ScrapReportText { get => _scrapReportText; set { _scrapReportText = value ?? ""; OnPropertyChanged(); RaiseDataEntryPropertiesChanged(); RaiseCommandStates(); } }
+        public string OperationNoteText { get => _operationNoteText; set { _operationNoteText = value ?? ""; OnPropertyChanged(); RaiseDataEntryPropertiesChanged(); RaiseCommandStates(); } }
         public string OperationActionNoteText { get => _operationActionNoteText; set { _operationActionNoteText = value ?? ""; OnPropertyChanged(); } }
         public string InspectionActualValue { get => _inspectionActualValue; set { _inspectionActualValue = value ?? ""; OnPropertyChanged(); RaiseCommandStates(); } }
         public string InspectionResultNoteText { get => _inspectionResultNoteText; set { _inspectionResultNoteText = value ?? ""; OnPropertyChanged(); } }
+        public string QuantityEventQuantity { get => _quantityEventQuantity; set { _quantityEventQuantity = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(CanSaveQuantityEvent)); OnPropertyChanged(nameof(QuantityEventValidationMessage)); RaiseCommandStates(); } }
+        public string QuantityEventGoodQuantity { get => _quantityEventGoodQuantity; set { _quantityEventGoodQuantity = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(CanSaveQuantityEvent)); OnPropertyChanged(nameof(QuantityEventValidationMessage)); RaiseCommandStates(); } }
+        public string QuantityEventScrapQuantity { get => _quantityEventScrapQuantity; set { _quantityEventScrapQuantity = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(CanSaveQuantityEvent)); OnPropertyChanged(nameof(QuantityEventValidationMessage)); RaiseCommandStates(); } }
+        public string QuantityEventNotes { get => _quantityEventNotes; set { _quantityEventNotes = value ?? ""; OnPropertyChanged(); } }
+        public bool IsRecordQuantityPanelOpen
+        {
+            get => _isRecordQuantityPanelOpen;
+            private set
+            {
+                if (_isRecordQuantityPanelOpen == value)
+                    return;
+                _isRecordQuantityPanelOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
         public string TimeOffType { get => _timeOffType; set { _timeOffType = value ?? "VACATION"; OnPropertyChanged(); } }
         public string TimeOffStartDate { get => _timeOffStartDate; set { _timeOffStartDate = value ?? ""; OnPropertyChanged(); } }
         public string TimeOffEndDate { get => _timeOffEndDate; set { _timeOffEndDate = value ?? ""; OnPropertyChanged(); } }
@@ -612,40 +1370,264 @@ namespace RunBook.Workstation.ViewModels
         public bool HasPendingSyncItems => PendingSyncItems.Any(item => !string.Equals(item.SyncStatus, "synced", StringComparison.OrdinalIgnoreCase));
         public bool IsHomeSelected => string.Equals(SelectedModule?.Key, "home", StringComparison.OrdinalIgnoreCase);
         public bool IsTimeClockSelected => string.Equals(SelectedModule?.Key, "timeclock", StringComparison.OrdinalIgnoreCase);
+        public bool ShowGlobalStatusFooter => !IsTimeClockSelected;
         public bool IsWorkOrdersSelected => string.Equals(SelectedModule?.Key, "workorders", StringComparison.OrdinalIgnoreCase);
         public bool IsDrawingsSelected => string.Equals(SelectedModule?.Key, "drawings", StringComparison.OrdinalIgnoreCase);
+        public string SelectedWorkOrderQueueTab
+        {
+            get => _selectedWorkOrderQueueTab;
+            private set
+            {
+                var normalized = string.Equals(value, "all", StringComparison.OrdinalIgnoreCase) ? "all" : "assigned";
+                if (string.Equals(_selectedWorkOrderQueueTab, normalized, StringComparison.Ordinal))
+                    return;
+                _selectedWorkOrderQueueTab = normalized;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsAssignedQueueSelected));
+                OnPropertyChanged(nameof(IsAvailableQueueSelected));
+                OnPropertyChanged(nameof(VisibleWorkOrderQueue));
+                OnPropertyChanged(nameof(VisibleWorkOrderQueueCount));
+                OnPropertyChanged(nameof(VisibleWorkOrderQueueLabel));
+                OnPropertyChanged(nameof(WorkOrdersQueueFooterText));
+                OnPropertyChanged(nameof(WorkOrdersQueueEmptyStateTitle));
+                OnPropertyChanged(nameof(WorkOrdersQueueEmptyStateBody));
+            }
+        }
+        public bool IsAssignedQueueSelected => string.Equals(SelectedWorkOrderQueueTab, "assigned", StringComparison.OrdinalIgnoreCase);
+        public bool IsAvailableQueueSelected => !IsAssignedQueueSelected;
+        public IReadOnlyList<WorkstationWorkOrderSummary> VisibleWorkOrderQueue => IsAssignedQueueSelected
+            ? AssignedWorkOrders.ToList()
+            : AvailableWorkOrders.ToList();
+        public int VisibleWorkOrderQueueCount => VisibleWorkOrderQueue.Count;
+        public string VisibleWorkOrderQueueLabel => IsAssignedQueueSelected ? "assigned work orders" : "available work orders";
+        public string WorkOrdersQueueFooterText => VisibleWorkOrderQueueCount == 0
+            ? $"No {VisibleWorkOrderQueueLabel} are loaded."
+            : $"Showing {VisibleWorkOrderQueueCount} {VisibleWorkOrderQueueLabel}.";
+        public string WorkOrdersQueueEmptyStateTitle => IsAssignedQueueSelected ? "No assigned work orders" : "No available work orders";
+        public string WorkOrdersQueueEmptyStateBody => IsAssignedQueueSelected
+            ? "RunBook Service has not assigned executable work orders to this operator yet."
+            : "No additional available work orders are exposed to this operator right now.";
+        public string WorkOrdersQueueEmptyStateSecondary => IsAssignedQueueSelected
+            ? "Refresh after a supervisor releases or assigns work."
+            : "Refresh after a supervisor releases or exposes additional available work.";
+        public string SelectedPacketTab
+        {
+            get => _selectedPacketTab;
+            private set
+            {
+                var normalized = NormalizePacketTab(value);
+                if (string.Equals(_selectedPacketTab, normalized, StringComparison.Ordinal))
+                    return;
+                _selectedPacketTab = normalized;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsPacketTabSelected));
+                OnPropertyChanged(nameof(IsDrawingsPacketTabSelected));
+                OnPropertyChanged(nameof(IsReferencesPacketTabSelected));
+                OnPropertyChanged(nameof(IsChecklistPacketTabSelected));
+                OnPropertyChanged(nameof(IsInspectionsPacketTabSelected));
+                OnPropertyChanged(nameof(IsAttachmentsPacketTabSelected));
+            }
+        }
+        public bool IsPacketTabSelected => string.Equals(SelectedPacketTab, "packet", StringComparison.OrdinalIgnoreCase);
+        public bool IsDrawingsPacketTabSelected => string.Equals(SelectedPacketTab, "drawings", StringComparison.OrdinalIgnoreCase);
+        public bool IsReferencesPacketTabSelected => string.Equals(SelectedPacketTab, "references", StringComparison.OrdinalIgnoreCase);
+        public bool IsChecklistPacketTabSelected => string.Equals(SelectedPacketTab, "checklist", StringComparison.OrdinalIgnoreCase);
+        public bool IsInspectionsPacketTabSelected => string.Equals(SelectedPacketTab, "inspections", StringComparison.OrdinalIgnoreCase);
+        public bool IsAttachmentsPacketTabSelected => string.Equals(SelectedPacketTab, "attachments", StringComparison.OrdinalIgnoreCase);
+        public string SelectedDataEntryTab
+        {
+            get => _selectedDataEntryTab;
+            private set
+            {
+                var normalized = NormalizeDataEntryTab(value);
+                if (string.Equals(_selectedDataEntryTab, normalized, StringComparison.Ordinal))
+                    return;
+                _selectedDataEntryTab = normalized;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsProductionDataEntryTabSelected));
+                OnPropertyChanged(nameof(IsMaterialDataEntryTabSelected));
+                OnPropertyChanged(nameof(IsInspectionDataEntryTabSelected));
+                OnPropertyChanged(nameof(IsNotesDataEntryTabSelected));
+            }
+        }
+        public bool IsProductionDataEntryTabSelected => string.Equals(SelectedDataEntryTab, "production", StringComparison.OrdinalIgnoreCase);
+        public bool IsMaterialDataEntryTabSelected => string.Equals(SelectedDataEntryTab, "material", StringComparison.OrdinalIgnoreCase);
+        public bool IsInspectionDataEntryTabSelected => string.Equals(SelectedDataEntryTab, "inspection", StringComparison.OrdinalIgnoreCase);
+        public bool IsNotesDataEntryTabSelected => string.Equals(SelectedDataEntryTab, "notes", StringComparison.OrdinalIgnoreCase);
         public bool HasCurrentJob => CurrentJob != null && CurrentJob.WorkOrderId > 0;
         public bool HasRecentJob => !HasCurrentJob && RecentJob != null && RecentJob.WorkOrderId > 0;
+        public bool ShowOperatorCurrentJobCard => HasCurrentJob;
+        public bool ShowOperatorRecentJobCard => !HasCurrentJob && HasRecentJob;
+        public bool ShowOperatorEmptyWorkState => !HasCurrentJob && !HasRecentJob;
         public bool HasShopAwareness => ShopAwareness.Summary.VisibleJobs > 0 || ShopOperators.Count > 0;
         public bool CanConfirmPasscode => !IsBusy && IsPasscodeDialogOpen && SelectedRosterEmployee != null && _passcode.Length >= 4 && _passcode.Length <= 6;
-        public string WorkstationIdentityLine => $"{Settings.WorkstationName}  |  {Settings.WorkstationId}";
+        public string LoginHeadline => IsLoggedIn ? "Go to Work" : "Select Operator";
+        public string LoginInstructionLine => IsLoggedIn
+            ? "Your workstation session is ready. Continue into work when you are ready."
+            : "Choose your operator card below, then enter your 4 to 6 digit passcode to sign in.";
+        public string CurrentOperatorLine => IsLoggedIn ? $"Operator: {SessionEmployeeName}" : "Operator: None selected";
+        public string CurrentOperatorStatusLine => IsLoggedIn
+            ? $"Status: {(HasCurrentJob ? "Working" : "Ready")}"
+            : "Status: Waiting for operator sign-in";
+        public string PrimaryOperatorActionText => IsLoggedIn ? "Go to Work" : "Select Operator";
+        public string WorkstationIdentityLine => string.IsNullOrWhiteSpace(Settings.WorkstationName)
+            ? "Office Workstation"
+            : Settings.WorkstationName;
+        public IReadOnlyList<WorkstationRosterEmployee> RecentRosterEmployees => RosterEmployees.Take(8).ToList();
+        public bool HasMoreRosterEmployees => RosterEmployees.Count > RecentRosterEmployees.Count;
+        public bool HasRosterEmployees => RosterEmployees.Count > 0;
+        public bool ShowRecentEmployeeEmptyState => RosterEmployees.Count == 0;
+        public string RecentEmployeeEmptyText => RosterEmployees.Count == 0
+            ? "Choose an action above, then select your employee profile."
+            : "Select a recent employee to continue into passcode sign-in.";
+        public string RecentEmployeeEmptyDetailText => RosterEmployees.Count == 0
+            ? "Recent employees will appear here after sign-in."
+            : "";
+        public string EmployeeQuickSearchText
+        {
+            get => _employeeQuickSearchText;
+            set
+            {
+                var normalized = value ?? "";
+                if (string.Equals(_employeeQuickSearchText, normalized, StringComparison.Ordinal))
+                    return;
+                _employeeQuickSearchText = normalized;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(EmployeeQuickSearchHint));
+                OnPropertyChanged(nameof(EmployeeBrowserEmployees));
+                RaiseCommandStates();
+            }
+        }
+        public string EmployeeQuickSearchHint => string.IsNullOrWhiteSpace(EmployeeQuickSearchText)
+            ? "Search employee by name or badge..."
+            : EmployeeQuickSearchText.Trim();
+        public string QuickSearchHelperText => RosterEmployees.Count == 0
+            ? "Employee search becomes available after the workstation roster is loaded."
+            : "Search employee by name or badge, or open the full employee list.";
+        public bool IsEmployeeBrowserOpen
+        {
+            get => _isEmployeeBrowserOpen;
+            private set
+            {
+                if (_isEmployeeBrowserOpen == value)
+                    return;
+                _isEmployeeBrowserOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
+        public IReadOnlyList<WorkstationRosterEmployee> EmployeeBrowserEmployees
+        {
+            get
+            {
+                var query = (EmployeeQuickSearchText ?? "").Trim();
+                if (query.Length == 0)
+                    return RosterEmployees.ToList();
+
+                return RosterEmployees
+                    .Where(employee =>
+                        employee.DisplayName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        employee.EmployeeCode.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                    .ToList();
+            }
+        }
+        public string ServiceStatusHeadline => _serviceWriteBlocked ? "SERVICE ATTENTION" : "SERVICE READY";
+        public string ServiceStatusDetail => _serviceWriteBlocked
+            ? "Workstation writes are paused until RunBook.Service is healthy."
+            : "Connected to RunBook Service";
+        public string ServiceStatusAccentBrush => _serviceWriteBlocked ? "#FF5A6A" : "#2BD576";
+        public string ServiceStatusBackgroundBrush => _serviceWriteBlocked ? "#22FF5A6A" : "#182BD576";
+        public string WorkstationOnlineStatusBrush => Registration?.IsActive == true ? "#FF2BD576" : "#FFAAB6C8";
+        public string WorkstationOnlineStatusText => Registration?.IsActive == true ? "Online" : "Not paired";
+        public string RuntimeAuthorityStatusText => _serviceWriteBlocked ? "Blocked" : "Healthy";
+        public string RuntimeAuthorityStatusBrush => _serviceWriteBlocked ? "#FFFF5A6A" : "#FF2BD576";
+        public string ServiceStatusNote => _serviceWriteBlocked
+            ? "RunBook.Service local authority is unavailable right now."
+            : "RunBook.Service local authority connected.";
+        public string StationStatusDetailText => string.Equals(OfflineStatus, ServiceStatusNote, StringComparison.OrdinalIgnoreCase)
+            ? ""
+            : OfflineStatus;
+        public string LastSyncDisplayText
+        {
+            get
+            {
+                var raw = FirstNonBlank(_timeclockSnapshot?.LastSyncUtc, Registration?.LastSyncUtc, _authCache?.LastRefreshSuccessUtc);
+                return string.IsNullOrWhiteSpace(raw) ? "Not synced" : FormatDisplayDateTime(raw);
+            }
+        }
+        public bool HasMyActiveOperationShortcut => CurrentJob != null && CurrentJob.WorkOrderId > 0 && CurrentJob.OperationId > 0;
         public string ConnectivityLine
         {
             get
             {
                 var shop = string.IsNullOrWhiteSpace(Settings.ShopName) ? "Unassigned shop" : Settings.ShopName;
                 var registration = Registration == null ? "Not registered" : $"Registered: {Registration.Status}";
-                return $"{shop}  |  {registration}";
+                var localHost = BuildLocalHostEndpointLabel();
+                return $"{shop}  |  {registration}  |  {localHost}";
+            }
+        }
+        public string RosterDiagnosticLine
+        {
+            get
+            {
+                if (_authCache?.Package == null)
+                    return "No employee auth package is loaded from the local workstation authority yet.";
+
+                var total = _authCache.Package.Employees?.Count ?? 0;
+                var active = _authCache.Package.Employees?.Count(employee => employee.IsActive) ?? 0;
+                var workstationReady = _authCache.Package.Employees?.Count(employee => employee.IsActive && employee.WorkstationAccessEnabled) ?? 0;
+                var visible = RosterEmployees.Count;
+                return $"Local package: {total} employees | active {active} | workstation-ready {workstationReady} | showing {visible}.";
+            }
+        }
+        public string RosterAvatarStatusLine
+        {
+            get
+            {
+                if (RosterEmployees.Count == 0)
+                    return "";
+
+                var withPhotos = RosterEmployees.Count(employee => employee.HasAvatarDisplayUrl);
+                return withPhotos == 0
+                    ? "Desktop did not send face-photo avatars for this roster, so Workstation is showing generated avatar circles."
+                    : $"Showing face-photo avatars for {withPhotos} employee{(withPhotos == 1 ? "" : "s")}.";
+            }
+        }
+
+        public WorkstationRosterEmployee? ActiveSessionRosterEmployee
+        {
+            get
+            {
+                if (CurrentSession == null)
+                    return null;
+
+                return FindRosterEmployee(
+                    CurrentSession.Employee.RemoteEmployeeId,
+                    CurrentSession.Employee.EmployeeId,
+                    CurrentSession.Employee.EmployeeCode);
             }
         }
 
         public string SessionEmployeeName => CurrentSession?.Employee?.DisplayName ?? "No active user";
+        public string SessionEmployeeAvatarDisplayUrl => ActiveSessionRosterEmployee?.AvatarDisplayUrl ?? "";
+        public bool SessionEmployeeHasAvatarDisplayUrl => !string.IsNullOrWhiteSpace(SessionEmployeeAvatarDisplayUrl);
+        public string SessionEmployeeAvatarBrush => ActiveSessionRosterEmployee?.AvatarBrush ?? PickAvatarBrush(SessionEmployeeName);
         public string SessionRole => CurrentSession?.Employee?.Role ?? "Signed out";
         public string SessionModulesLine => CurrentSession == null ? "No modules available" : (CurrentSession.Modules.Count == 0 ? "No access assigned" : string.Join("  |  ", CurrentSession.Modules.Select(ToModuleLabel)));
         public string CurrentJobTitle => CurrentJob == null ? "No active job" : $"{CurrentJob.WorkOrderNumber} • Op {CurrentJob.OperationNumber:000}";
-        public string CurrentJobSummary => CurrentJob == null ? "Desktop has not assigned an active job to this employee yet." : $"{CurrentJob.PartNumber} • {CurrentJob.OperationTitle}";
+        public string CurrentJobSummary => CurrentJob == null ? "Service has not assigned an active job to this employee yet." : $"{CurrentJob.PartNumber} • {CurrentJob.OperationTitle}";
         public string CurrentJobHint => CurrentJob == null ? "Select an assigned job to begin work." : $"{CurrentJob.AssignmentLabel} • {CurrentJob.OperationStatus}";
         public string RecentJobTitle => RecentJob == null ? "No recent job" : $"{RecentJob.WorkOrderNumber} • Op {RecentJob.OperationNumber:000}";
         public string RecentJobSummary => RecentJob == null ? "No recent workstation job is waiting to resume." : $"{RecentJob.PartNumber} • {RecentJob.OperationTitle}";
         public string ShopSummaryLine => !HasShopAwareness
-            ? "Desktop will surface shop awareness after workstation jobs load."
+            ? "Service will surface shop awareness after workstation jobs load."
             : $"Active jobs {ShopAwareness.Summary.ActiveJobs} | Waiting jobs {ShopAwareness.Summary.WaitingJobs} | Completed {ShopAwareness.Summary.CompletedJobs}";
         public string ShopSummaryCountsLine => !HasShopAwareness
             ? "No shop-level visibility is loaded yet."
             : $"Active operators {ShopAwareness.Summary.ActiveOperators} | Idle {ShopAwareness.Summary.IdleOperators} | Visible jobs {ShopAwareness.Summary.VisibleJobs}";
         public string ShopOperatorAwarenessLine => ShopOperators.Count == 0
             ? "No operators are currently active in this workstation view."
-            : $"Showing {ShopOperators.Count} active operator{(ShopOperators.Count == 1 ? "" : "s")} from Desktop.";
+            : $"Showing {ShopOperators.Count} active operator{(ShopOperators.Count == 1 ? "" : "s")} from Service.";
         public string ShopActiveOperatorCountLine => ShopOperators.Count == 0
             ? "No active operators"
             : ShopOperators.Count == 1
@@ -653,23 +1635,35 @@ namespace RunBook.Workstation.ViewModels
                 : $"{ShopOperators.Count} operators are active now.";
         public string CurrentModuleTitle => SelectedModule?.Title ?? "RunBook Workstation";
         public string CurrentModuleSubtitle => SelectedModule?.Subtitle ?? "Shop-floor access shell";
+        public string WorkOrdersHeaderCountText => WorkOrders.Count.ToString(CultureInfo.InvariantCulture);
         public string SelectedWorkOrderTitle => WorkOrderDetail?.WorkOrderNumber ?? "Select a work order";
         public string SelectedWorkOrderSummary => WorkOrderDetail == null
             ? "Read-only released work-order detail will appear here."
-            : $"{WorkOrderDetail.PartNumber}  •  Rev {WorkOrderDetail.Revision}  •  Qty {WorkOrderDetail.Quantity}";
+            : $"{WorkOrderDetail.PartNumber} - Rev {WorkOrderDetail.Revision} - Qty {WorkOrderDetail.Quantity}";
+        public string SelectedWorkOrderStatusText => SelectedWorkOrder?.StatusBadgeText ?? "PENDING";
+        public string SelectedWorkOrderStatusBackgroundBrush => SelectedWorkOrder?.StatusBadgeBackgroundBrush ?? "#1A6F7C8F";
+        public string SelectedWorkOrderStatusBorderBrush => SelectedWorkOrder?.StatusBadgeBorderBrush ?? "#66243246";
+        public string SelectedWorkOrderStatusForegroundBrush => SelectedWorkOrder?.StatusBadgeForegroundBrush ?? "#FFAAB6C8";
+        public string SelectedWorkOrderDueDateText => WorkOrderDetail == null
+            ? "No due date"
+            : string.IsNullOrWhiteSpace(WorkOrderDetail.DueDate) ? "No due date" : FormatFriendlyDate(WorkOrderDetail.DueDate);
+        public string SelectedWorkOrderRevisionText => string.IsNullOrWhiteSpace(WorkOrderDetail?.Revision) ? "Rev -" : $"Rev {WorkOrderDetail.Revision}";
+        public string SelectedWorkOrderCustomerText => string.IsNullOrWhiteSpace(WorkOrderDetail?.CustomerName) ? "Customer not available" : WorkOrderDetail.CustomerName;
+        public string SelectedWorkOrderCellText => FirstNonBlank(_operationPacket?.WorkCenterDisplay, SelectedOperation?.WorkCenter, "Work center pending");
+        public string SelectedWorkOrderProgressPercentText => WorkOrderDetail == null ? "0%" : $"{WorkOrderDetail.ProgressPercent}%";
         public string SelectedWorkOrderContext => WorkOrderDetail == null
-            ? "Desktop remains the authority for work-order data."
-            : $"{WorkOrderDetail.ReleaseState} snapshot  •  Due {FormatFriendlyDate(WorkOrderDetail.DueDate)}  •  {WorkOrderDetail.SnapshotLoadSource}";
+            ? "Service now serves workstation work-order reads."
+            : $"{WorkOrderDetail.ReleaseState} snapshot - Due {FormatFriendlyDate(WorkOrderDetail.DueDate)} - {WorkOrderDetail.SnapshotLoadSource}";
         public string SelectedWorkOrderOperationsSummary => WorkOrderDetail == null
             ? "No operation summary loaded yet."
             : WorkOrderDetail.TotalOperations <= 0
                 ? "No released operations were found for this work order."
-                : $"In Progress: {WorkOrderDetail.OperationSummary.InProgress}  •  Completed: {WorkOrderDetail.OperationSummary.Completed}  •  Remaining: {WorkOrderDetail.OperationSummary.NotStarted}";
+                : $"In Progress: {WorkOrderDetail.OperationSummary.InProgress} - Completed: {WorkOrderDetail.OperationSummary.Completed} - Remaining: {WorkOrderDetail.OperationSummary.NotStarted}";
         public string SelectedWorkOrderProgressSummary => WorkOrderDetail == null
-            ? "Desktop computes production visibility from authoritative operation state."
+            ? "Service computes production visibility from company manufacturing state."
             : WorkOrderDetail.TotalOperations <= 0
                 ? "Progress will appear once released operations exist."
-                : $"{WorkOrderDetail.ProgressPercent}% complete  •  {WorkOrderDetail.CompletedOperations}/{WorkOrderDetail.TotalOperations} operations finished";
+                : $"{WorkOrderDetail.ProgressPercent}% complete - {WorkOrderDetail.CompletedOperations}/{WorkOrderDetail.TotalOperations} operations finished";
         public string SelectedWorkOrderActiveOperatorsSummary => WorkOrderDetail == null
             ? "Operator awareness will appear when a work order is selected."
             : WorkOrderDetail.ActiveOperators.Count == 0
@@ -680,34 +1674,369 @@ namespace RunBook.Workstation.ViewModels
         public string ActiveWorkContextLine => _activeContext == null || _activeContext.WorkOrderId <= 0
             ? "No active work context selected."
             : _activeContext.OperationId <= 0
-                ? $"{_activeContext.WorkOrderNumber}  â€¢  {_activeContext.PartNumber}"
-                : $"{_activeContext.WorkOrderNumber}  â€¢  Op {_activeContext.OperationNumber:000} {_activeContext.OperationTitle}";
+                ? $"{_activeContext.WorkOrderNumber} - {_activeContext.PartNumber}"
+                : $"{_activeContext.WorkOrderNumber} - OP{_activeContext.OperationNumber:000} {_activeContext.OperationTitle}";
+        public BitmapImage? CurrentWorkOrderThumbnailImage
+        {
+            get => _currentWorkOrderThumbnailImage;
+            private set
+            {
+                if (ReferenceEquals(_currentWorkOrderThumbnailImage, value))
+                    return;
+
+                _currentWorkOrderThumbnailImage = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CurrentWorkOrderThumbnailVisibility));
+                OnPropertyChanged(nameof(CurrentWorkOrderThumbnailPlaceholderVisibility));
+            }
+        }
+        public Visibility CurrentWorkOrderThumbnailVisibility => CurrentWorkOrderThumbnailImage == null ? Visibility.Collapsed : Visibility.Visible;
+        public Visibility CurrentWorkOrderThumbnailPlaceholderVisibility => CurrentWorkOrderThumbnailImage == null ? Visibility.Visible : Visibility.Collapsed;
         public string SelectedOperationTitle => SelectedOperation == null
             ? "Select an operation"
-            : $"Op {SelectedOperation.OperationNumber:000}  â€¢  {SelectedOperation.Title}";
+            : $"OP{SelectedOperation.OperationNumber:000} - {SelectedOperation.Title}";
+        public string SelectedOperationNumberText => SelectedOperation == null ? "OP ---" : $"OP-{SelectedOperation.OperationNumber:000}";
+        public string SelectedOperationDisplayStatus => SelectedOperation?.DisplayStatus ?? "";
+        public string SelectedOperationStatusText => SelectedOperation?.StatusBadgeText ?? "PENDING";
+        public string SelectedOperationStatusBackgroundBrush => SelectedOperation?.StatusBadgeBackgroundBrush ?? "#1A6F7C8F";
+        public string SelectedOperationStatusBorderBrush => SelectedOperation?.StatusBadgeBorderBrush ?? "#66243246";
+        public string SelectedOperationStatusForegroundBrush => SelectedOperation?.StatusTextBrush ?? "#FFAAB6C8";
+        public string OperationStartActionText => SelectedOperation?.IsPaused == true ? "Resume Operation" : "Start Operation";
         public string SelectedOperationContext => SelectedOperation == null
             ? "Pick a released operation to execute from Workstation."
-            : $"{SelectedOperation.Status}  â€¢  {SelectedOperation.Department} / {SelectedOperation.WorkCenter}";
+            : $"{SelectedOperation.DisplayStatus} - {SelectedOperation.Department} / {SelectedOperation.WorkCenter}";
+        public bool ShowStartOperationAction => SelectedOperation != null;
+        public bool ShowPauseOperationAction => SelectedOperation?.CanStop == true;
+        public bool ShowCompleteOperationAction => SelectedOperation?.CanComplete == true;
+        public bool ShowInspectionAction => HasOperationInspection;
+        public bool ShowAttachmentActions => SelectedOperation != null;
+        public bool ShowMobileCaptureAction => SelectedOperation != null;
+        public string SelectedOperationWorkCenterText => FirstNonBlank(_operationPacket?.WorkCenterDisplay, SelectedOperation?.WorkCenter, "Work center pending");
+        public string SelectedOperationDepartmentText => FirstNonBlank(_operationPacket?.DepartmentDisplay, SelectedOperation?.Department, "Department pending");
+        public string SelectedOperationTypeText => FirstNonBlank(_operationPacket?.OperationTypeDisplay, _operationPacket?.OperationType, SelectedOperation?.Title, "Operation");
+        public string SelectedOperationSetupText => BuildMinutesText(_operationPacket?.SetupMinutes);
+        public string SelectedOperationCycleText => BuildMinutesText(_operationPacket?.CycleMinutes);
+        public string SelectedOperationStartedText => string.IsNullOrWhiteSpace(SelectedOperation?.StartedUtc) ? "Not started yet" : FormatDisplayDateTime(SelectedOperation.StartedUtc);
+        public string DataEntryOperationTypeLabel => SelectedOperation == null
+            ? "No operation selected"
+            : FirstNonBlank(_operationPacket?.OperationTypeDisplay, _operationPacket?.OperationType, SelectedOperation.Title, "Custom");
+        public string DataEntryHeaderSummary => SelectedOperation == null
+            ? "Select an operation to see required entry steps."
+            : BuildDataEntryHeaderSummary();
+        public string DataEntryEntryTitle => GetOperationFamily() switch
+        {
+            "order-material" => "Material Order Entry",
+            "receive-material" => "Material Receipt Entry",
+            "saw-cut" => "Saw Cut Entry",
+            "setup" => "Setup Entry",
+            "cnc" => "Production Entry",
+            "swiss" => "Production Entry",
+            "deburr" => "Deburr Entry",
+            "shipping" => "Shipping Entry",
+            "complete-close" => "Closeout Entry",
+            _ => "Operation Entry"
+        };
+        public string DataEntryEntryInstruction => GetOperationFamily() switch
+        {
+            "order-material" => "Save ordered quantity through the existing Service operation data path.",
+            "receive-material" => "Enter received quantity for this material operation.",
+            "saw-cut" => "Enter cut quantity and scrap/remnant quantity when applicable.",
+            "setup" => "Use notes for setup/handoff details; save quantity only if your route requires it.",
+            "cnc" => "Enter good quantity and scrap quantity for this production run.",
+            "swiss" => "Enter good quantity and scrap quantity for this production run.",
+            "deburr" => "Enter completed quantity and rework/scrap when applicable.",
+            "shipping" => "Enter packed or shipped quantity for this operation.",
+            "complete-close" => "Enter final completed quantity and total scrap when applicable.",
+            _ => "Save supported operation data through the existing Service write path."
+        };
+        public string DataEntryQuantityLabel => GetOperationFamily() switch
+        {
+            "order-material" => "Ordered Qty",
+            "receive-material" => "Received Qty",
+            "saw-cut" => "Cut Qty",
+            "setup" => "Setup Qty",
+            "deburr" => "Qty Completed",
+            "inspection" => "Accepted Qty",
+            "shipping" => "Qty Shipped",
+            "complete-close" => "Final Qty Complete",
+            _ => "Good Qty"
+        };
+        public string DataEntrySaveProgressText => GetOperationFamily() switch
+        {
+            "receive-material" => "Save Receiving Entry",
+            "order-material" => "Save Ordered Qty",
+            "saw-cut" => "Save Cut Qty",
+            "setup" => "Save Setup Note",
+            "inspection" => "Save Review Note",
+            "shipping" => "Save Shipped Qty",
+            _ => "Save Progress"
+        };
+        public string DataEntrySubmitText => SelectedOperation?.IsCompleted == true ? "Completed" : IsReceiveMaterialOperation ? "Submit Receive Material" : "Complete Operation";
+        public bool DataEntryCanSubmitOperation => string.IsNullOrWhiteSpace(DataEntryValidationMessage);
+        public bool IsReceiveMaterialOperation => SelectedOperation != null && GetOperationFamily() == "receive-material";
+        public Visibility ReceiveMaterialEntryVisibility => IsReceiveMaterialOperation ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility StandardDataEntryVisibility => IsReceiveMaterialOperation ? Visibility.Collapsed : Visibility.Visible;
+        public bool ShowDataEntryQuantityField => SelectedOperation != null && !IsReceiveMaterialOperation && GetOperationFamily() is not "inspection" and not "setup";
+        public bool ShowDataEntryScrapField => SelectedOperation != null && GetOperationFamily() is "saw-cut" or "cnc" or "swiss" or "deburr" or "complete-close" or "custom";
+        public bool ShowDataEntryInspectionCard => SelectedOperation != null && (HasOperationInspection || GetOperationFamily() == "inspection");
+        public bool ShowDataEntryEvidenceCard => SelectedOperation != null;
+        public bool ShowDataEntryMissingReason => !string.IsNullOrWhiteSpace(DataEntryValidationMessage);
+        public string DataEntryValidationMessage => BuildDataEntryValidationMessage();
+        public string QuantityRequiredText => FormatQuantitySummaryValue(_operationPacket?.OrderedQuantity);
+        public string QuantityCompletedText => FormatQuantitySummaryValue(_operationPacket?.CompletedQuantity);
+        public string QuantityScrapText => FormatQuantitySummaryValue(_operationPacket?.ScrapQuantity);
+        public string QuantityRemainingText => FormatQuantitySummaryValue(_operationPacket?.RemainingQuantity);
+        public string QuantityAcceptedText => FormatQuantitySummaryValue(_operationPacket?.AcceptedQuantity);
+        public string QuantityRejectedText => FormatQuantitySummaryValue(_operationPacket?.RejectedQuantity);
+        public bool HasRecentQuantityEvents => RecentQuantityEvents.Count > 0;
+        public string QuantityEventValidationMessage => BuildQuantityEventValidationMessage();
+        public bool CanSaveQuantityEvent => string.IsNullOrWhiteSpace(QuantityEventValidationMessage);
+        public IReadOnlyList<RunBookWorkstationApiClient.OperationPacketDocument> PacketDocuments => PacketDrawingDocuments
+            .Concat(PacketBalloonedDrawingDocuments)
+            .Concat(PacketInspectionDocuments)
+            .Concat(PacketOperationReferences)
+            .ToList();
+        public IReadOnlyList<RunBookWorkstationApiClient.OperationPacketReferenceItem> PacketReferenceItems => _operationPacket?.ReferenceItems?.ToList()
+            ?? new List<RunBookWorkstationApiClient.OperationPacketReferenceItem>();
+        public IReadOnlyList<RunBookWorkstationApiClient.OperationPacketChecklistItem> PacketChecklistItems => _operationPacket?.ChecklistItems?.ToList()
+            ?? new List<RunBookWorkstationApiClient.OperationPacketChecklistItem>();
+        public RunBookWorkstationApiClient.MaterialRequirementDto? PrimaryMaterialRequirement => _operationPacket?.MaterialRequirements?.FirstOrDefault();
+        public string ExpectedMaterialSummary
+        {
+            get
+            {
+                var req = PrimaryMaterialRequirement;
+                if (req == null) return "No expected material has been released for this operation.";
+                var material = FirstNonBlank(req.MaterialSummaryDisplay, string.Join(" ", new[] { req.ExpectedSize, req.ExpectedShape, req.ExpectedGrade, req.ExpectedSpec }.Where(x => !string.IsNullOrWhiteSpace(x))));
+                return string.IsNullOrWhiteSpace(material) ? "Expected material details not recorded." : $"Expected: {material}";
+            }
+        }
+        public string ExpectedMaterialQuantityText => PrimaryMaterialRequirement == null
+            ? "--"
+            : PrimaryMaterialRequirement.ExpectedQuantity > 0
+                ? $"{PrimaryMaterialRequirement.ExpectedQuantity:0.####} {PrimaryMaterialRequirement.ExpectedUnit}".Trim()
+                : "--";
+        public string ReceivedMaterialSpec { get => _receivedMaterialSpec; set { _receivedMaterialSpec = value ?? ""; OnPropertyChanged(); RaiseMaterialReceivingChanged(); } }
+        public string ReceivedMaterialShape { get => _receivedMaterialShape; set { _receivedMaterialShape = value ?? ""; OnPropertyChanged(); RaiseMaterialReceivingChanged(); } }
+        public string ReceivedMaterialSize { get => _receivedMaterialSize; set { _receivedMaterialSize = value ?? ""; OnPropertyChanged(); RaiseMaterialReceivingChanged(); } }
+        public string ReceivedMaterialGrade { get => _receivedMaterialGrade; set { _receivedMaterialGrade = value ?? ""; OnPropertyChanged(); RaiseMaterialReceivingChanged(); } }
+        public string ReceivedMaterialQuantity { get => _receivedMaterialQuantity; set { _receivedMaterialQuantity = value ?? ""; OnPropertyChanged(); RaiseMaterialReceivingChanged(); } }
+        public string ReceivedMaterialUnit { get => _receivedMaterialUnit; set { _receivedMaterialUnit = value ?? ""; OnPropertyChanged(); RaiseMaterialReceivingChanged(); } }
+        public string ReceivedMaterialCondition { get => _receivedMaterialCondition; set { _receivedMaterialCondition = string.IsNullOrWhiteSpace(value) ? "OK" : value; OnPropertyChanged(); } }
+        public string ReceivedMaterialNotes { get => _receivedMaterialNotes; set { _receivedMaterialNotes = value ?? ""; OnPropertyChanged(); } }
+        public string ReceivedMaterialStorageLocation { get => _receivedMaterialStorageLocation; set { _receivedMaterialStorageLocation = value ?? ""; OnPropertyChanged(); } }
+        public bool ReceiveMaterialMultipleHeatLots { get => _receiveMaterialMultipleHeatLots; set { if (_receiveMaterialMultipleHeatLots != value) { _receiveMaterialMultipleHeatLots = value; OnPropertyChanged(); EnsureHeatLotMode(); RaiseMaterialReceivingChanged(); } } }
+        public string MaterialHeatLotModeText => ReceiveMaterialMultipleHeatLots ? "Yes, multiple heat lots" : "No, one heat lot";
+        public string MaterialHeatLotTotalText => $"{MaterialHeatLotTotal():0.####} {ReceivedMaterialUnit}".Trim();
+        public string MaterialDifferenceText => double.TryParse(ReceivedMaterialQuantity, NumberStyles.Float, CultureInfo.InvariantCulture, out var qty)
+            ? $"{MaterialHeatLotTotal() - qty:0.####} {ReceivedMaterialUnit}".Trim()
+            : "--";
+        public string MaterialReceivingWarning => BuildMaterialReceivingWarning();
+        public string InspectionAvailabilityMessage => HasOperationInspection
+            ? InspectionSubtitle
+            : "No inspection tasks are linked to this operation.";
         public string InspectionTitle => InspectionPackage == null
             ? "Inspection Tasks"
             : string.IsNullOrWhiteSpace(InspectionPackage.FeatureSetName) ? "Inspection Tasks" : InspectionPackage.FeatureSetName;
         public string InspectionSubtitle => InspectionPackage == null
             ? "Inspection entry will appear when an operation is selected."
-            : (InspectionTasks.Count == 0 ? "No inspection tasks available for the current context." : $"Loaded {InspectionTasks.Count} inspection tasks from Desktop.");
+            : (InspectionTasks.Count == 0
+                ? "No inspection tasks available for the current context."
+                : _inspectionResultSubmissionAvailable
+                    ? $"Loaded {InspectionTasks.Count} inspection tasks from RunBook Service."
+                    : $"Loaded {InspectionTasks.Count} inspection tasks from RunBook Service. Inspection result submission is not available on Workstation yet.");
+        public bool HasOperationInspection => SelectedOperation != null && (InspectionTasks.Count > 0 || PacketInspectionDocuments.Count > 0);
+        public bool HasPacketDocuments => PacketDrawingDocuments.Count > 0 || PacketBalloonedDrawingDocuments.Count > 0 || PacketInspectionDocuments.Count > 0 || PacketOperationReferences.Count > 0;
+        public bool HasBalloonGeometry => _operationPacket?.HasBalloonGeometry == true;
+        public string PacketLoadMessage => SelectedOperation == null
+            ? "Select an operation to view released drawings, references, checklist, inspections, and attachments."
+            : _operationPacketLoadStatus;
+        public string PacketDocumentSummary => _operationPacket == null
+            ? _operationPacketLoadStatus
+            : $"{PacketDrawingDocuments.Count} drawing(s), {PacketBalloonedDrawingDocuments.Count} ballooned drawing(s), {PacketInspectionDocuments.Count} inspection reference(s), {PacketOperationReferences.Count} operation reference(s).";
+        public string BalloonGeometryStatus => HasBalloonGeometry
+            ? "Balloon geometry is available from Service."
+            : "Exact balloon geometry is not exposed by Service yet. Balloon number mapping is available.";
+        public string InspectionOverlayTypeLabel => InspectionPackage == null
+            ? "Inspection Review"
+            : string.IsNullOrWhiteSpace(InspectionPackage.FeatureSetName)
+                ? InspectionPackage.TemplateKey
+                : InspectionPackage.FeatureSetName;
+        public bool UseInProcessInspectionLayout => IsInProcessInspection(InspectionPackage);
+        public bool UseSideBySideInspectionLayout => !UseInProcessInspectionLayout;
+        public string SelectedInspectionBalloonLabel => SelectedInspectionTask == null
+            ? "Select a report row to highlight its balloon."
+            : SelectedInspectionTask.BalloonNumber > 0
+                ? $"Balloon #{SelectedInspectionTask.BalloonNumber} selected"
+                : "Selected row has no balloon number from Service.";
+        public string SelectedInspectionFeatureLabel => SelectedInspectionTask == null
+            ? "No inspection row selected."
+            : $"Feature {SelectedInspectionTask.FeatureId} - {SelectedInspectionTask.FeatureText}";
+        public bool HasRecentOperationEntry => false;
+        public string LastOperationEntryTitle => "No recent workstation entry";
+        public string LastOperationEntryBody => "Recent operation history is not exposed by the current Workstation Service payload yet.";
+        public bool IsMobileCaptureDialogOpen
+        {
+            get => _isMobileCaptureDialogOpen;
+            private set
+            {
+                if (_isMobileCaptureDialogOpen == value)
+                    return;
+                _isMobileCaptureDialogOpen = value;
+                OnPropertyChanged();
+                RaiseCommandStates();
+            }
+        }
+
+        private void SelectWorkOrderQueueTab(string? key)
+            => SelectedWorkOrderQueueTab = key ?? "assigned";
+
+        private void SelectPacketTab(string? key)
+            => SelectedPacketTab = key ?? "packet";
+
+        private void SelectDataEntryTab(string? key)
+            => SelectedDataEntryTab = key ?? "production";
+
+        public string SelectedMobileCaptureType
+        {
+            get => _selectedMobileCaptureType;
+            set
+            {
+                var normalized = string.IsNullOrWhiteSpace(value) ? "Other Evidence" : value.Trim();
+                if (string.Equals(_selectedMobileCaptureType, normalized, StringComparison.Ordinal))
+                    return;
+                _selectedMobileCaptureType = normalized;
+                OnPropertyChanged();
+            }
+        }
+
+        public string MobileCaptureUrl
+        {
+            get => _mobileCaptureUrl;
+            private set
+            {
+                if (string.Equals(_mobileCaptureUrl, value, StringComparison.Ordinal))
+                    return;
+                _mobileCaptureUrl = value ?? "";
+                OnPropertyChanged();
+            }
+        }
+
+        public string MobileCaptureExpiresText
+        {
+            get => _mobileCaptureExpiresText;
+            private set
+            {
+                if (string.Equals(_mobileCaptureExpiresText, value, StringComparison.Ordinal))
+                    return;
+                _mobileCaptureExpiresText = value ?? "";
+                OnPropertyChanged();
+            }
+        }
+
+        public BitmapImage? MobileCaptureQrImage
+        {
+            get => _mobileCaptureQrImage;
+            private set
+            {
+                _mobileCaptureQrImage = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public BitmapImage? OperationAttachmentIntakeQrImage
+        {
+            get => _operationAttachmentIntakeQrImage;
+            private set
+            {
+                _operationAttachmentIntakeQrImage = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasOperationAttachmentIntakeQr));
+                OnPropertyChanged(nameof(OperationAttachmentIntakePlaceholderVisibility));
+            }
+        }
+
+        public bool HasOperationAttachmentIntakeQr => OperationAttachmentIntakeQrImage != null;
+        public Visibility OperationAttachmentIntakePlaceholderVisibility => HasOperationAttachmentIntakeQr ? Visibility.Collapsed : Visibility.Visible;
+
+        public string OperationAttachmentIntakeUrl
+        {
+            get => _operationAttachmentIntakeUrl;
+            private set
+            {
+                if (string.Equals(_operationAttachmentIntakeUrl, value, StringComparison.Ordinal))
+                    return;
+                _operationAttachmentIntakeUrl = value ?? "";
+                OnPropertyChanged();
+            }
+        }
+
+        public string OperationAttachmentIntakeStatusText
+        {
+            get => _operationAttachmentIntakeStatusText;
+            private set
+            {
+                if (string.Equals(_operationAttachmentIntakeStatusText, value, StringComparison.Ordinal))
+                    return;
+                _operationAttachmentIntakeStatusText = value ?? "";
+                OnPropertyChanged();
+            }
+        }
+
+        public string OperationAttachmentSummary => OperationAttachments.Count == 0
+            ? "No mobile evidence has been captured for this operation yet."
+            : $"{OperationAttachments.Count} operation attachment{(OperationAttachments.Count == 1 ? "" : "s")} captured.";
         public string SelectedInspectionTaskTitle => SelectedInspectionTask == null
             ? "Select an inspection item"
             : (SelectedInspectionTask.BalloonNumber > 0 ? $"Balloon {SelectedInspectionTask.BalloonNumber}" : $"Feature {SelectedInspectionTask.FeatureId}");
         public string SelectedInspectionTaskSummary => SelectedInspectionTask == null
             ? "Measured value entry will appear here."
-            : $"{SelectedInspectionTask.FeatureText}  â€¢  {SelectedInspectionTask.InputType}";
+            : $"{SelectedInspectionTask.FeatureText} - {SelectedInspectionTask.InputType}";
         public string PasscodeDialogTitle => SelectedRosterEmployee?.DisplayName ?? "Employee Sign In";
+        public string PasscodeDialogInstruction => SelectedRosterEmployee == null ? "Enter the PIN for the selected employee." : $"Enter the PIN for {SelectedRosterEmployee.DisplayName}.";
         public string PasscodeDialogSubtitle => SelectedRosterEmployee == null ? "Select an employee to continue." : SelectedRosterEmployee.Role;
         public string PasscodeDialogModuleSummary => SelectedRosterEmployee?.AccessSummary ?? "";
+        public string PasscodeDialogActionTitle => _pendingWelcomeModuleKey switch
+        {
+            "timeclock" => "Continue to Punch In / Out",
+            "workorders" => "Continue to Work Orders",
+            "drawings" => "Continue to Drawings",
+            "inspection" => "Continue to Inspection Reports",
+            _ => "Continue to Workstation"
+        };
+        public string PasscodeDialogEmployeeStatusText => SelectedRosterEmployee?.StatusChipText ?? "";
+        public bool ShowPasscodeDialogEmployeeStatus => !string.IsNullOrWhiteSpace(PasscodeDialogEmployeeStatusText);
+        public string PasscodeDialogEmployeeStatusForeground => string.IsNullOrWhiteSpace(SelectedRosterEmployee?.StatusChipForeground) ? "#FF2BD576" : SelectedRosterEmployee!.StatusChipForeground;
+        public string PasscodeDialogEmployeeStatusBackground => string.IsNullOrWhiteSpace(SelectedRosterEmployee?.StatusChipBackground) ? "#142BD576" : SelectedRosterEmployee!.StatusChipBackground;
+        public string PasscodeDialogEmployeeStatusBorder => string.IsNullOrWhiteSpace(SelectedRosterEmployee?.StatusChipBorder) ? "#332BD576" : SelectedRosterEmployee!.StatusChipBorder;
         public string PasscodeMaskDisplay => _passcode.Length == 0 ? "Enter code" : string.Join(" ", _passcode.Select(_ => "\u2022"));
+        public string PasscodeDialogMessageText => IsPasscodeDialogOpen ? StatusText : "";
+        public bool ShowPasscodeDialogMessage => IsPasscodeDialogOpen && !string.IsNullOrWhiteSpace(PasscodeDialogMessageText);
+        public bool PasscodeDigitOneFilled => _passcode.Length >= 1;
+        public bool PasscodeDigitTwoFilled => _passcode.Length >= 2;
+        public bool PasscodeDigitThreeFilled => _passcode.Length >= 3;
+        public bool PasscodeDigitFourFilled => _passcode.Length >= 4;
+        public bool PasscodeDigitFiveFilled => _passcode.Length >= 5;
+        public bool PasscodeDigitSixFilled => _passcode.Length >= 6;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public void SetControlPassword(string password) => SettingsControlPassword = password ?? "";
+
+        public void ClearSupervisorCredentials()
+        {
+            SettingsControlEmail = "";
+            SettingsControlPassword = "";
+        }
+
+        public void NotifyUserActivity()
+        {
+            if (CurrentSession == null)
+                return;
+
+            _lastInteractionUtc = DateTime.UtcNow;
+            OnPropertyChanged(nameof(IdleLogoutBadgeText));
+        }
 
         public bool HandlePasscodeKey(Key key)
         {
@@ -741,7 +2070,7 @@ namespace RunBook.Workstation.ViewModels
             if (key == Key.Enter || key == Key.Return)
             {
                 if (CanConfirmPasscode)
-                    _ = LoginAsync();
+                    _ = SubmitPasscodeUnlockAsync();
                 return true;
             }
 
@@ -754,43 +2083,54 @@ namespace RunBook.Workstation.ViewModels
             return false;
         }
 
+        private Task SubmitPasscodeUnlockAsync()
+        {
+            var unlockTrace = GetOrCreateUnlockTrace(SelectedRosterEmployee);
+            LogUnlockTrace(unlockTrace, "passcode_submit_click", $"passcode_digits={_passcode.Length}");
+            return LoginAsync();
+        }
+
         private async Task LoginAsync()
         {
+            var unlockTrace = GetOrCreateUnlockTrace(SelectedRosterEmployee);
+            LogUnlockTrace(unlockTrace, "login_async_entry", $"passcode_digits={_passcode.Length}");
             if (!CanConfirmPasscode || SelectedRosterEmployee == null)
             {
                 StatusText = "Enter a 4 to 6 digit passcode.";
                 return;
             }
 
+            var passcodeValidationStopwatch = Stopwatch.StartNew();
             NormalizeLocalShopScope();
-            if (!ValidateLocalAuthSettings())
+            var authSettingsValid = ValidateLocalAuthSettings();
+            LogUnlockTrace(unlockTrace, "passcode_validation_complete", $"duration_ms={passcodeValidationStopwatch.ElapsedMilliseconds};auth_settings_valid={authSettingsValid}");
+            if (!authSettingsValid)
                 return;
 
             var submittedPasscode = _passcode;
             await RunBusyAsync(async () =>
             {
-                await RefreshAuthPackageAsyncCore(false);
-                var employee = FindRosterEmployee(
-                    SelectedRosterEmployee.RemoteEmployeeId,
-                    SelectedRosterEmployee.EmployeeId,
-                    SelectedRosterEmployee.EmployeeCode);
                 var authHealth = GetAuthCacheHealth();
                 UpdateAuthCacheStatus(authHealth);
+                var employee = SelectedRosterEmployee;
 
                 if (employee == null)
                 {
-                    StatusText = "That employee is no longer present in the Desktop auth cache.";
+                    StatusText = "Select an employee and enter a 4 to 6 digit passcode.";
                     ClearPasscode();
                     return;
                 }
 
+                var loginStopwatch = Stopwatch.StartNew();
                 var login = await _api.LoginLocalEmployeeAsync(
                     Settings,
                     employee.RemoteEmployeeId,
                     employee.EmployeeId,
                     employee.EmployeeCode,
                     submittedPasscode,
-                    CancellationToken.None);
+                    CancellationToken.None,
+                    unlockTrace?.TraceId);
+                LogUnlockTrace(unlockTrace, "login_local_employee_async_complete", $"duration_ms={loginStopwatch.ElapsedMilliseconds}");
 
                 var payload = MapCapabilityPayload(login.Payload);
                 var modules = payload.Modules
@@ -798,6 +2138,7 @@ namespace RunBook.Workstation.ViewModels
                     .Select(entry => entry.Key)
                     .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
                     .ToList();
+                var sessionAssignmentStopwatch = Stopwatch.StartNew();
                 var snapshot = new WorkstationSessionSnapshot
                 {
                     Token = login.Session?.Token ?? "",
@@ -825,38 +2166,71 @@ namespace RunBook.Workstation.ViewModels
                 };
 
                 CurrentSession = snapshot;
+                LogUnlockTrace(unlockTrace, "session_assignment_complete", $"duration_ms={sessionAssignmentStopwatch.ElapsedMilliseconds}");
+                NotifyUserActivity();
                 WorkstationStorageService.SaveSession(snapshot);
-                MarkDesktopRequestSuccess();
+                MarkLocalHostRequestSuccess();
                 Settings.WorkstationName = Registration?.WorkstationName ?? Settings.WorkstationName;
                 WorkstationStorageService.SaveSettings(Settings);
+                var buildModulesStopwatch = Stopwatch.StartNew();
                 BuildVisibleModules();
-                SelectedModule = VisibleModules.FirstOrDefault();
+                LogUnlockTrace(unlockTrace, "build_visible_modules_complete", $"duration_ms={buildModulesStopwatch.ElapsedMilliseconds};module_count={VisibleModules.Count}");
+                var desiredModuleKey = string.Equals(_pendingWelcomeModuleKey, "inspection", StringComparison.OrdinalIgnoreCase) ? "workorders" : _pendingWelcomeModuleKey;
+                SelectedModule = VisibleModules.FirstOrDefault(module => string.Equals(module.Key, desiredModuleKey, StringComparison.OrdinalIgnoreCase))
+                    ?? VisibleModules.FirstOrDefault();
+                LogUnlockTrace(unlockTrace, "shell_transition_ready", $"selected_module={SelectedModule?.Key ?? ""}");
                 StatusText = $"Signed in as {SessionEmployeeName}.";
-                OfflineStatus = "Desktop employee session is active.";
+                OfflineStatus = "Local workstation session is active.";
                 _passcode = "";
                 IsPasscodeDialogOpen = false;
+                CloseEmployeeBrowser();
                 SelectedRosterEmployee = null;
                 OnPropertyChanged(nameof(PasscodeMaskDisplay));
+                NotifyPasscodeEntryVisuals();
                 UpdateSessionCountdown();
-                LoadQueue();
-                await RefreshDesktopTimeclockStateAsync();
-                await SyncPendingQueueAsync(false);
             });
 
-            if (CurrentSession != null && HasWorkOrdersAccess)
-                await RefreshWorkOrdersAsync(false);
+            if (CurrentSession != null)
+            {
+                var openInspectionAfterHydrate = string.Equals(_pendingWelcomeModuleKey, "inspection", StringComparison.OrdinalIgnoreCase);
+                _ = HydrateSignedInShellAsync(CurrentSession.Token);
+                if (openInspectionAfterHydrate)
+                    OpenInspectionReportsExperience();
+                _pendingWelcomeModuleKey = "";
+            }
         }
 
         private async Task RefreshRegistrationAsync()
         {
             await RunBusyAsync(async () =>
             {
-                if (ControlSessionService.HasSession())
-                    await SyncCurrentShopAsync();
+                await TrySyncCurrentShopIfConfirmedAsync();
                 await EnsureRegistrationAsync();
                 await RefreshAuthPackageAsyncCore(true);
                 await LoadRosterCoreAsync();
                 StatusText = "Workstation registration and employee auth refreshed.";
+            });
+        }
+
+        public void TraceSignedInShellVisible()
+        {
+            if (_unlockTimingTrace == null || _unlockTimingTrace.ShellVisibleLogged || CurrentSession == null || !ShowModulesShell)
+                return;
+
+            _unlockTimingTrace.ShellVisibleLogged = true;
+            LogUnlockTrace(_unlockTimingTrace, "signed_in_shell_visible", $"selected_module={SelectedModule?.Key ?? ""}");
+        }
+
+        private async Task RefreshEmployeeAuthAsync()
+        {
+            await RunBusyAsync(async () =>
+            {
+                await TrySyncCurrentShopIfConfirmedAsync();
+
+                var refreshed = await RefreshAuthPackageAsyncCore(true);
+                await LoadRosterCoreAsync();
+                if (refreshed)
+                    StatusText = "Employee auth package refreshed from the local workstation authority.";
             });
         }
 
@@ -867,16 +2241,43 @@ namespace RunBook.Workstation.ViewModels
 
             await RunBusyAsync(async () =>
             {
-                await RefreshDesktopTimeclockStateAsync();
+                await RefreshLocalTimeclockStateAsync();
                 await SyncPendingQueueAsync(false);
             });
         }
 
         private async Task SubmitPunchAsync(string eventType, string note)
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || !HasTimeClockAccess)
                 return;
 
+            var pausesProduction = IsProductionPausePunch(eventType);
+            var activeOperation = pausesProduction ? GetActiveOperationForCurrentSession() : null;
+            var resumeAfterPunch = IsProductionResumePunch(eventType);
+            if (activeOperation != null && IsClockOutPunch(eventType))
+            {
+                var result = MessageBox.Show(
+                    $"You are currently working on OP{activeOperation.OperationNumber:000} - {activeOperation.Title}.\nChoose how to handle this operation before clocking out.\n\nOK pauses the operation and clocks you out. Cancel leaves your shift and operation unchanged.",
+                    "Active operation in progress",
+                    MessageBoxButton.OKCancel,
+                    MessageBoxImage.Warning);
+                if (result != MessageBoxResult.OK)
+                {
+                    StatusText = "Clock out canceled. Active operation remains in progress.";
+                    return;
+                }
+            }
+
+            if (activeOperation != null)
+            {
+                _pendingResumeOperation = BuildResumeOperationContext(activeOperation);
+                _pendingResumeOperationCapturedFromPunchOut = _pendingResumeOperation != null;
+            }
+
+            var punchSubmitted = false;
             await RunBusyAsync(async () =>
             {
                 if (!CanSubmitEvent(eventType))
@@ -887,12 +2288,21 @@ namespace RunBook.Workstation.ViewModels
 
                 EnqueuePunch(eventType, note);
                 await SyncPendingQueueAsync(false);
+                punchSubmitted = true;
+                if (activeOperation != null)
+                    StatusText = ActiveOperationPausedForClockOutMessage;
             });
+
+            if (punchSubmitted && resumeAfterPunch && string.Equals(TimeClockStateKey, "working", StringComparison.OrdinalIgnoreCase))
+                await PromptToResumePausedOperationAsync();
         }
 
         private void Logout()
         {
             CurrentSession = null;
+            _pendingWelcomeModuleKey = "";
+            EmployeeQuickSearchText = "";
+            CloseEmployeeBrowser();
             WorkstationStorageService.SaveSession(null);
             VisibleModules.Clear();
             WorkOrders.Clear();
@@ -923,6 +2333,7 @@ namespace RunBook.Workstation.ViewModels
             _backupWorkOrderCount = 0;
             SelectedRosterEmployee = null;
             _passcode = "";
+            _lastInteractionUtc = DateTime.UtcNow;
             SessionCountdown = "Signed out";
             StatusText = "Session cleared. Ready for next employee.";
             IsPasscodeDialogOpen = false;
@@ -939,6 +2350,8 @@ namespace RunBook.Workstation.ViewModels
             RefreshTimeClockPresentation();
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
             OnPropertyChanged(nameof(ActiveWorkContextLine));
+            OnPropertyChanged(nameof(IdleLogoutBadgeText));
+            OnPropertyChanged(nameof(ShowIdleLogoutBadge));
             RefreshConnectionStatuses();
         }
 
@@ -972,6 +2385,96 @@ namespace RunBook.Workstation.ViewModels
                 SelectModule(module);
         }
 
+        private void ExecutePrimaryOperatorAction()
+        {
+            if (!IsLoggedIn)
+            {
+                StatusText = "Select an operator card below to continue.";
+                return;
+            }
+
+            var targetModule = VisibleModules.FirstOrDefault(module => string.Equals(module.Key, "workorders", StringComparison.OrdinalIgnoreCase))
+                ?? VisibleModules.FirstOrDefault(module => string.Equals(module.Key, "home", StringComparison.OrdinalIgnoreCase))
+                ?? VisibleModules.FirstOrDefault();
+
+            if (targetModule != null)
+                SelectModule(targetModule);
+        }
+
+        private void LaunchWelcomeFlow(string? key)
+        {
+            var normalized = (key ?? "").Trim().ToLowerInvariant();
+            if (normalized.Length == 0)
+                return;
+
+            _pendingWelcomeModuleKey = normalized;
+
+            if (!IsLoggedIn)
+            {
+                if (RosterEmployees.Count > 0)
+                {
+                    OpenEmployeeBrowser();
+                    StatusText = normalized switch
+                    {
+                        "timeclock" => "Select an employee to continue into Time Clock.",
+                        "workorders" => "Select an employee to continue into Work Orders.",
+                        "drawings" => "Select an employee to continue into Drawings.",
+                        "inspection" => "Select an employee to continue into Inspection Reports.",
+                        _ => "Select an employee to continue."
+                    };
+                }
+                else
+                {
+                    StatusText = "Choose an action above, then select your employee profile when the workstation roster is ready.";
+                }
+                return;
+            }
+
+            SelectModuleByKey(string.Equals(_pendingWelcomeModuleKey, "inspection", StringComparison.OrdinalIgnoreCase) ? "workorders" : _pendingWelcomeModuleKey);
+            if (normalized == "inspection")
+                OpenInspectionReportsExperience();
+        }
+
+        private async Task SubmitEmployeeQuickSearchAsync()
+        {
+            var query = (EmployeeQuickSearchText ?? "").Trim();
+            if (RosterEmployees.Count == 0)
+            {
+                StatusText = "Employee profiles will appear here after the workstation roster finishes loading.";
+                await Task.CompletedTask;
+                return;
+            }
+
+            if (query.Length == 0)
+            {
+                OpenEmployeeBrowser();
+                StatusText = "Search by employee name or badge, or choose from the employee list.";
+                return;
+            }
+
+            var match = EmployeeBrowserEmployees.FirstOrDefault();
+            if (match == null)
+            {
+                OpenEmployeeBrowser();
+                StatusText = $"No roster match yet for \"{query}\". Try another name or open the full employee list.";
+                return;
+            }
+
+            OpenRosterEmployee(match);
+            await Task.CompletedTask;
+        }
+
+        private void OpenEmployeeBrowser()
+        {
+            IsEmployeeBrowserOpen = true;
+            OnPropertyChanged(nameof(EmployeeBrowserEmployees));
+        }
+
+        private void CloseEmployeeBrowser()
+        {
+            IsEmployeeBrowserOpen = false;
+        }
+
         private void SaveSettings()
         {
             Settings.ControlBaseUrl = (SettingsBaseUrl ?? "").Trim();
@@ -980,6 +2483,7 @@ namespace RunBook.Workstation.ViewModels
             Settings.ShopName = (SettingsShopName ?? "").Trim();
             Settings.WorkstationName = (SettingsWorkstationName ?? "").Trim();
             Settings.PairingCode = NormalizePairingCode(SettingsPairingCode);
+            NormalizeDesktopBaseUrl();
             WorkstationStorageService.SaveSettings(Settings);
             OnPropertyChanged(nameof(ConnectivityLine));
             OnPropertyChanged(nameof(WorkstationIdentityLine));
@@ -1008,40 +2512,79 @@ namespace RunBook.Workstation.ViewModels
             await RunBusyAsync(() =>
             {
                 var session = ControlSessionService.SignIn(Settings.ControlBaseUrl, SettingsControlEmail, SettingsControlPassword);
-                SettingsControlPassword = "";
+                _isControlConfirmedAvailable = true;
+                ClearSupervisorCredentials();
                 ControlSessionStatus = ControlSessionService.GetStatusLabel();
+                OnPropertyChanged(nameof(HasSupervisorSession));
+                OnPropertyChanged(nameof(ShowSupervisorSignInFields));
+                OnPropertyChanged(nameof(ShowSupervisorEnrollmentActions));
+                OnPropertyChanged(nameof(SupervisorDialogTitle));
+                OnPropertyChanged(nameof(SupervisorDialogSubtitle));
                 return Task.CompletedTask;
             });
 
             await RunBusyAsync(async () =>
             {
-                await SyncCurrentShopAsync();
+                await TrySyncCurrentShopIfConfirmedAsync();
                 await LoadRosterCoreAsync();
                 StatusText = $"Supervisor session ready for {Settings.ShopName}.";
+                RefreshConnectionStatuses();
             });
         }
 
         private void DisconnectControl()
         {
             ControlSessionService.SignOut();
-            SettingsControlPassword = "";
+            _isControlConfirmedAvailable = false;
+            ClearSupervisorCredentials();
             ControlSessionStatus = ControlSessionService.GetStatusLabel();
+            OnPropertyChanged(nameof(HasSupervisorSession));
+            OnPropertyChanged(nameof(ShowSupervisorSignInFields));
+            OnPropertyChanged(nameof(ShowSupervisorEnrollmentActions));
+            OnPropertyChanged(nameof(SupervisorDialogTitle));
+            OnPropertyChanged(nameof(SupervisorDialogSubtitle));
+            RefreshConnectionStatuses();
             LoadCachedAuthCache();
-            StatusText = "Supervisor session cleared. Cached Desktop employee auth remains available.";
+            StatusText = "Supervisor session cleared. Cached local employee auth remains available.";
         }
 
         private async Task EnsureRegistrationAsync()
         {
+            NormalizeLocalShopScope();
             SaveSettings();
-            if (string.IsNullOrWhiteSpace(Settings.DesktopBaseUrl))
-                throw new InvalidOperationException("Desktop base URL is required before workstation enrollment.");
             if (string.IsNullOrWhiteSpace(Settings.ShopId))
-                throw new InvalidOperationException("Shop ID is required before workstation enrollment.");
+                throw new InvalidOperationException("Shop ID is required before workstation registration with RunBook Service.");
+
+            if (HasUsableSavedRegistration())
+            {
+                MarkRegistrationTrusted("saved_registration_reused");
+                StatusText = "Using the saved trusted workstation pairing.";
+                return;
+            }
+
+            if (Registration != null &&
+                !string.IsNullOrWhiteSpace(Registration.ShopId) &&
+                !string.Equals(Registration.ShopId, Settings.ShopId, StringComparison.OrdinalIgnoreCase) &&
+                string.IsNullOrWhiteSpace(Settings.PairingCode))
+            {
+                Registration.PairingRequiredReason = "shop_mismatch";
+                WorkstationStorageService.SaveRegistration(Registration);
+                throw new InvalidOperationException("PAIRING_REQUIRED: This workstation is paired to a different shop. Switch shops or pair this workstation again.");
+            }
+
             if (string.IsNullOrWhiteSpace(Settings.PairingCode))
-                throw new InvalidOperationException("PAIRING_REQUIRED: Enter the Desktop pairing code before enrolling this workstation.");
+            {
+                if (Registration == null)
+                    throw new InvalidOperationException("PAIRING_REQUIRED: This workstation has not been paired yet. Enter a pairing code to connect it to your shop.");
+
+                Registration.PairingRequiredReason = "missing_or_incomplete_trust";
+                WorkstationStorageService.SaveRegistration(Registration);
+                throw new InvalidOperationException("PAIRING_REQUIRED: This workstation's saved pairing could not be verified. Please pair again.");
+            }
 
             var registration = await _api.RegisterAsync(Settings, CancellationToken.None);
             Registration = registration;
+            MarkRegistrationTrusted("paired");
             if (!string.IsNullOrWhiteSpace(registration.ShopId))
             {
                 Settings.ShopId = registration.ShopId;
@@ -1119,6 +2662,7 @@ namespace RunBook.Workstation.ViewModels
             SelectedModule = VisibleModules.FirstOrDefault();
             StatusText = $"Session restored for {SessionEmployeeName}.";
             OfflineStatus = GetAuthCacheHealth().Message;
+            NotifyUserActivity();
             UpdateSessionCountdown();
 
             if (HasTimeClockAccess)
@@ -1132,13 +2676,15 @@ namespace RunBook.Workstation.ViewModels
             if (employee == null)
                 return;
 
+            _unlockTimingTrace = UnlockTimingTrace.Start(employee);
+            LogUnlockTrace(_unlockTimingTrace, "roster_tile_click");
+            CloseEmployeeBrowser();
             SelectedRosterEmployee = employee;
             _passcode = "";
             IsPasscodeDialogOpen = true;
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
-            StatusText = employee.HasWorkstationPasscode
-                ? $"Enter the passcode for {employee.DisplayName}."
-                : $"{employee.DisplayName} may need an employee auth refresh if the passcode was just configured. Enter the passcode to try Desktop validation.";
+            NotifyPasscodeEntryVisuals();
+            StatusText = "Enter the passcode to continue.";
         }
 
         private void AppendPasscodeDigit(string? digit)
@@ -1148,6 +2694,7 @@ namespace RunBook.Workstation.ViewModels
 
             _passcode += digit[0];
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
+            NotifyPasscodeEntryVisuals();
             RaiseCommandStates();
         }
 
@@ -1158,6 +2705,7 @@ namespace RunBook.Workstation.ViewModels
 
             _passcode = _passcode[..^1];
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
+            NotifyPasscodeEntryVisuals();
             RaiseCommandStates();
         }
 
@@ -1168,6 +2716,7 @@ namespace RunBook.Workstation.ViewModels
 
             _passcode = "";
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
+            NotifyPasscodeEntryVisuals();
             RaiseCommandStates();
         }
 
@@ -1176,19 +2725,209 @@ namespace RunBook.Workstation.ViewModels
             _passcode = "";
             IsPasscodeDialogOpen = false;
             SelectedRosterEmployee = null;
+            _pendingWelcomeModuleKey = "";
             OnPropertyChanged(nameof(PasscodeMaskDisplay));
+            NotifyPasscodeEntryVisuals();
             StatusText = "Workstation ready.";
+        }
+
+        private void NotifyPasscodeEntryVisuals()
+        {
+            OnPropertyChanged(nameof(PasscodeDigitOneFilled));
+            OnPropertyChanged(nameof(PasscodeDigitTwoFilled));
+            OnPropertyChanged(nameof(PasscodeDigitThreeFilled));
+            OnPropertyChanged(nameof(PasscodeDigitFourFilled));
+            OnPropertyChanged(nameof(PasscodeDigitFiveFilled));
+            OnPropertyChanged(nameof(PasscodeDigitSixFilled));
+        }
+
+        private void OpenInspectionReportsExperience()
+        {
+            if (!HasWorkOrdersAccess)
+            {
+                StatusText = "Inspection reports are not available for this employee.";
+                return;
+            }
+
+            SelectModuleByKey("workorders");
+            if (HasOperationInspection)
+            {
+                OpenOperationInspection();
+                return;
+            }
+
+            StatusText = "Inspection reports open from Work Orders when an operation has linked inspection documents.";
+        }
+
+        private void OpenSupervisorDialog()
+        {
+            ClearSupervisorCredentials();
+            IsSupervisorDialogOpen = true;
+            StatusText = HasSupervisorSession
+                ? "Supervisor tools are ready."
+                : "Supervisor sign-in is required before registration codes can be used.";
+        }
+
+        private void CloseSupervisorDialog()
+        {
+            ClearSupervisorCredentials();
+            IsSupervisorDialogOpen = false;
+        }
+
+        private void OpenTimeOffRequestsDialog()
+        {
+            if (CurrentSession == null || !HasTimeClockAccess || IsBusy)
+                return;
+
+            IsTimeOffRequestsDialogOpen = true;
+        }
+
+        private void CloseTimeOffRequestsDialog()
+        {
+            IsTimeOffRequestsDialogOpen = false;
+        }
+
+        private void OpenPtoBenefitsDialog()
+        {
+            if (CurrentSession == null || !HasTimeClockAccess || IsBusy)
+                return;
+
+            IsPtoBenefitsDialogOpen = true;
+        }
+
+        private void ClosePtoBenefitsDialog()
+        {
+            IsPtoBenefitsDialogOpen = false;
+        }
+
+        private void OpenTimeClockActivityDialog()
+        {
+            if (CurrentSession == null || !HasTimeClockAccess || IsBusy || !HasMoreTimeClockActivity)
+                return;
+
+            IsTimeClockActivityDialogOpen = true;
+        }
+
+        private void CloseTimeClockActivityDialog()
+        {
+            IsTimeClockActivityDialogOpen = false;
+        }
+
+        private void ShowRunBookAlert(string title, string body)
+        {
+            _runBookAlertCompletion = null;
+            RunBookAlertTitle = title;
+            RunBookAlertBody = body;
+            RunBookAlertPrimaryText = "OK";
+            RunBookAlertSecondaryText = "";
+            ShowRunBookAlertSecondaryAction = false;
+            IsRunBookAlertOpen = true;
+        }
+
+        private void ShowRunBookIssueAlert(string key, string title, string whatHappened, string howToFix)
+        {
+            var normalizedKey = string.IsNullOrWhiteSpace(key) ? title : key.Trim();
+            if (string.Equals(_lastRunBookIssueAlertKey, normalizedKey, StringComparison.OrdinalIgnoreCase) && IsRunBookAlertOpen)
+                return;
+
+            _lastRunBookIssueAlertKey = normalizedKey;
+            var body = $"What happened:\n{whatHappened.Trim()}\n\nHow to fix:\n{howToFix.Trim()}";
+            ShowRunBookAlert(title, body);
+        }
+
+        private Task<bool> ShowRunBookDecisionAsync(string title, string body, string primaryText, string secondaryText)
+        {
+            _runBookAlertCompletion = new TaskCompletionSource<bool>();
+            RunBookAlertTitle = title;
+            RunBookAlertBody = body;
+            RunBookAlertPrimaryText = string.IsNullOrWhiteSpace(primaryText) ? "OK" : primaryText.Trim();
+            RunBookAlertSecondaryText = string.IsNullOrWhiteSpace(secondaryText) ? "Cancel" : secondaryText.Trim();
+            ShowRunBookAlertSecondaryAction = true;
+            IsRunBookAlertOpen = true;
+            return _runBookAlertCompletion.Task;
+        }
+
+        private void CompleteRunBookAlert(bool result)
+        {
+            var completion = _runBookAlertCompletion;
+            _runBookAlertCompletion = null;
+            IsRunBookAlertOpen = false;
+            ShowRunBookAlertSecondaryAction = false;
+            RunBookAlertTitle = "";
+            RunBookAlertBody = "";
+            RunBookAlertPrimaryText = "OK";
+            RunBookAlertSecondaryText = "";
+            completion?.TrySetResult(result);
         }
 
         private async Task BackgroundSyncAsync()
         {
-            if (IsBusy)
+            if (IsBusy || _isBackgroundSyncRunning)
                 return;
 
-            if (_lastAuthRefreshAttemptUtc == DateTime.MinValue || DateTime.UtcNow - _lastAuthRefreshAttemptUtc >= AuthRefreshInterval)
-                await RefreshAuthPackageAsyncCore(false);
+            _isBackgroundSyncRunning = true;
+            try
+            {
+                if (_lastAuthRefreshAttemptUtc == DateTime.MinValue || DateTime.UtcNow - _lastAuthRefreshAttemptUtc >= AuthRefreshInterval)
+                    await RefreshAuthPackageAsyncCore(false);
 
-            await SyncPendingQueueAsync(false);
+                await SyncPendingQueueAsync(false);
+            }
+            catch (Exception ex)
+            {
+                DebugLogService.WriteException("BackgroundSyncAsync", ex);
+                if (IsConnectivityFailure(ex))
+                {
+                    MarkLocalHostRequestFailure(ex.Message);
+                    OfflineStatus = "RunBook.Service is unavailable right now.";
+                    return;
+                }
+
+                StatusText = GetUserFacingErrorMessage(ex);
+            }
+            finally
+            {
+                _isBackgroundSyncRunning = false;
+            }
+        }
+
+        private async Task HydrateSignedInShellAsync(string sessionToken)
+        {
+            if (_isPostLoginHydrationRunning)
+                return;
+
+            _isPostLoginHydrationRunning = true;
+            try
+            {
+                if (CurrentSession == null || !string.Equals(CurrentSession.Token, sessionToken, StringComparison.Ordinal))
+                    return;
+
+                LoadQueue();
+
+                if (HasTimeClockAccess)
+                {
+                    await RefreshLocalTimeclockStateAsync();
+                    if (CurrentSession == null || !string.Equals(CurrentSession.Token, sessionToken, StringComparison.Ordinal))
+                        return;
+
+                    await SyncPendingQueueAsync(false);
+                }
+
+                if (CurrentSession != null &&
+                    string.Equals(CurrentSession.Token, sessionToken, StringComparison.Ordinal) &&
+                    HasWorkOrdersAccess)
+                {
+                    await RefreshWorkOrdersAsync(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLogService.WriteException("HydrateSignedInShellAsync", ex);
+            }
+            finally
+            {
+                _isPostLoginHydrationRunning = false;
+            }
         }
 
         private async Task RefreshCapabilityPayloadAsync(bool allowFallback)
@@ -1199,7 +2938,7 @@ namespace RunBook.Workstation.ViewModels
             try
             {
                 var response = await _api.GetSessionMeAsync(Settings, CurrentSession, CancellationToken.None);
-                MarkDesktopRequestSuccess();
+                MarkLocalHostRequestSuccess();
                 ApplyCapabilityPayload(MapCapabilityPayload(response.Payload));
             }
             catch (Exception ex)
@@ -1292,6 +3031,11 @@ namespace RunBook.Workstation.ViewModels
             WorkstationStorageService.SaveSession(CurrentSession);
             OnPropertyChanged(nameof(SessionEmployeeName));
             OnPropertyChanged(nameof(SessionRole));
+            OnPropertyChanged(nameof(LoginHeadline));
+            OnPropertyChanged(nameof(LoginInstructionLine));
+            OnPropertyChanged(nameof(CurrentOperatorLine));
+            OnPropertyChanged(nameof(CurrentOperatorStatusLine));
+            OnPropertyChanged(nameof(PrimaryOperatorActionText));
             OnPropertyChanged(nameof(SessionModulesLine));
             OnPropertyChanged(nameof(HasTimeClockAccess));
             OnPropertyChanged(nameof(HasWorkOrdersAccess));
@@ -1331,6 +3075,8 @@ namespace RunBook.Workstation.ViewModels
                     AssignedWorkOrders.Add(workOrder);
                 foreach (var workOrder in response.AvailableJobs.Select(MapWorkOrderSummary))
                     AvailableWorkOrders.Add(workOrder);
+                if (AssignedWorkOrders.Count == 0 && AvailableWorkOrders.Count > 0)
+                    SelectedWorkOrderQueueTab = "all";
 
                 var preferredCurrentId = CurrentJob?.WorkOrderId ?? 0;
                 SelectedWorkOrder = WorkOrders.FirstOrDefault(item => item.WorkOrderId == previousSelectedId)
@@ -1354,9 +3100,15 @@ namespace RunBook.Workstation.ViewModels
                     SelectedDrawing = null;
                 }
 
+                RefreshWorkOrderSelectionStates();
+                OnPropertyChanged(nameof(WorkOrdersHeaderCountText));
+                OnPropertyChanged(nameof(VisibleWorkOrderQueue));
+                OnPropertyChanged(nameof(VisibleWorkOrderQueueCount));
+                OnPropertyChanged(nameof(WorkOrdersQueueFooterText));
+
                 WorkOrdersStatus = WorkOrders.Count == 0
-                    ? "Desktop has no assigned or backup work orders available for this employee."
-                    : $"Loaded {WorkOrders.Count} workstation jobs from Desktop. Assigned {_assignedWorkOrderCount}, backup {_backupWorkOrderCount}.";
+                    ? "Service has no assigned or backup work orders available for this employee."
+                    : $"Loaded {WorkOrders.Count} workstation jobs from Service. Assigned {_assignedWorkOrderCount}, backup {_backupWorkOrderCount}.";
                 if (manual)
                     StatusText = WorkOrdersStatus;
             });
@@ -1369,9 +3121,13 @@ namespace RunBook.Workstation.ViewModels
 
             await RunBusyAsync(async () =>
             {
+                if (AssignedWorkOrders.Any(item => item.WorkOrderId == workOrder.WorkOrderId))
+                    SelectedWorkOrderQueueTab = "assigned";
+                else if (AvailableWorkOrders.Any(item => item.WorkOrderId == workOrder.WorkOrderId))
+                    SelectedWorkOrderQueueTab = "all";
                 SelectedWorkOrder = workOrder;
                 await LoadWorkOrderDetailAsync(workOrder.WorkOrderId, true);
-                StatusText = $"Loaded {workOrder.WorkOrderNumber} from Desktop.";
+                StatusText = $"Loaded {workOrder.WorkOrderNumber} from Service.";
             });
         }
 
@@ -1392,7 +3148,7 @@ namespace RunBook.Workstation.ViewModels
             {
                 await LoadWorkOrderDetailAsync(CurrentJob.WorkOrderId, true);
                 SelectedWorkOrder = WorkOrders.FirstOrDefault(item => item.WorkOrderId == CurrentJob.WorkOrderId) ?? SelectedWorkOrder;
-                StatusText = $"Resumed {CurrentJob.WorkOrderNumber} from Desktop.";
+                StatusText = $"Resumed {CurrentJob.WorkOrderNumber} from Service.";
             });
         }
 
@@ -1414,7 +3170,7 @@ namespace RunBook.Workstation.ViewModels
             await RunBusyAsync(async () =>
             {
                 await LoadWorkOrderDetailAsync(RecentJob.WorkOrderId, true);
-                StatusText = $"Loaded recent job {RecentJob.WorkOrderNumber} from Desktop.";
+                StatusText = $"Loaded recent job {RecentJob.WorkOrderNumber} from Service.";
             });
         }
 
@@ -1444,6 +3200,9 @@ namespace RunBook.Workstation.ViewModels
 
             if (includeDrawings && HasDrawingsAccess)
                 await LoadDrawingPackageAsync(workOrderId);
+
+            if (SelectedOperation != null)
+                await RefreshOperationPacketAsync(false);
         }
 
         private async Task SelectOperationAsync(WorkstationWorkOrderOperationSummary? operation)
@@ -1451,9 +3210,52 @@ namespace RunBook.Workstation.ViewModels
             if (operation == null)
                 return;
 
+            CancelRecordQuantity();
             SelectedOperation = operation;
-            if (HasInspectionViewAccess)
-                await RefreshInspectionTasksAsync(false);
+            await RefreshOperationPacketAsync(false);
+        }
+
+        private void RefreshWorkOrderSelectionStates()
+        {
+            var selectedId = SelectedWorkOrder?.WorkOrderId ?? 0;
+            foreach (var workOrder in WorkOrders)
+                workOrder.IsSelected = workOrder.WorkOrderId == selectedId;
+            foreach (var workOrder in AssignedWorkOrders)
+                workOrder.IsSelected = workOrder.WorkOrderId == selectedId;
+            foreach (var workOrder in AvailableWorkOrders)
+                workOrder.IsSelected = workOrder.WorkOrderId == selectedId;
+            OnPropertyChanged(nameof(VisibleWorkOrderQueue));
+        }
+
+        private void RefreshOperationSelectionStates()
+        {
+            var selectedId = SelectedOperation?.OperationId ?? 0;
+            foreach (var operation in WorkOrderDetail?.Operations ?? Enumerable.Empty<WorkstationWorkOrderOperationSummary>())
+                operation.IsSelected = operation.OperationId == selectedId;
+            OnPropertyChanged(nameof(WorkOrderDetail));
+        }
+
+        private void SetDefaultDataEntryTab()
+        {
+            if (SelectedOperation == null)
+            {
+                SelectedDataEntryTab = "production";
+                return;
+            }
+
+            if (IsReceiveMaterialOperation)
+            {
+                SelectedDataEntryTab = "material";
+                return;
+            }
+
+            if (ShowDataEntryInspectionCard && GetOperationFamily() == "inspection")
+            {
+                SelectedDataEntryTab = "inspection";
+                return;
+            }
+
+            SelectedDataEntryTab = "production";
         }
 
         private async Task LoadDrawingPackageAsync(int workOrderId)
@@ -1478,7 +3280,7 @@ namespace RunBook.Workstation.ViewModels
                 var response = await _api.DownloadDrawingAsync(Settings, CurrentSession, drawing.DownloadRoute, CancellationToken.None);
                 var bytes = response.GetBytes();
                 if (bytes.Length == 0)
-                    throw new InvalidOperationException("Desktop returned an empty drawing payload.");
+                    throw new InvalidOperationException("RunBook Service returned an empty drawing payload.");
 
                 var tempFolder = Path.Combine(WorkstationStorageService.TempFolder, "drawings");
                 Directory.CreateDirectory(tempFolder);
@@ -1490,10 +3292,63 @@ namespace RunBook.Workstation.ViewModels
             });
         }
 
+        private async Task OpenPacketDocumentAsync(RunBookWorkstationApiClient.OperationPacketDocument? document)
+        {
+            if (document == null || CurrentSession == null)
+                return;
+
+            var route = string.IsNullOrWhiteSpace(document.DownloadRoute) ? document.PreviewRoute : document.DownloadRoute;
+            if (string.IsNullOrWhiteSpace(route))
+            {
+                StatusText = "This packet document does not have a Service download route yet.";
+                return;
+            }
+
+            await RunBusyAsync(async () =>
+            {
+                var response = await _api.DownloadPacketDocumentAsync(Settings, CurrentSession, route, CancellationToken.None);
+                var bytes = response.GetBytes();
+                if (bytes.Length == 0)
+                    throw new InvalidOperationException("RunBook Service returned an empty document payload.");
+
+                var tempFolder = Path.Combine(WorkstationStorageService.TempFolder, "packet-documents");
+                Directory.CreateDirectory(tempFolder);
+                var fileName = string.IsNullOrWhiteSpace(response.FileName) ? $"{document.Id}.bin" : response.FileName;
+                var localPath = Path.Combine(tempFolder, fileName);
+                File.WriteAllBytes(localPath, bytes);
+                Process.Start(new ProcessStartInfo(localPath) { UseShellExecute = true });
+                StatusText = $"Opened {document.Title} in the default viewer.";
+            });
+        }
+
         private async Task ExecuteOperationAsync(string action)
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null || !HasOperationExecutionAccess)
                 return;
+
+            if (string.Equals((action ?? "").Trim(), "complete", StringComparison.OrdinalIgnoreCase) && IsReceiveMaterialOperation)
+            {
+                await SubmitMaterialReceivingAsync(completeOperation: true);
+                return;
+            }
+
+            if (string.Equals((action ?? "").Trim(), "start", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(TimeClockStateKey, "working", StringComparison.OrdinalIgnoreCase))
+            {
+                ShowRunBookAlert("Clock In Required", ClockedOutOperationStartMessage);
+                return;
+            }
+
+            if (string.Equals((action ?? "").Trim(), "start", StringComparison.OrdinalIgnoreCase) &&
+                SelectedOperation.CanStart != true &&
+                SelectedOperation.IsPaused != true)
+            {
+                ShowRunBookAlert("Operation Not Available", BuildStartOperationUnavailableMessage());
+                return;
+            }
 
             await RunBusyAsync(async () =>
             {
@@ -1518,6 +3373,9 @@ namespace RunBook.Workstation.ViewModels
 
         private async Task SubmitQuantityAsync()
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null || !HasProductionQuantityAccess)
                 return;
 
@@ -1542,8 +3400,164 @@ namespace RunBook.Workstation.ViewModels
             });
         }
 
+        private void BeginRecordQuantity()
+        {
+            if (SelectedOperation == null || SelectedWorkOrder == null)
+                return;
+
+            QuantityEventQuantity = "";
+            QuantityEventGoodQuantity = "";
+            QuantityEventScrapQuantity = "";
+            QuantityEventNotes = "";
+            IsRecordQuantityPanelOpen = true;
+        }
+
+        private void CancelRecordQuantity()
+        {
+            QuantityEventQuantity = "";
+            QuantityEventGoodQuantity = "";
+            QuantityEventScrapQuantity = "";
+            QuantityEventNotes = "";
+            IsRecordQuantityPanelOpen = false;
+        }
+
+        private async Task SaveQuantityEventAsync()
+        {
+            if (!EnsureServiceWritable())
+                return;
+            if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null || !HasProductionQuantityAccess)
+                return;
+
+            var validation = BuildQuantityEventValidationMessage();
+            if (!string.IsNullOrWhiteSpace(validation))
+            {
+                StatusText = validation;
+                return;
+            }
+
+            _ = decimal.TryParse((QuantityEventQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var quantity);
+            var hasGood = decimal.TryParse((QuantityEventGoodQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var goodQuantity);
+            var hasScrap = decimal.TryParse((QuantityEventScrapQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var scrapQuantity);
+
+            await RunBusyAsync(async () =>
+            {
+                var response = await _api.SubmitQuantityEventAsync(
+                    Settings,
+                    CurrentSession,
+                    SelectedWorkOrder.WorkOrderId,
+                    SelectedOperation.OperationId,
+                    new RunBookWorkstationApiClient.QuantityEventSubmitRequest
+                    {
+                        EventType = "OperationCompleted",
+                        Quantity = Convert.ToDouble(quantity, CultureInfo.InvariantCulture),
+                        GoodQuantity = hasGood ? Convert.ToDouble(goodQuantity, CultureInfo.InvariantCulture) : null,
+                        ScrapQuantity = hasScrap ? Convert.ToDouble(scrapQuantity, CultureInfo.InvariantCulture) : null,
+                        Notes = (QuantityEventNotes ?? "").Trim(),
+                        EmployeeId = CurrentSession.Employee.EmployeeId,
+                        EmployeeName = CurrentSession.Employee.DisplayName
+                    },
+                    CancellationToken.None);
+
+                CancelRecordQuantity();
+                await RefreshOperationPacketAsync(false);
+                StatusText = string.IsNullOrWhiteSpace(response.Message) ? "Quantity event saved." : response.Message;
+            });
+        }
+
+        private async Task SaveDataEntryAsync()
+        {
+            if (IsReceiveMaterialOperation)
+            {
+                await SubmitMaterialReceivingAsync(completeOperation: false);
+                return;
+            }
+
+            if (ShowDataEntryQuantityField)
+            {
+                await SubmitQuantityAsync();
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(OperationNoteText))
+            {
+                await SubmitOperationNoteAsync();
+                return;
+            }
+
+            StatusText = "Enter a value or note before saving progress.";
+        }
+
+        private async Task SubmitMaterialReceivingAsync(bool completeOperation)
+        {
+            if (!EnsureServiceWritable())
+                return;
+            if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null)
+                return;
+            if (PrimaryMaterialRequirement == null)
+            {
+                StatusText = "No expected material requirement is available for this Receive Material operation.";
+                return;
+            }
+            var warning = BuildMaterialReceivingWarning();
+            if (!string.IsNullOrWhiteSpace(warning))
+            {
+                StatusText = warning;
+                return;
+            }
+            if (!double.TryParse((ReceivedMaterialQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var receivedQty))
+            {
+                StatusText = "Received quantity is required.";
+                return;
+            }
+
+            var request = new RunBookWorkstationApiClient.MaterialReceiptSubmitRequest
+            {
+                MaterialRequirementId = PrimaryMaterialRequirement.MaterialRequirementId,
+                ReceivedShape = ReceivedMaterialShape,
+                ReceivedSize = ReceivedMaterialSize,
+                ReceivedGrade = ReceivedMaterialGrade,
+                ReceivedSpec = ReceivedMaterialSpec,
+                ReceivedQuantity = receivedQty,
+                ReceivedUnit = ReceivedMaterialUnit,
+                ConditionStatus = ReceivedMaterialCondition,
+                Notes = ReceivedMaterialNotes,
+                StorageLocation = ReceivedMaterialStorageLocation,
+                HeatLots = MaterialHeatLots.Select(row => new RunBookWorkstationApiClient.MaterialReceiptHeatLotSubmitRequest
+                {
+                    HeatLotNumber = row.HeatLotNumber,
+                    Quantity = double.TryParse((row.QuantityText ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var qty) ? qty : 0,
+                    Unit = FirstNonBlank(row.Unit, ReceivedMaterialUnit),
+                    CertReceived = row.CertReceived,
+                    Notes = row.Notes
+                }).ToList()
+            };
+
+            await RunBusyAsync(async () =>
+            {
+                if (_savedMaterialReceiptId <= 0)
+                {
+                    var receiptResponse = await _api.SaveMaterialReceiptAsync(Settings, CurrentSession, SelectedWorkOrder.WorkOrderId, SelectedOperation.OperationId, request, CancellationToken.None);
+                    _savedMaterialReceiptId = receiptResponse.MaterialReceiptId;
+                    WorkOrderDetail = MapWorkOrderDetail(receiptResponse.WorkOrder);
+                    StatusText = string.IsNullOrWhiteSpace(receiptResponse.Message) ? "Material receipt saved." : receiptResponse.Message;
+                    await RefreshOperationPacketAsync(false);
+                }
+
+                if (completeOperation)
+                {
+                    var completeResponse = await _api.CompleteOperationAsync(Settings, CurrentSession, SelectedWorkOrder.WorkOrderId, SelectedOperation.OperationId, OperationActionNoteText, CancellationToken.None);
+                    ApplyWorkOrderMutationResponse(completeResponse, SelectedOperation.OperationId);
+                    OperationActionNoteText = "";
+                    StatusText = "Material receipt submitted and operation completed.";
+                }
+            });
+        }
+
         private async Task SubmitScrapAsync()
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null || !HasProductionScrapAccess)
                 return;
 
@@ -1570,6 +3584,9 @@ namespace RunBook.Workstation.ViewModels
 
         private async Task SubmitOperationNoteAsync()
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null || !HasProductionNoteAccess)
                 return;
 
@@ -1596,6 +3613,9 @@ namespace RunBook.Workstation.ViewModels
 
         private async Task SubmitOperationHelpAsync()
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null || !HasWorkOrdersAccess)
                 return;
 
@@ -1650,11 +3670,16 @@ namespace RunBook.Workstation.ViewModels
             {
                 var operationId = SelectedOperation?.OperationId ?? 0;
                 var response = await _api.GetInspectionTasksAsync(Settings, CurrentSession, SelectedWorkOrder.WorkOrderId, operationId, CancellationToken.None);
+                _inspectionResultSubmissionAvailable = false;
                 InspectionPackage = MapInspectionTaskPackage(response.Inspection);
                 InspectionTasks.Clear();
                 foreach (var task in InspectionPackage?.Tasks ?? Enumerable.Empty<WorkstationInspectionTask>())
                     InspectionTasks.Add(task);
                 OnPropertyChanged(nameof(InspectionSubtitle));
+                OnPropertyChanged(nameof(HasOperationInspection));
+                OnPropertyChanged(nameof(SelectedInspectionBalloonLabel));
+                OnPropertyChanged(nameof(SelectedInspectionFeatureLabel));
+                RaiseCommandStates();
                 SelectedInspectionTask = InspectionTasks.FirstOrDefault(task => task.FeatureId == SelectedInspectionTask?.FeatureId) ?? InspectionTasks.FirstOrDefault();
                 if (SelectedInspectionTask != null)
                 {
@@ -1672,15 +3697,622 @@ namespace RunBook.Workstation.ViewModels
             }
             catch (Exception ex)
             {
+                _inspectionResultSubmissionAvailable = false;
                 InspectionPackage = null;
                 InspectionTasks.Clear();
                 SelectedInspectionTask = null;
                 OnPropertyChanged(nameof(InspectionSubtitle));
+                OnPropertyChanged(nameof(HasOperationInspection));
+                OnPropertyChanged(nameof(SelectedInspectionBalloonLabel));
+                OnPropertyChanged(nameof(SelectedInspectionFeatureLabel));
+                RaiseCommandStates();
                 InspectionActualValue = "";
                 InspectionResultNoteText = "";
                 if (manual)
                     StatusText = ex.Message;
             }
+        }
+
+        private async Task RefreshOperationPacketAsync(bool manual)
+        {
+            if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null)
+                return;
+
+            try
+            {
+                _operationPacketLoadStatus = "Loading operation packet from RunBook Service...";
+                OnPropertyChanged(nameof(PacketLoadMessage));
+                OnPropertyChanged(nameof(PacketDocumentSummary));
+                var response = await _api.GetOperationPacketAsync(Settings, CurrentSession, SelectedWorkOrder.WorkOrderId, SelectedOperation.OperationId, CancellationToken.None);
+                ApplyOperationPacket(response.Packet);
+                await LoadCurrentWorkOrderThumbnailAsync(response.Packet);
+                if (manual)
+                    StatusText = PacketDocumentSummary;
+            }
+            catch (Exception ex)
+            {
+                ClearOperationPacket($"Operation packet failed to load: {GetUserFacingErrorMessage(ex)}");
+                if (manual)
+                    StatusText = PacketDocumentSummary;
+            }
+        }
+
+        private void ApplyOperationPacket(RunBookWorkstationApiClient.OperationPacket? packet)
+        {
+            _operationPacket = packet;
+            _operationPacketLoadStatus = packet == null ? "Operation packet has not loaded yet." : "Operation packet loaded from RunBook Service.";
+            if (SelectedOperation != null)
+            {
+                SelectedOperation.SetupMinutesEstimate = packet?.SetupMinutes > 0 ? $"{packet.SetupMinutes:0.##} min" : "";
+                SelectedOperation.CycleMinutesEstimate = packet?.CycleMinutes > 0 ? $"{packet.CycleMinutes:0.##} min" : "";
+            }
+            PacketDrawingDocuments.Clear();
+            PacketBalloonedDrawingDocuments.Clear();
+            PacketInspectionDocuments.Clear();
+            PacketOperationReferences.Clear();
+            PacketBalloonMarkers.Clear();
+            OperationAttachments.Clear();
+            InspectionTasks.Clear();
+            RecentQuantityEvents.Clear();
+
+            if (packet != null)
+            {
+                foreach (var document in packet.DrawingDocuments ?? Enumerable.Empty<RunBookWorkstationApiClient.OperationPacketDocument>())
+                    PacketDrawingDocuments.Add(document);
+                foreach (var document in packet.BalloonedDrawingDocuments ?? Enumerable.Empty<RunBookWorkstationApiClient.OperationPacketDocument>())
+                    PacketBalloonedDrawingDocuments.Add(document);
+                foreach (var document in packet.InspectionDocuments ?? Enumerable.Empty<RunBookWorkstationApiClient.OperationPacketDocument>())
+                    PacketInspectionDocuments.Add(document);
+                foreach (var document in packet.OperationReferences ?? Enumerable.Empty<RunBookWorkstationApiClient.OperationPacketDocument>())
+                    PacketOperationReferences.Add(document);
+                foreach (var marker in packet.BalloonMarkers ?? Enumerable.Empty<RunBookWorkstationApiClient.BalloonMarker>())
+                    PacketBalloonMarkers.Add(marker);
+                foreach (var attachment in packet.OperationAttachments ?? Enumerable.Empty<RunBookWorkstationApiClient.OperationAttachment>())
+                    OperationAttachments.Add(attachment);
+                foreach (var quantityEvent in packet.RecentQuantityEvents?.Select(MapQuantityEvent) ?? Enumerable.Empty<WorkstationQuantityEventEntry>())
+                    RecentQuantityEvents.Add(quantityEvent);
+                foreach (var task in packet.InspectionTasks?.Select(MapInspectionTask) ?? Enumerable.Empty<WorkstationInspectionTask>())
+                    InspectionTasks.Add(task);
+                foreach (var unit in packet.MaterialUnitOptions ?? Enumerable.Empty<string>())
+                {
+                    if (!string.IsNullOrWhiteSpace(unit) && !MaterialUnitOptions.Any(existing => string.Equals(existing, unit, StringComparison.OrdinalIgnoreCase)))
+                        MaterialUnitOptions.Add(unit);
+                }
+
+                InspectionPackage = new WorkstationInspectionTaskPackage
+                {
+                    WorkOrderId = packet.WorkOrderId,
+                    OperationId = packet.OperationId,
+                    FeatureSetName = PacketInspectionDocuments.FirstOrDefault()?.Title ?? "",
+                    TemplateKey = PacketInspectionDocuments.FirstOrDefault()?.Type ?? "TemplateA",
+                    Tasks = InspectionTasks.ToList()
+                };
+            }
+            else
+            {
+                InspectionPackage = null;
+            }
+
+            SeedMaterialReceivingFields();
+            SelectedInspectionTask = InspectionTasks.FirstOrDefault(task => task.FeatureId == SelectedInspectionTask?.FeatureId) ?? InspectionTasks.FirstOrDefault();
+            OnPropertyChanged(nameof(HasOperationInspection));
+            OnPropertyChanged(nameof(ShowInspectionAction));
+            OnPropertyChanged(nameof(HasPacketDocuments));
+            OnPropertyChanged(nameof(HasBalloonGeometry));
+            OnPropertyChanged(nameof(PacketLoadMessage));
+            OnPropertyChanged(nameof(PacketDocumentSummary));
+            OnPropertyChanged(nameof(PacketDocuments));
+            OnPropertyChanged(nameof(PacketReferenceItems));
+            OnPropertyChanged(nameof(PacketChecklistItems));
+            OnPropertyChanged(nameof(BalloonGeometryStatus));
+            OnPropertyChanged(nameof(OperationAttachmentSummary));
+            OnPropertyChanged(nameof(InspectionSubtitle));
+            OnPropertyChanged(nameof(SelectedInspectionBalloonLabel));
+            OnPropertyChanged(nameof(SelectedInspectionFeatureLabel));
+            OnPropertyChanged(nameof(SelectedWorkOrderCellText));
+            OnPropertyChanged(nameof(SelectedOperationWorkCenterText));
+            OnPropertyChanged(nameof(SelectedOperationDepartmentText));
+            OnPropertyChanged(nameof(SelectedOperationTypeText));
+            OnPropertyChanged(nameof(SelectedOperationSetupText));
+            OnPropertyChanged(nameof(SelectedOperationCycleText));
+            OnPropertyChanged(nameof(QuantityRequiredText));
+            OnPropertyChanged(nameof(QuantityCompletedText));
+            OnPropertyChanged(nameof(QuantityScrapText));
+            OnPropertyChanged(nameof(QuantityRemainingText));
+            OnPropertyChanged(nameof(QuantityAcceptedText));
+            OnPropertyChanged(nameof(QuantityRejectedText));
+            OnPropertyChanged(nameof(HasRecentQuantityEvents));
+            RebuildDataEntrySections();
+            RaiseCommandStates();
+        }
+
+        private void SeedMaterialReceivingFields()
+        {
+            var req = PrimaryMaterialRequirement;
+            if (req == null)
+            {
+                _savedMaterialReceiptId = 0;
+                return;
+            }
+
+            var existingReceipt = _operationPacket?.MaterialReceipts?
+                .Where(receipt => receipt.WorkOrderOpId == SelectedOperation?.OperationId)
+                .OrderByDescending(receipt => receipt.MaterialReceiptId)
+                .FirstOrDefault();
+            _savedMaterialReceiptId = existingReceipt?.MaterialReceiptId ?? 0;
+
+            ReceivedMaterialSpec = FirstNonBlank(existingReceipt?.ReceivedSpec, req.ExpectedSpec);
+            ReceivedMaterialShape = FirstNonBlank(existingReceipt?.ReceivedShape, req.ExpectedShape);
+            ReceivedMaterialSize = FirstNonBlank(existingReceipt?.ReceivedSize, req.ExpectedSize);
+            ReceivedMaterialGrade = FirstNonBlank(existingReceipt?.ReceivedGrade, req.ExpectedGrade);
+            ReceivedMaterialQuantity = existingReceipt != null && existingReceipt.ReceivedQuantity > 0
+                ? existingReceipt.ReceivedQuantity.ToString("0.####", CultureInfo.InvariantCulture)
+                : (req.ExpectedQuantity > 0 ? req.ExpectedQuantity.ToString("0.####", CultureInfo.InvariantCulture) : "");
+            ReceivedMaterialUnit = FirstNonBlank(existingReceipt?.ReceivedUnit, req.ExpectedUnit, MaterialUnitOptions.FirstOrDefault(), "Bars");
+            ReceivedMaterialCondition = FirstNonBlank(existingReceipt?.ConditionStatus, "OK");
+            ReceivedMaterialNotes = existingReceipt?.Notes ?? "";
+
+            ClearMaterialHeatLots();
+            var traceRows = existingReceipt == null
+                ? Enumerable.Empty<RunBookWorkstationApiClient.MaterialTraceDto>()
+                : _operationPacket?.MaterialTraces?.Where(trace => trace.MaterialReceiptId == existingReceipt.MaterialReceiptId) ?? Enumerable.Empty<RunBookWorkstationApiClient.MaterialTraceDto>();
+            foreach (var trace in traceRows)
+            {
+                AddMaterialHeatLot(new WorkstationMaterialHeatLotEntry
+                {
+                    HeatLotNumber = trace.HeatLotNumber,
+                    QuantityText = trace.ReceivedQuantity > 0 ? trace.ReceivedQuantity.ToString("0.####", CultureInfo.InvariantCulture) : "",
+                    Unit = FirstNonBlank(trace.Unit, ReceivedMaterialUnit),
+                    CertReceived = string.Equals(trace.CertStatus, "Received", StringComparison.OrdinalIgnoreCase) || string.Equals(trace.CertStatus, "Attached", StringComparison.OrdinalIgnoreCase),
+                    Notes = trace.Notes
+                });
+            }
+            if (MaterialHeatLots.Count == 0)
+                AddMaterialHeatLot();
+            ReceiveMaterialMultipleHeatLots = MaterialHeatLots.Count > 1;
+        }
+
+        private void ClearOperationPacket()
+            => ClearOperationPacket("Operation packet has not loaded yet.");
+
+        private void ClearOperationPacket(string status)
+        {
+            _operationPacket = null;
+            _operationPacketLoadStatus = string.IsNullOrWhiteSpace(status) ? "Operation packet has not loaded yet." : status;
+            if (SelectedOperation != null)
+            {
+                SelectedOperation.SetupMinutesEstimate = "";
+                SelectedOperation.CycleMinutesEstimate = "";
+            }
+            CurrentWorkOrderThumbnailImage = null;
+            PacketDrawingDocuments.Clear();
+            PacketBalloonedDrawingDocuments.Clear();
+            PacketInspectionDocuments.Clear();
+            PacketOperationReferences.Clear();
+            PacketBalloonMarkers.Clear();
+            OperationAttachments.Clear();
+            InspectionTasks.Clear();
+            RecentQuantityEvents.Clear();
+            InspectionPackage = null;
+            SelectedInspectionTask = null;
+            OnPropertyChanged(nameof(HasOperationInspection));
+            OnPropertyChanged(nameof(ShowInspectionAction));
+            OnPropertyChanged(nameof(HasPacketDocuments));
+            OnPropertyChanged(nameof(HasBalloonGeometry));
+            OnPropertyChanged(nameof(PacketLoadMessage));
+            OnPropertyChanged(nameof(PacketDocumentSummary));
+            OnPropertyChanged(nameof(PacketDocuments));
+            OnPropertyChanged(nameof(PacketReferenceItems));
+            OnPropertyChanged(nameof(PacketChecklistItems));
+            OnPropertyChanged(nameof(BalloonGeometryStatus));
+            OnPropertyChanged(nameof(OperationAttachmentSummary));
+            OnPropertyChanged(nameof(InspectionSubtitle));
+            OnPropertyChanged(nameof(SelectedInspectionBalloonLabel));
+            OnPropertyChanged(nameof(SelectedInspectionFeatureLabel));
+            OnPropertyChanged(nameof(SelectedWorkOrderCellText));
+            OnPropertyChanged(nameof(SelectedOperationWorkCenterText));
+            OnPropertyChanged(nameof(SelectedOperationDepartmentText));
+            OnPropertyChanged(nameof(SelectedOperationTypeText));
+            OnPropertyChanged(nameof(SelectedOperationSetupText));
+            OnPropertyChanged(nameof(SelectedOperationCycleText));
+            OnPropertyChanged(nameof(QuantityRequiredText));
+            OnPropertyChanged(nameof(QuantityCompletedText));
+            OnPropertyChanged(nameof(QuantityScrapText));
+            OnPropertyChanged(nameof(QuantityRemainingText));
+            OnPropertyChanged(nameof(QuantityAcceptedText));
+            OnPropertyChanged(nameof(QuantityRejectedText));
+            OnPropertyChanged(nameof(HasRecentQuantityEvents));
+            RebuildDataEntrySections();
+        }
+
+        private void RebuildDataEntrySections()
+        {
+            DataEntrySections.Clear();
+
+            if (SelectedOperation == null)
+            {
+                RaiseDataEntryPropertiesChanged();
+                return;
+            }
+
+            var family = GetOperationFamily();
+            var sectionNumber = 1;
+
+            var required = new WorkstationDataEntrySection
+            {
+                Number = sectionNumber++.ToString(CultureInfo.InvariantCulture),
+                Title = "Required Inputs",
+                Subtitle = BuildRequiredInputsSubtitle(family),
+                AccentBrush = "#31C7FF",
+                BorderBrush = "#5531C7FF",
+                BackgroundBrush = "#D40F1B2F"
+            };
+
+            AddIfPresent(required, "Operation type", DataEntryOperationTypeLabel, "Ready");
+            AddIfPresent(required, "Work center", FirstNonBlank(_operationPacket?.WorkCenterDisplay, SelectedOperation.WorkCenter), "Ready");
+            var materialContext = FirstNonBlank(_operationPacket?.MaterialSummaryDisplay);
+            if (string.IsNullOrWhiteSpace(materialContext) && HasMaterialContext(family))
+                materialContext = WorkOrderDetail?.PartDescription ?? "";
+            AddIfPresent(required, HasMaterialContext(family) ? "Material / trace" : "Reference context", materialContext, HasMaterialContext(family) ? "Ready" : "Optional");
+            AddIfPresent(required, "Run notes", FirstNonBlank(_operationPacket?.NotesDisplay, _operationPacket?.DetailNotesDisplay), "Optional");
+            if (_operationPacket?.RequireNotes == true)
+                required.Items.Add(BuildRequirementRow("Operation note", string.IsNullOrWhiteSpace(OperationNoteText) ? "A note is required by released routing." : "Note entered and ready to save.", string.IsNullOrWhiteSpace(OperationNoteText) ? "Missing" : "Ready"));
+            if (required.Items.Count == 0)
+                required.Items.Add(BuildRequirementRow("No required inputs for this operation.", "", "Ready"));
+            DataEntrySections.Add(required);
+
+            var confirmations = new WorkstationDataEntrySection
+            {
+                Number = sectionNumber++.ToString(CultureInfo.InvariantCulture),
+                Title = "Confirmations",
+                Subtitle = BuildConfirmationSubtitle(family),
+                AccentBrush = family == "inspection" ? "#9A6BFF" : "#31C7FF",
+                BorderBrush = family == "inspection" ? "#6A9A6BFF" : "#5531C7FF",
+                BackgroundBrush = family == "inspection" ? "#241A1330" : "#D40F1B2F"
+            };
+
+            foreach (var item in _operationPacket?.ChecklistItems ?? Enumerable.Empty<RunBookWorkstationApiClient.OperationPacketChecklistItem>())
+                AddIfPresent(confirmations, item.IsRequired ? "Required check" : "Optional check", item.Label, item.IsRequired ? "Missing" : "Optional");
+            if ((_operationPacket?.RequireChecklist == true) && confirmations.Items.Count == 0)
+                confirmations.Items.Add(BuildRequirementRow("Checklist", "Required by routing, but no released checklist rows were found.", "Missing"));
+            if (confirmations.Items.Count > 0)
+                DataEntrySections.Add(confirmations);
+
+            if (ShowDataEntryInspectionCard)
+            {
+                var inspection = new WorkstationDataEntrySection
+                {
+                    Number = sectionNumber++.ToString(CultureInfo.InvariantCulture),
+                    Title = GetOperationFamily() == "inspection" ? "Inspection / Review" : "Linked Inspection",
+                    Subtitle = InspectionAvailabilityMessage,
+                    AccentBrush = "#9A6BFF",
+                    BorderBrush = "#6A9A6BFF",
+                    BackgroundBrush = "#241A1330"
+                };
+
+                if (InspectionTasks.Count == 0)
+                    inspection.Items.Add(BuildRequirementRow("Inspection result entry", "Detailed inspection result submission is not available on Workstation yet.", "Optional"));
+                else
+                {
+                    foreach (var task in InspectionTasks.Take(5))
+                        inspection.Items.Add(BuildRequirementRow(task.BalloonNumber > 0 ? $"Balloon {task.BalloonNumber}" : $"Feature {task.FeatureId}", FirstNonBlank(task.FeatureText, task.InputType), string.IsNullOrWhiteSpace(task.ActualValue) ? "Missing" : "Completed"));
+                    if (InspectionTasks.Count > 5)
+                        inspection.Items.Add(BuildRequirementRow("Additional inspection rows", $"{InspectionTasks.Count - 5} more linked task(s).", "Ready"));
+                }
+
+                DataEntrySections.Add(inspection);
+            }
+
+            var evidence = new WorkstationDataEntrySection
+            {
+                Number = sectionNumber++.ToString(CultureInfo.InvariantCulture),
+                Title = "Evidence / Attachments",
+                Subtitle = BuildEvidenceSubtitle(),
+                AccentBrush = "#31C7FF",
+                BorderBrush = "#5531C7FF",
+                BackgroundBrush = "#D40F1B2F"
+            };
+            evidence.Items.Add(BuildRequirementRow("Captured evidence", OperationAttachmentSummary, IsEvidenceRequired() && OperationAttachments.Count == 0 ? "Missing" : OperationAttachments.Count > 0 ? "Completed" : "Optional"));
+            var evidenceState = OperationAttachments.Count > 0 ? "Completed" : "Missing";
+            if (_operationPacket?.RequirePhoto == true) evidence.Items.Add(BuildRequirementRow("Photo", "Required by released routing.", evidenceState));
+            if (_operationPacket?.RequireVideo == true) evidence.Items.Add(BuildRequirementRow("Video", "Required by released routing.", evidenceState));
+            if (_operationPacket?.RequireAttachment == true) evidence.Items.Add(BuildRequirementRow("Attachment", "Required by released routing.", evidenceState));
+            DataEntrySections.Add(evidence);
+
+            RaiseDataEntryPropertiesChanged();
+        }
+
+        private void RaiseDataEntryPropertiesChanged()
+        {
+            OnPropertyChanged(nameof(DataEntryOperationTypeLabel));
+            OnPropertyChanged(nameof(DataEntryHeaderSummary));
+            OnPropertyChanged(nameof(DataEntryEntryTitle));
+            OnPropertyChanged(nameof(DataEntryEntryInstruction));
+            OnPropertyChanged(nameof(DataEntryQuantityLabel));
+            OnPropertyChanged(nameof(DataEntrySaveProgressText));
+            OnPropertyChanged(nameof(DataEntrySubmitText));
+            OnPropertyChanged(nameof(DataEntryCanSubmitOperation));
+            OnPropertyChanged(nameof(ShowDataEntryQuantityField));
+            OnPropertyChanged(nameof(ShowDataEntryScrapField));
+            OnPropertyChanged(nameof(ShowDataEntryInspectionCard));
+            OnPropertyChanged(nameof(ShowDataEntryEvidenceCard));
+            OnPropertyChanged(nameof(ShowDataEntryMissingReason));
+            OnPropertyChanged(nameof(DataEntryValidationMessage));
+            OnPropertyChanged(nameof(QuantityEventValidationMessage));
+            OnPropertyChanged(nameof(CanSaveQuantityEvent));
+            OnPropertyChanged(nameof(InspectionAvailabilityMessage));
+            OnPropertyChanged(nameof(IsReceiveMaterialOperation));
+            OnPropertyChanged(nameof(ReceiveMaterialEntryVisibility));
+            OnPropertyChanged(nameof(StandardDataEntryVisibility));
+            OnPropertyChanged(nameof(ExpectedMaterialSummary));
+            OnPropertyChanged(nameof(ExpectedMaterialQuantityText));
+            RaiseMaterialReceivingChanged();
+        }
+
+        private void RaiseMaterialReceivingChanged()
+        {
+            OnPropertyChanged(nameof(MaterialHeatLotTotalText));
+            OnPropertyChanged(nameof(MaterialDifferenceText));
+            OnPropertyChanged(nameof(MaterialReceivingWarning));
+            OnPropertyChanged(nameof(MaterialHeatLotModeText));
+            if (SaveDataEntryCommand is RelayCommand save) save.RaiseCanExecuteChanged();
+            if (CompleteOperationCommand is RelayCommand complete) complete.RaiseCanExecuteChanged();
+        }
+
+        private static string FormatQuantitySummaryValue(double? value)
+            => value.HasValue ? value.Value.ToString("0.####", CultureInfo.InvariantCulture) : "--";
+
+        private string BuildQuantityEventValidationMessage()
+        {
+            if (SelectedWorkOrder == null || SelectedOperation == null)
+                return "Select a work order operation first.";
+
+            if (!decimal.TryParse((QuantityEventQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
+                return "Qty completed must be greater than zero.";
+
+            if (quantity > MaxProductionQuantityValue)
+                return $"Qty completed must be {MaxProductionQuantityValue:N0} or less.";
+
+            if (!string.IsNullOrWhiteSpace(QuantityEventGoodQuantity) &&
+                (!decimal.TryParse((QuantityEventGoodQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var goodQuantity) || goodQuantity < 0))
+                return "Good quantity cannot be negative.";
+
+            if (!string.IsNullOrWhiteSpace(QuantityEventScrapQuantity) &&
+                (!decimal.TryParse((QuantityEventScrapQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var scrapQuantity) || scrapQuantity < 0))
+                return "Scrap quantity cannot be negative.";
+
+            if (decimal.TryParse((QuantityEventScrapQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedScrap) &&
+                parsedScrap > quantity)
+                return "Scrap quantity cannot exceed completed quantity.";
+
+            return "";
+        }
+
+        private double MaterialHeatLotTotal()
+            => MaterialHeatLots.Sum(row => double.TryParse((row.QuantityText ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var qty) ? qty : 0);
+
+        private string BuildMaterialReceivingWarning()
+        {
+            if (!IsReceiveMaterialOperation)
+                return "";
+            if (PrimaryMaterialRequirement == null)
+                return "No released material context found for this operation.";
+            if (!double.TryParse((ReceivedMaterialQuantity ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var receivedQty) || receivedQty <= 0)
+                return "Received quantity is required.";
+            if (string.IsNullOrWhiteSpace(ReceivedMaterialUnit))
+                return "Received unit is required.";
+            if (string.IsNullOrWhiteSpace(ReceivedMaterialShape) || string.IsNullOrWhiteSpace(ReceivedMaterialSize) || string.IsNullOrWhiteSpace(ReceivedMaterialGrade))
+                return "Confirm received shape, size, and grade.";
+            if (MaterialHeatLots.Count == 0)
+                return "At least one heat lot is required.";
+            foreach (var row in MaterialHeatLots)
+            {
+                if (string.IsNullOrWhiteSpace(row.HeatLotNumber))
+                    return "Heat lot number is required for each row.";
+                if (!double.TryParse((row.QuantityText ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var heatQty) || heatQty <= 0)
+                    return "Heat lot quantity is required for each row.";
+            }
+            if (Math.Abs(MaterialHeatLotTotal() - receivedQty) > 0.0001)
+                return "Heat lot total does not match received quantity.";
+            var expectedUnit = PrimaryMaterialRequirement?.ExpectedUnit ?? "";
+            if (!string.IsNullOrWhiteSpace(expectedUnit) && !string.Equals(expectedUnit.Trim(), ReceivedMaterialUnit.Trim(), StringComparison.OrdinalIgnoreCase))
+                return "Received unit does not match expected unit.";
+            return "";
+        }
+
+        private async Task LoadCurrentWorkOrderThumbnailAsync(RunBookWorkstationApiClient.OperationPacket? packet)
+        {
+            CurrentWorkOrderThumbnailImage = null;
+            if (packet == null || CurrentSession == null)
+                return;
+
+            var thumbnailDocument = (packet.DrawingDocuments ?? new List<RunBookWorkstationApiClient.OperationPacketDocument>())
+                .FirstOrDefault(document =>
+                    string.Equals(document.Id, "drawing-thumbnail", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(document.Type, "Thumbnail", StringComparison.OrdinalIgnoreCase));
+            if (thumbnailDocument == null || string.IsNullOrWhiteSpace(thumbnailDocument.ThumbnailRoute))
+                return;
+
+            try
+            {
+                var thumbnail = await _api.DownloadPacketDocumentThumbnailAsync(Settings, CurrentSession, thumbnailDocument.ThumbnailRoute, CancellationToken.None);
+                CurrentWorkOrderThumbnailImage = BuildBitmapImage(thumbnail.Bytes);
+            }
+            catch (Exception ex)
+            {
+                DebugLogService.WriteException("LoadCurrentWorkOrderThumbnailAsync", ex);
+            }
+        }
+
+        private static BitmapImage? BuildBitmapImage(byte[] bytes)
+        {
+            if (bytes == null || bytes.Length == 0)
+                return null;
+
+            using var stream = new MemoryStream(bytes);
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.StreamSource = stream;
+            image.EndInit();
+            image.Freeze();
+            return image;
+        }
+
+        private string GetOperationFamily()
+        {
+            var label = $"{_operationPacket?.OperationTypeDisplay} {_operationPacket?.OperationType} {SelectedOperation?.Title} {SelectedOperation?.Department}".ToLowerInvariant();
+            if (label.Contains("order") && label.Contains("material")) return "order-material";
+            if (label.Contains("receive") && label.Contains("material")) return "receive-material";
+            if (label.Contains("saw") || label.Contains("cut")) return "saw-cut";
+            if (label.Contains("setup")) return "setup";
+            if (label.Contains("swiss")) return "swiss";
+            if (label.Contains("mill") || label.Contains("lathe") || label.Contains("cnc") || label.Contains("machin")) return "cnc";
+            if (label.Contains("deburr")) return "deburr";
+            if (label.Contains("final") && label.Contains("inspection")) return "inspection";
+            if (label.Contains("inspection") || label.Contains("quality") || label.Contains("qa")) return "inspection";
+            if (label.Contains("ship")) return "shipping";
+            if (label.Contains("close") || label.Contains("complete")) return "complete-close";
+            return "custom";
+        }
+
+        private string BuildDataEntryHeaderSummary()
+        {
+            var family = GetOperationFamily();
+            return family switch
+            {
+                "order-material" => "Record material ordering progress from released material requirements.",
+                "receive-material" => "Verify received material, certs, quantity, and trace evidence.",
+                "saw-cut" => "Record cut quantity, scrap/remnant notes, and source material context.",
+                "setup" => "Confirm setup readiness and capture handoff notes.",
+                "cnc" => "Record good quantity, scrap, run notes, and in-process inspection references.",
+                "swiss" => "Record good quantity, scrap, run notes, and in-process inspection references.",
+                "deburr" => "Record completed quantity, rework/scrap, condition notes, and evidence.",
+                "inspection" => "Review linked inspection tasks and capture inspection notes/evidence.",
+                "shipping" => "Record packed or shipped quantity, shipment notes, and scan evidence.",
+                "complete-close" => "Confirm final quantity, prior operation readiness, and closeout notes.",
+                _ => "Capture quantity, notes, checklist items, and evidence for this released operation."
+            };
+        }
+
+        private static string BuildRequiredInputsSubtitle(string family) => family switch
+        {
+            "receive-material" => "Expected material, received quantity, heat/cert context where available.",
+            "order-material" => "Material spec, required quantity, vendor/PO context where available.",
+            "setup" => "Setup confirmations, program/fixture context, and handoff notes.",
+            "cnc" or "swiss" => "Good quantity, scrap quantity, machine/work center, and run notes.",
+            "inspection" => "Linked inspection references and review notes.",
+            "shipping" => "Packed/shipped quantity and shipping evidence.",
+            _ => "Only released context and supported Workstation entry fields are shown."
+        };
+
+        private static string BuildConfirmationSubtitle(string family) => family switch
+        {
+            "setup" => "Setup checks released with the route appear here.",
+            "inspection" => "Review/signoff checks released with the route appear here.",
+            _ => "Checklist items released with the route appear here."
+        };
+
+        private string BuildEvidenceSubtitle()
+        {
+            if (IsEvidenceRequired())
+                return "Evidence is required by the released route; add photo/scan attachments before completion.";
+            return "Attach photos, certs, packing slips, or other operation evidence when useful.";
+        }
+
+        private string BuildDataEntryValidationMessage()
+        {
+            if (SelectedOperation == null)
+                return "";
+            if (IsReceiveMaterialOperation)
+                return MaterialReceivingWarning;
+            if (_operationPacket?.RequireNotes == true && string.IsNullOrWhiteSpace(OperationNoteText))
+                return "A note is required by this released operation before submitting.";
+            if (IsEvidenceRequired() && OperationAttachments.Count == 0)
+                return "Evidence is marked required by this released operation.";
+            return "";
+        }
+
+        private bool IsEvidenceRequired()
+            => _operationPacket?.RequireAttachment == true || _operationPacket?.RequirePhoto == true || _operationPacket?.RequireVideo == true || (_operationPacket?.EvidenceRequired ?? 0) != 0;
+
+        private static bool HasMaterialContext(string family)
+            => family is "order-material" or "receive-material" or "saw-cut";
+
+        private static string FirstNonBlank(params string?[] values)
+        {
+            foreach (var value in values)
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                    return value.Trim();
+            }
+
+            return "";
+        }
+
+        private static void AddIfPresent(WorkstationDataEntrySection section, string label, string? value, string state)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return;
+            section.Items.Add(BuildRequirementRow(label, value.Trim(), state));
+        }
+
+        private static WorkstationDataEntryRequirementRow BuildRequirementRow(string label, string value, string state)
+        {
+            var normalized = string.IsNullOrWhiteSpace(state) ? "Ready" : state.Trim();
+            return new WorkstationDataEntryRequirementRow
+            {
+                Label = label,
+                Value = value,
+                State = normalized,
+                StateBrush = normalized.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? "#E8BC52" :
+                    normalized.Equals("Completed", StringComparison.OrdinalIgnoreCase) ? "#3CC875" :
+                    normalized.Equals("Ready", StringComparison.OrdinalIgnoreCase) ? "#31C7FF" : "#B0BDD0",
+                StateBorderBrush = normalized.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? "#66E8BC52" :
+                    normalized.Equals("Completed", StringComparison.OrdinalIgnoreCase) ? "#553CC875" :
+                    normalized.Equals("Ready", StringComparison.OrdinalIgnoreCase) ? "#5531C7FF" : "#3B526F",
+                StateBackgroundBrush = normalized.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? "#14E8BC52" :
+                    normalized.Equals("Completed", StringComparison.OrdinalIgnoreCase) ? "#123CC875" :
+                    normalized.Equals("Ready", StringComparison.OrdinalIgnoreCase) ? "#1031C7FF" : "#15162636"
+            };
+        }
+
+        private void AddMaterialHeatLot()
+            => AddMaterialHeatLot(new WorkstationMaterialHeatLotEntry { Unit = FirstNonBlank(ReceivedMaterialUnit, "Bars") });
+
+        private void AddMaterialHeatLot(WorkstationMaterialHeatLotEntry row)
+        {
+            row.PropertyChanged += (_, _) => RaiseMaterialReceivingChanged();
+            MaterialHeatLots.Add(row);
+            RaiseMaterialReceivingChanged();
+            if (RemoveMaterialHeatLotCommand is RelayCommand<WorkstationMaterialHeatLotEntry> remove) remove.RaiseCanExecuteChanged();
+        }
+
+        private void RemoveMaterialHeatLot(WorkstationMaterialHeatLotEntry? row)
+        {
+            if (row == null || MaterialHeatLots.Count <= 1)
+                return;
+            MaterialHeatLots.Remove(row);
+            RaiseMaterialReceivingChanged();
+            if (RemoveMaterialHeatLotCommand is RelayCommand<WorkstationMaterialHeatLotEntry> remove) remove.RaiseCanExecuteChanged();
+        }
+
+        private void ClearMaterialHeatLots()
+        {
+            MaterialHeatLots.Clear();
+            RaiseMaterialReceivingChanged();
+        }
+
+        private void EnsureHeatLotMode()
+        {
+            if (!ReceiveMaterialMultipleHeatLots && MaterialHeatLots.Count > 1)
+            {
+                var first = MaterialHeatLots.FirstOrDefault();
+                ClearMaterialHeatLots();
+                AddMaterialHeatLot(first ?? new WorkstationMaterialHeatLotEntry { Unit = FirstNonBlank(ReceivedMaterialUnit, "Bars") });
+            }
+            if (MaterialHeatLots.Count == 0)
+                AddMaterialHeatLot();
         }
 
         private void SelectInspectionTask(WorkstationInspectionTask? task)
@@ -1693,8 +4325,92 @@ namespace RunBook.Workstation.ViewModels
             InspectionResultNoteText = task.ResultNotes;
         }
 
+        private void OpenOperationInspection()
+        {
+            if (!HasOperationInspection)
+            {
+                StatusText = "No inspection tasks are available for the selected operation.";
+                return;
+            }
+
+            SelectedInspectionTask ??= InspectionTasks.FirstOrDefault();
+            IsInspectionOverlayOpen = true;
+        }
+
+        private void CloseOperationInspection()
+        {
+            IsInspectionOverlayOpen = false;
+        }
+
+        private async Task OpenMobileCaptureAsync()
+        {
+            if (!EnsureServiceWritable())
+                return;
+
+            if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null)
+                return;
+
+            await RunBusyAsync(async () =>
+            {
+                var response = await _api.CreateMobileCaptureSessionAsync(
+                    Settings,
+                    CurrentSession,
+                    SelectedWorkOrder.WorkOrderId,
+                    SelectedOperation.OperationId,
+                    SelectedMobileCaptureType,
+                    CancellationToken.None);
+
+                var capture = response.Capture ?? throw new InvalidOperationException("Service did not return a mobile capture session.");
+                MobileCaptureUrl = capture.CaptureUrl;
+                MobileCaptureExpiresText = FormatCaptureExpiry(capture.ExpiresUtc);
+                MobileCaptureQrImage = BuildQrImage(capture.CaptureUrl);
+                IsMobileCaptureDialogOpen = true;
+                StatusText = "Mobile capture link is ready. Scan the QR code with the phone.";
+            });
+        }
+
+        private void CloseMobileCapture()
+        {
+            IsMobileCaptureDialogOpen = false;
+            MobileCaptureUrl = "";
+            MobileCaptureExpiresText = "";
+            MobileCaptureQrImage = null;
+        }
+
+        private async Task RefreshOperationAttachmentsAsync()
+        {
+            if (CurrentSession == null || SelectedWorkOrder == null || SelectedOperation == null)
+                return;
+
+            try
+            {
+                var response = await _api.GetOperationAttachmentsAsync(Settings, CurrentSession, SelectedWorkOrder.WorkOrderId, SelectedOperation.OperationId, CancellationToken.None);
+                OperationAttachments.Clear();
+                foreach (var attachment in response.Attachments?.Items ?? Enumerable.Empty<RunBookWorkstationApiClient.OperationAttachment>())
+                    OperationAttachments.Add(attachment);
+                OnPropertyChanged(nameof(OperationAttachmentSummary));
+                RebuildDataEntrySections();
+            }
+            catch (Exception ex)
+            {
+                OperationAttachments.Clear();
+                OnPropertyChanged(nameof(OperationAttachmentSummary));
+                RebuildDataEntrySections();
+                StatusText = ex.Message;
+            }
+        }
+
         private async Task SubmitInspectionResultAsync()
         {
+            if (!EnsureServiceWritable())
+                return;
+
+            if (!_inspectionResultSubmissionAvailable)
+            {
+                StatusText = "Inspection result submission is not available on Workstation yet.";
+                return;
+            }
+
             if (CurrentSession == null || SelectedWorkOrder == null || SelectedInspectionTask == null || !HasInspectionEntryAccess)
                 return;
 
@@ -1734,6 +4450,9 @@ namespace RunBook.Workstation.ViewModels
                 foreach (var task in InspectionPackage?.Tasks ?? Enumerable.Empty<WorkstationInspectionTask>())
                     InspectionTasks.Add(task);
                 OnPropertyChanged(nameof(InspectionSubtitle));
+                OnPropertyChanged(nameof(HasOperationInspection));
+                OnPropertyChanged(nameof(SelectedInspectionBalloonLabel));
+                OnPropertyChanged(nameof(SelectedInspectionFeatureLabel));
                 SelectedInspectionTask = InspectionTasks.FirstOrDefault(task => task.FeatureId == SelectedInspectionTask.FeatureId) ?? InspectionTasks.FirstOrDefault();
                 if (SelectedInspectionTask != null)
                 {
@@ -2003,7 +4722,7 @@ namespace RunBook.Workstation.ViewModels
             LoadRosterFromAuthCache();
             UpdateAuthCacheStatus();
             if (CurrentSession == null)
-                OfflineStatus = GetAuthCacheHealth().Message;
+                OfflineStatus = GetSavedPairingDegradedMessage() ?? GetAuthCacheHealth().Message;
         }
 
         private void LoadQueue()
@@ -2020,31 +4739,23 @@ namespace RunBook.Workstation.ViewModels
             UpdatePendingSummary();
         }
 
-        private async Task RefreshDesktopTimeclockStateAsync()
+        private async Task RefreshLocalTimeclockStateAsync()
         {
             if (CurrentSession == null || !HasTimeClockAccess)
                 return;
 
-            var response = await _api.GetDesktopTimeclockStateAsync(Settings, CurrentSession, CancellationToken.None);
-            MarkDesktopRequestSuccess();
+            var response = await _api.GetLocalTimeclockStateAsync(Settings, CurrentSession, CancellationToken.None);
+            MarkLocalHostRequestSuccess();
             var snapshot = MapSnapshot(response.Snapshot);
             ApplySnapshot(snapshot, true);
-            OfflineStatus = "Desktop connected and authoritative.";
-            StatusText = $"Loaded Desktop state for {snapshot.EmployeeName}.";
+            OfflineStatus = "RunBook.Service timeclock authority connected.";
+            StatusText = $"Loaded Service timeclock state for {snapshot.EmployeeName}.";
         }
 
         private async Task<bool> RefreshAuthPackageAsyncCore(bool manual)
         {
             NormalizeLocalShopScope();
             SaveSettings();
-            if (string.IsNullOrWhiteSpace(Settings.DesktopBaseUrl))
-            {
-                if (manual)
-                    StatusText = "Desktop base URL is required before employee auth can sync.";
-                UpdateAuthCacheStatus();
-                return false;
-            }
-
             if (string.IsNullOrWhiteSpace(Settings.ShopId))
             {
                 if (manual)
@@ -2058,19 +4769,18 @@ namespace RunBook.Workstation.ViewModels
                 !string.Equals(Registration.WorkstationId, Settings.WorkstationId, StringComparison.OrdinalIgnoreCase) ||
                 string.IsNullOrWhiteSpace(Registration.DeviceToken))
             {
-                if (manual || !string.IsNullOrWhiteSpace(Settings.PairingCode))
+                if (manual)
                 {
                     await EnsureRegistrationAsync();
                 }
                 else
                 {
-                    var message = "Desktop enrollment is required. Enter a current Desktop pairing code and refresh registration.";
+                    var message = WorkstationRegistrationRequiredUserMessage;
                     _authCache ??= new WorkstationEmployeeAuthCache();
                     _authCache.LastRefreshError = message;
                     WorkstationStorageService.SaveAuthCache(_authCache);
                     UpdateAuthCacheStatus();
-                    if (manual)
-                        StatusText = message;
+                    OfflineStatus = message;
                     return false;
                 }
             }
@@ -2082,7 +4792,7 @@ namespace RunBook.Workstation.ViewModels
             try
             {
                 var response = await _api.GetLocalAuthPackageAsync(Settings, CancellationToken.None);
-                MarkDesktopRequestSuccess();
+                MarkLocalHostRequestSuccess();
                 var package = MapAuthPackage(response.Package);
                 _authCache.Package = package;
                 _authCache.LastRefreshSuccessUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
@@ -2105,9 +4815,10 @@ namespace RunBook.Workstation.ViewModels
                 WorkstationStorageService.SaveAuthCache(_authCache);
                 LoadRosterFromAuthCache();
                 UpdateAuthCacheStatus();
-                OfflineStatus = "Desktop employee auth connected.";
+                MarkRegistrationTrusted("auth_package_validated");
+                OfflineStatus = "RunBook.Service local authority connected.";
                 if (manual)
-                    StatusText = $"Employee auth refreshed from Desktop for {package.Employees.Count} employees.";
+                    StatusText = $"Employee auth refreshed from the local workstation authority for {package.Employees.Count} employees.";
                 return true;
             }
             catch (Exception ex)
@@ -2124,14 +4835,17 @@ namespace RunBook.Workstation.ViewModels
                 WorkstationStorageService.SaveAuthCache(_authCache);
                 LoadRosterFromAuthCache();
                 if (IsConnectivityFailure(ex))
-                    MarkDesktopRequestFailure(ex.Message);
+                {
+                    MarkLocalHostRequestFailure(ex.Message);
+                    MarkRegistrationValidationDegraded("service_unavailable", "Device trust could not be validated because RunBook.Service is unavailable. Continuing with the last saved workstation pairing.");
+                }
                 var authHealth = GetAuthCacheHealth();
                 UpdateAuthCacheStatus(authHealth);
-                OfflineStatus = authHealth.AllowsOfflineLogin
-                    ? "Desktop unavailable. Using cached employee auth."
-                    : "Desktop employee auth unavailable.";
+                OfflineStatus = IsConnectivityFailure(ex)
+                    ? "Device trust could not be validated because RunBook.Service is unavailable. Continuing with the last saved workstation pairing."
+                    : GetServiceFailureStatus("/api/workstation-local/auth-package", ex.Message, "Employee auth cache is not available yet.");
                 if (manual)
-                    StatusText = authHealth.AllowsOfflineLogin ? authHealth.Message : ex.Message;
+                    StatusText = IsConnectivityFailure(ex) ? OfflineStatus : (authHealth.AllowsOfflineLogin ? authHealth.Message : GetUserFacingErrorMessage(ex));
                 return false;
             }
         }
@@ -2142,7 +4856,9 @@ namespace RunBook.Workstation.ViewModels
                 return;
 
             var pendingItems = PendingSyncItems
-                .Where(item => string.Equals(item.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase))
+                .Where(item =>
+                    string.Equals(item.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase) ||
+                    (manual && string.Equals(item.SyncStatus, "failed", StringComparison.OrdinalIgnoreCase)))
                 .OrderBy(item => ParseUtc(item.EffectiveUtc))
                 .ThenBy(item => ParseUtc(item.CreatedLocalUtc))
                 .ThenBy(item => item.QueueId, StringComparer.Ordinal)
@@ -2155,57 +4871,86 @@ namespace RunBook.Workstation.ViewModels
                 return;
             }
 
+            foreach (var item in pendingItems.Where(item => string.Equals(item.SyncStatus, "failed", StringComparison.OrdinalIgnoreCase)))
+                item.SyncStatus = "pending";
+
+            RunBookWorkstationApiClient.DesktopSyncResponse? localSnapshotResponse = null;
+            var localError = "";
+
             try
             {
-                var response = await _api.SyncDesktopTimeclockAsync(Settings, CurrentSession, pendingItems, CancellationToken.None);
-                foreach (var result in response.Results)
-                {
-                    var item = PendingSyncItems.FirstOrDefault(entry => string.Equals(entry.QueueId, result.QueueId, StringComparison.Ordinal));
-                    if (item == null)
-                        continue;
-
-                    item.RemoteReceiptId = result.RemoteReceiptId ?? "";
-                    item.LastError = result.Message ?? "";
-                    if (string.Equals(result.Outcome, "accepted", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(result.Outcome, "already_processed", StringComparison.OrdinalIgnoreCase))
-                    {
-                        item.SyncStatus = "synced";
-                    }
-                    else if (string.Equals(result.Outcome, "rejected", StringComparison.OrdinalIgnoreCase))
-                    {
-                        item.SyncStatus = "failed";
-                    }
-                    else
-                    {
-                        item.SyncStatus = "pending";
-                        item.RetryCount++;
-                    }
-                }
-
-                SaveQueue();
-                MarkDesktopRequestSuccess();
-                var snapshot = MapSnapshot(response.Snapshot);
-                ApplySnapshot(snapshot, true);
-                RemoveSyncedQueueItems();
-                OfflineStatus = "Desktop connected and sync complete.";
-                TimeClockStatus = HasPendingSyncItems ? "Some items still need attention." : "Desktop is fully synced.";
-                StatusText = HasPendingSyncItems ? "Some workstation items were rejected and need review." : "Workstation items synced to Desktop.";
+                var response = await _api.SyncLocalTimeclockAsync(Settings, CurrentSession, pendingItems, CancellationToken.None);
+                ApplySyncResults(response.Results);
+                localSnapshotResponse = response;
+                MarkLocalHostRequestSuccess();
             }
             catch (Exception ex)
             {
+                localError = ex.Message;
                 foreach (var item in pendingItems)
                 {
                     item.RetryCount++;
                     item.LastError = ex.Message;
                 }
 
-                SaveQueue();
-                RebuildLocalProjection();
                 if (IsConnectivityFailure(ex))
-                    MarkDesktopRequestFailure(ex.Message);
-                OfflineStatus = "Desktop unavailable. Pending items will sync later.";
-                if (manual)
-                    StatusText = ex.Message;
+                    MarkLocalHostRequestFailure(ex.Message);
+            }
+
+            SaveQueue();
+            if (localSnapshotResponse?.Snapshot != null)
+            {
+                var snapshot = MapSnapshot(localSnapshotResponse.Snapshot);
+                ApplySnapshot(snapshot, true);
+            }
+            else
+            {
+                RebuildLocalProjection();
+            }
+
+            RemoveSyncedQueueItems();
+
+            if (localError.Length == 0)
+            {
+                OfflineStatus = "RunBook.Service connected and workstation sync complete.";
+                TimeClockStatus = HasPendingSyncItems ? "Some items still need attention." : "RunBook.Service workstation sync is fully caught up.";
+                StatusText = HasPendingSyncItems
+                    ? "Some workstation items were rejected and need review."
+                    : "Workstation sync items sent to RunBook.Service.";
+                return;
+            }
+
+            OfflineStatus = IsConnectivityFailureMessage(localError)
+                ? "RunBook.Service unavailable. Workstation sync items will sync later."
+                : GetServiceFailureStatus("/api/workstation-local/timeclock/sync", localError, "Service endpoint failed: /api/workstation-local/timeclock/sync");
+            if (manual)
+                StatusText = localError;
+        }
+
+        private void ApplySyncResults(IEnumerable<RunBookWorkstationApiClient.DesktopSyncItemResult> results)
+        {
+            foreach (var result in results)
+            {
+                var item = PendingSyncItems.FirstOrDefault(entry => string.Equals(entry.QueueId, result.QueueId, StringComparison.Ordinal));
+                if (item == null)
+                    continue;
+
+                item.RemoteReceiptId = result.RemoteReceiptId ?? "";
+                item.LastError = result.Message ?? "";
+                if (string.Equals(result.Outcome, "accepted", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(result.Outcome, "already_processed", StringComparison.OrdinalIgnoreCase))
+                {
+                    item.SyncStatus = "synced";
+                }
+                else if (string.Equals(result.Outcome, "rejected", StringComparison.OrdinalIgnoreCase))
+                {
+                    item.SyncStatus = "failed";
+                }
+                else
+                {
+                    item.SyncStatus = "pending";
+                    item.RetryCount++;
+                }
             }
         }
 
@@ -2247,11 +4992,14 @@ namespace RunBook.Workstation.ViewModels
             PendingSyncItems.Add(item);
             SaveQueue();
             RebuildLocalProjection();
-            TimeClockStatus = $"{ToEventLabel(eventType)} pending Desktop sync.";
+            TimeClockStatus = $"{ToEventLabel(eventType)} pending local sync.";
         }
 
         private async Task SubmitTimeOffAsync()
         {
+            if (!EnsureServiceWritable())
+                return;
+
             if (CurrentSession == null || !HasTimeClockAccess)
                 return;
 
@@ -2267,6 +5015,18 @@ namespace RunBook.Workstation.ViewModels
             {
                 StatusText = "Time-off end date must be on or after the start date.";
                 return;
+            }
+
+            decimal? requestedHours = null;
+            if (!string.IsNullOrWhiteSpace(TimeOffHoursText))
+            {
+                if (!decimal.TryParse(TimeOffHoursText, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsedHours) || parsedHours <= 0)
+                {
+                    StatusText = "Enter requested PTO hours as a positive number.";
+                    return;
+                }
+
+                requestedHours = parsedHours;
             }
 
             var now = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
@@ -2288,7 +5048,7 @@ namespace RunBook.Workstation.ViewModels
                 RequestType = string.IsNullOrWhiteSpace(TimeOffType) ? "VACATION" : TimeOffType.Trim().ToUpperInvariant(),
                 StartDate = startDate,
                 EndDate = endDate,
-                HoursRequested = null,
+                HoursRequested = requestedHours,
                 SyncStatus = "pending",
             });
 
@@ -2300,6 +5060,7 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(TimeOffEndDateValue));
             TimeOffHoursText = "";
             TimeOffNote = "";
+            IsPtoBenefitsDialogOpen = false;
             StatusText = "Time-off request queued.";
             await SyncPendingQueueAsync(false);
         }
@@ -2330,17 +5091,23 @@ namespace RunBook.Workstation.ViewModels
                 WorkstationStorageService.SaveTimeclockState(snapshot);
 
             OnPropertyChanged(nameof(SupportsLunch));
+            OnPropertyChanged(nameof(LastSyncDisplayText));
+            RaisePtoBenefitsProperties();
+            RefreshRosterEmployeeStatuses();
             RebuildLocalProjection();
         }
 
         private void RebuildLocalProjection()
         {
             var basePunches = (_timeclockSnapshot?.RecentPunches ?? new List<WorkstationPunchRecord>())
+                .Where(punch => !string.Equals(punch.Source, "workstation-pending", StringComparison.OrdinalIgnoreCase))
                 .Select(ClonePunch)
                 .ToList();
-            foreach (var item in PendingSyncItems.Where(entry => string.Equals(entry.ItemType, "punch", StringComparison.OrdinalIgnoreCase)))
-            {
-                basePunches.Add(new WorkstationPunchRecord
+
+            var pendingPunches = PendingSyncItems.Where(entry =>
+                string.Equals(entry.ItemType, "punch", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(entry.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase))
+                .Select(item => new WorkstationPunchRecord
                 {
                     Id = item.ClientEventId,
                     EventType = item.ActionType.ToUpperInvariant(),
@@ -2350,10 +5117,14 @@ namespace RunBook.Workstation.ViewModels
                     Note = item.Note,
                     IsPendingSync = true,
                     SyncState = item.SyncStatus
-                });
-            }
+                })
+                .ToList();
 
-            var orderedPunches = basePunches
+            var displayPunches = basePunches
+                .Concat(pendingPunches)
+                .ToList();
+
+            var orderedPunches = displayPunches
                 .OrderByDescending(entry => ParseUtc(entry.ClientTs))
                 .ThenByDescending(entry => entry.Id, StringComparer.Ordinal)
                 .Take(20)
@@ -2364,9 +5135,12 @@ namespace RunBook.Workstation.ViewModels
                 RecentPunches.Add(punch);
 
             var requests = (_timeclockSnapshot?.RecentTimeOffRequests ?? new List<WorkstationTimeOffRequestRecord>())
+                .Where(request => !request.IsPendingSync)
                 .Select(CloneRequest)
                 .ToList();
-            foreach (var item in PendingSyncItems.Where(entry => string.Equals(entry.ItemType, "time_off_request", StringComparison.OrdinalIgnoreCase)))
+            foreach (var item in PendingSyncItems.Where(entry =>
+                string.Equals(entry.ItemType, "time_off_request", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(entry.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase)))
             {
                 requests.Insert(0, new WorkstationTimeOffRequestRecord
                 {
@@ -2396,13 +5170,12 @@ namespace RunBook.Workstation.ViewModels
                 _timeclockSnapshot.CurrentStatus = derived.Status;
                 _timeclockSnapshot.StatusSinceUtc = derived.SinceUtc;
                 _timeclockSnapshot.LastPunchUtc = derived.LastPunchUtc;
-                _timeclockSnapshot.RecentPunches = RecentPunches.Select(ClonePunch).ToList();
-                _timeclockSnapshot.RecentTimeOffRequests = RecentTimeOffRequests.Select(CloneRequest).ToList();
                 WorkstationStorageService.SaveTimeclockState(_timeclockSnapshot);
             }
             OnPropertyChanged(nameof(RecentTimeOffRequests));
             OnPropertyChanged(nameof(RecentPunches));
             OnPropertyChanged(nameof(HasPendingSyncItems));
+            RaisePtoBenefitsProperties();
             UpdatePendingSummary();
             RefreshTimeClockPresentation();
         }
@@ -2419,22 +5192,33 @@ namespace RunBook.Workstation.ViewModels
 
         private void UpdateSessionCountdown()
         {
-            OnPropertyChanged(nameof(HeaderDateText));
-            OnPropertyChanged(nameof(HeaderTimeText));
-            if (_timeclockSnapshot != null)
-                RefreshTimeClockPresentation();
+            UpdateHeaderClock();
+            OnPropertyChanged(nameof(IdleLogoutBadgeText));
+            MaybeRefreshPassiveConnectionStatuses();
 
             if (CurrentSession == null)
             {
                 SessionCountdown = "Signed out";
-                RefreshConnectionStatuses();
                 return;
             }
 
             if (!DateTime.TryParse(CurrentSession.ExpiresAtUtc, null, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var expiresUtc))
             {
                 SessionCountdown = "Session timing unavailable";
-                RefreshConnectionStatuses();
+                return;
+            }
+
+            if (IsWorkOrdersSelected)
+            {
+                SessionCountdown = "";
+                return;
+            }
+
+            var idleRemaining = IdleLogoutTimeout - (DateTime.UtcNow - _lastInteractionUtc);
+            if (idleRemaining <= TimeSpan.Zero)
+            {
+                Logout();
+                StatusText = "Signed out after 5 minutes with no mouse or typing activity.";
                 return;
             }
 
@@ -2448,11 +5232,54 @@ namespace RunBook.Workstation.ViewModels
 
             SessionCountdown = $"Session ends in {remaining:mm\\:ss}";
             OnPropertyChanged(nameof(TimeClockHeroSecondaryLine));
-            RefreshConnectionStatuses();
+        }
+
+        private void UpdateHeaderClock()
+        {
+            var now = DateTime.Now;
+            var dateText = now.ToString("dddd, MMMM d, yyyy");
+            var timeText = now.ToString("h:mm tt");
+
+            if (!string.Equals(_headerDateText, dateText, StringComparison.Ordinal))
+            {
+                _headerDateText = dateText;
+                OnPropertyChanged(nameof(HeaderDateText));
+            }
+
+            if (!string.Equals(_headerTimeText, timeText, StringComparison.Ordinal))
+            {
+                _headerTimeText = timeText;
+                OnPropertyChanged(nameof(HeaderTimeText));
+            }
+        }
+
+        private int GetIdleSecondsRemaining()
+        {
+            if (CurrentSession == null)
+                return (int)IdleLogoutTimeout.TotalSeconds;
+
+            var remaining = IdleLogoutTimeout - (DateTime.UtcNow - _lastInteractionUtc);
+            return Math.Max(0, (int)Math.Ceiling(remaining.TotalSeconds));
+        }
+
+        private static string FormatIdleLogoutRemaining(int seconds)
+        {
+            if (seconds >= 60)
+            {
+                var minutes = seconds / 60;
+                var remainder = seconds % 60;
+                return $"{minutes}:{remainder:00}";
+            }
+
+            return $"{seconds}s";
         }
 
         private void RefreshTimeClockPresentation()
         {
+            var signature = BuildTimeClockPresentationSignature();
+            if (string.Equals(_lastTimeClockPresentationSignature, signature, StringComparison.Ordinal))
+                return;
+
             TodaySummaryRows.Clear();
             foreach (var row in BuildTodaySummaryRows())
                 TodaySummaryRows.Add(row);
@@ -2465,9 +5292,20 @@ namespace RunBook.Workstation.ViewModels
             foreach (var row in BuildCurrentStatusSummaryRows())
                 CurrentStatusSummaryRows.Add(row);
 
+            TodayShiftTimelineEntries.Clear();
+            foreach (var entry in BuildTodayShiftTimelineEntries())
+                TodayShiftTimelineEntries.Add(entry);
+
+            TimeClockHistoryDayRows.Clear();
+            foreach (var row in BuildTimeClockHistoryDayRows())
+                TimeClockHistoryDayRows.Add(row);
+
             TimeClockActivityRows.Clear();
-            foreach (var row in BuildTimeClockActivityRows())
+            foreach (var row in BuildTimeClockActivityRows(8))
                 TimeClockActivityRows.Add(row);
+            AllTimeClockActivityRows.Clear();
+            foreach (var row in BuildTimeClockActivityRows())
+                AllTimeClockActivityRows.Add(row);
 
             OnPropertyChanged(nameof(TimeClockStateKey));
             OnPropertyChanged(nameof(TimeClockHeroTitle));
@@ -2475,7 +5313,46 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(TimeClockHeroHelperText));
             OnPropertyChanged(nameof(TimeClockHeroPrimaryLine));
             OnPropertyChanged(nameof(TimeClockHeroSecondaryLine));
+            OnPropertyChanged(nameof(TimeClockHeroSinceLine));
+            OnPropertyChanged(nameof(TimeClockHeroClockInTime));
+            OnPropertyChanged(nameof(TimeClockHeroClockInDate));
+            OnPropertyChanged(nameof(TimeClockHeroElapsedValue));
+            OnPropertyChanged(nameof(TimeClockHeroElapsedCaption));
+            OnPropertyChanged(nameof(TimeClockHeroShiftLine));
+            OnPropertyChanged(nameof(TimeClockHeroShiftDisplay));
+            OnPropertyChanged(nameof(TimeClockWeeklyDateRange));
+            OnPropertyChanged(nameof(IsViewingCurrentTimeClockWeek));
+            OnPropertyChanged(nameof(CanGoToNextTimeClockWeek));
+            OnPropertyChanged(nameof(ShowCurrentTimeClockWeekButton));
+            OnPropertyChanged(nameof(HasLoadedTimeClockWeekActivity));
+            OnPropertyChanged(nameof(ShowEmptyTimeClockWeek));
+            OnPropertyChanged(nameof(TimeClockWeeklyHelperText));
+            OnPropertyChanged(nameof(TimeClockPendingApprovalCount));
+            OnPropertyChanged(nameof(TimeClockPendingApprovalText));
+            OnPropertyChanged(nameof(TimeOffRequestsButtonText));
+            OnPropertyChanged(nameof(TimeClockFooterStatusLine));
+            OnPropertyChanged(nameof(TimeClockSyncStatusLabel));
+            OnPropertyChanged(nameof(TimeClockSyncDetailText));
+            OnPropertyChanged(nameof(HasMoreTimeClockActivity));
+            OnPropertyChanged(nameof(ShowTimeClockActivityViewAllButton));
+            OnPropertyChanged(nameof(TimeClockActivityViewAllButtonText));
+            OnPropertyChanged(nameof(ShowEmptyTimeOffRequestsDialog));
+            OnPropertyChanged(nameof(ShowEmptyTimeClockActivityDialog));
+            OnPropertyChanged(nameof(TimeClockTimelineClockInText));
+            OnPropertyChanged(nameof(TimeClockTimelineClockInAccentBrush));
+            OnPropertyChanged(nameof(TimeClockTimelineClockInBackgroundBrush));
+            OnPropertyChanged(nameof(TimeClockTimelineClockInBorderBrush));
+            OnPropertyChanged(nameof(TimeClockTimelineConnectorBackgroundBrush));
+            OnPropertyChanged(nameof(TimeClockTimelineConnectorAccentBrush));
+            OnPropertyChanged(nameof(TimeClockTimelineWorkingText));
+            OnPropertyChanged(nameof(TimeClockTimelineLunchText));
+            OnPropertyChanged(nameof(TimeClockTimelineClockOutText));
+            OnPropertyChanged(nameof(TimeClockStatusPillBackgroundBrush));
+            OnPropertyChanged(nameof(TimeClockStatusPillBorderBrush));
+            OnPropertyChanged(nameof(TimeClockStatusPillForegroundBrush));
             OnPropertyChanged(nameof(TimeClockHeroAccentBrush));
+            OnPropertyChanged(nameof(TimeClockHeroGradientBrush));
+            OnPropertyChanged(nameof(TimeClockHeroGlowWashBrush));
             OnPropertyChanged(nameof(TimeClockHeroBorderBrush));
             OnPropertyChanged(nameof(TimeClockHeroBackgroundBrush));
             OnPropertyChanged(nameof(ShowClockInAction));
@@ -2487,7 +5364,70 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(ShowNoRecentTimeOffRequests));
             OnPropertyChanged(nameof(HasTimeClockActivity));
             OnPropertyChanged(nameof(ShowEmptyTimeClockActivity));
+            OnPropertyChanged(nameof(HasTodayShiftTimeline));
+            OnPropertyChanged(nameof(ShowEmptyTodayShiftTimeline));
             OnPropertyChanged(nameof(TimeOffSectionSubtitle));
+            OnPropertyChanged(nameof(PtoRequestCountSummary));
+            OnPropertyChanged(nameof(TimeClockWeeklyTotalText));
+            RaisePtoBenefitsProperties();
+            _lastTimeClockPresentationSignature = signature;
+        }
+
+        private void RaisePtoBenefitsProperties()
+        {
+            OnPropertyChanged(nameof(PtoBenefits));
+            OnPropertyChanged(nameof(PtoBenefitBuckets));
+            OnPropertyChanged(nameof(PtoRecentLedger));
+            OnPropertyChanged(nameof(HasPtoBenefitBuckets));
+            OnPropertyChanged(nameof(ShowNoPtoBenefitBuckets));
+            OnPropertyChanged(nameof(HasPtoRecentLedger));
+            OnPropertyChanged(nameof(ShowNoPtoRecentLedger));
+            OnPropertyChanged(nameof(PtoBenefitsTitle));
+            OnPropertyChanged(nameof(PtoBenefitsSummary));
+            OnPropertyChanged(nameof(PtoBenefitsEligibilitySummary));
+            OnPropertyChanged(nameof(PtoBenefitsResetSummary));
+            OnPropertyChanged(nameof(PtoRequestCountSummary));
+            OnPropertyChanged(nameof(LatestPtoRequest));
+            OnPropertyChanged(nameof(PtoLatestApprovalStatus));
+            OnPropertyChanged(nameof(PtoLatestDateRange));
+            OnPropertyChanged(nameof(PtoLatestManagerNote));
+            OnPropertyChanged(nameof(PtoLatestEmployeeNote));
+            OnPropertyChanged(nameof(PtoAvailableHoursText));
+            OnPropertyChanged(nameof(PtoPendingHoursText));
+            OnPropertyChanged(nameof(PtoNextEligibleText));
+        }
+
+        private string BuildTimeClockPresentationSignature()
+        {
+            return string.Join("|",
+                _timeclockSnapshot?.CurrentStatus ?? "",
+                _timeclockSnapshot?.StatusSinceUtc ?? "",
+                _timeclockSnapshot?.LastPunchUtc ?? "",
+                _timeclockSnapshot?.LastSyncUtc ?? "",
+                _timeclockSnapshot?.LastSyncMessage ?? "",
+                _timeclockSnapshot?.SupportsLunch == true ? "1" : "0",
+                RecentPunches.Count.ToString(CultureInfo.InvariantCulture),
+                RecentPunches.LastOrDefault()?.Id ?? "",
+                RecentPunches.LastOrDefault()?.SyncState ?? "",
+                RecentTimeOffRequests.Count.ToString(CultureInfo.InvariantCulture),
+                RecentTimeOffRequests.LastOrDefault()?.Id ?? "",
+                RecentTimeOffRequests.LastOrDefault()?.SyncState ?? "",
+                PendingSyncItems.Count.ToString(CultureInfo.InvariantCulture),
+                PendingSyncItems.Count(item => string.Equals(item.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase)).ToString(CultureInfo.InvariantCulture),
+                PendingSyncItems.Count(item => string.Equals(item.SyncStatus, "failed", StringComparison.OrdinalIgnoreCase)).ToString(CultureInfo.InvariantCulture),
+                CurrentShiftStatus ?? "",
+                CurrentShiftDetail ?? "",
+                _selectedTimeClockWeekStart.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
+        }
+
+        private void MaybeRefreshPassiveConnectionStatuses()
+        {
+            var now = DateTime.UtcNow;
+            if (now - _lastPassiveConnectionRefreshUtc < TimeSpan.FromSeconds(5))
+                return;
+
+            _lastPassiveConnectionRefreshUtc = now;
+            RefreshConnectionStatuses(false);
         }
 
         private IEnumerable<WorkstationTimeClockSummaryRow> BuildTimeClockSummaryRows()
@@ -2503,66 +5443,139 @@ namespace RunBook.Workstation.ViewModels
 
             yield return new WorkstationTimeClockSummaryRow
             {
-                Label = "Clock In",
-                Value = summary.FirstClockIn.HasValue ? summary.FirstClockIn.Value.ToString("h:mm tt", CultureInfo.InvariantCulture) : "--",
-                AccentBrush = "#7FAEEA"
+                Label = "Worked",
+                Value = FormatDuration(summary.WorkTotal),
+                DetailText = "of 8h 00m",
+                IconText = "W",
+                AccentBrush = "#58E58B",
+                ProgressValue = GetProgressPercent(summary.WorkTotal, TimeSpan.FromHours(8))
             };
             yield return new WorkstationTimeClockSummaryRow
             {
                 Label = "Break Total",
                 Value = FormatDuration(summary.BreakTotal),
-                AccentBrush = "#E5B05F"
+                DetailText = "of 0h 30m",
+                IconText = "B",
+                AccentBrush = "#F5A623",
+                ProgressValue = GetProgressPercent(summary.BreakTotal, TimeSpan.FromMinutes(30))
             };
-            if (SupportsLunch)
-            {
-                yield return new WorkstationTimeClockSummaryRow
-                {
-                    Label = "Lunch Total",
-                    Value = FormatDuration(summary.LunchTotal),
-                    AccentBrush = "#7FAEEA"
-                };
-            }
             yield return new WorkstationTimeClockSummaryRow
             {
-                Label = "Total Worked",
-                Value = FormatDuration(summary.WorkTotal),
-                AccentBrush = "#62D89B"
+                Label = "Lunch Total",
+                Value = SupportsLunch ? FormatDuration(summary.LunchTotal) : "--",
+                DetailText = SupportsLunch ? "of 1h 00m" : "not enabled",
+                IconText = "L",
+                AccentBrush = "#F5B642",
+                ProgressValue = SupportsLunch ? GetProgressPercent(summary.LunchTotal, TimeSpan.FromHours(1)) : 0
+            };
+            yield return new WorkstationTimeClockSummaryRow
+            {
+                Label = "Overtime",
+                Value = FormatDuration(GetOvertime(summary.WorkTotal, TimeSpan.FromHours(8))),
+                DetailText = "after 8h 00m",
+                IconText = "OT",
+                AccentBrush = "#A46BFF",
+                ProgressValue = GetProgressPercent(GetOvertime(summary.WorkTotal, TimeSpan.FromHours(8)), TimeSpan.FromHours(2))
             };
         }
 
         private IEnumerable<WorkstationTimeClockSummaryRow> BuildWeeklySummaryRows()
         {
-            var now = DateTime.Now;
-            var startOfWeek = now.Date.AddDays(-(int)now.DayOfWeek);
-            var summary = SummarizePunchRange(startOfWeek, startOfWeek.AddDays(7));
+            var summary = BuildSelectedWeekSummary();
 
             yield return new WorkstationTimeClockSummaryRow
             {
-                Label = "Shifts",
-                Value = summary.ClockInCount.ToString(CultureInfo.InvariantCulture),
-                AccentBrush = "#7FAEEA"
-            };
-            yield return new WorkstationTimeClockSummaryRow
-            {
-                Label = "Worked",
+                Label = "Total Worked",
                 Value = FormatDuration(summary.WorkTotal),
-                AccentBrush = "#62D89B"
+                DetailText = "Target: 40h 00m",
+                IconText = "W",
+                AccentBrush = "#38D5FF",
+                ProgressValue = GetProgressPercent(summary.WorkTotal, TimeSpan.FromHours(40))
             };
             yield return new WorkstationTimeClockSummaryRow
             {
-                Label = "Break",
-                Value = FormatDuration(summary.BreakTotal),
-                AccentBrush = "#E5B05F"
+                Label = "Days Worked",
+                Value = summary.ClockInCount.ToString(CultureInfo.InvariantCulture),
+                DetailText = "of 5",
+                IconText = "D",
+                AccentBrush = "#38D5FF",
+                ProgressValue = Math.Min(100, summary.ClockInCount / 5.0 * 100)
             };
-            if (SupportsLunch)
+            yield return new WorkstationTimeClockSummaryRow
             {
-                yield return new WorkstationTimeClockSummaryRow
+                Label = "Total Breaks",
+                Value = FormatDuration(summary.BreakTotal),
+                DetailText = "of 2h 30m",
+                IconText = "B",
+                AccentBrush = "#F5A623",
+                ProgressValue = GetProgressPercent(summary.BreakTotal, TimeSpan.FromMinutes(150))
+            };
+            yield return new WorkstationTimeClockSummaryRow
+            {
+                Label = "Total Lunches",
+                Value = SupportsLunch ? FormatDuration(summary.LunchTotal) : "--",
+                DetailText = SupportsLunch ? "of 5h 00m" : "not enabled",
+                IconText = "L",
+                AccentBrush = "#F5B642",
+                ProgressValue = SupportsLunch ? GetProgressPercent(summary.LunchTotal, TimeSpan.FromHours(5)) : 0
+            };
+        }
+
+        private IEnumerable<WorkstationTimeClockHistoryDayRow> BuildTimeClockHistoryDayRows()
+        {
+            for (var dayOffset = 0; dayOffset < 7; dayOffset++)
+            {
+                var day = _selectedTimeClockWeekStart.Date.AddDays(dayOffset);
+                var summary = SummarizePunchRange(day, day.AddDays(1));
+                var isWeekday = day.DayOfWeek != DayOfWeek.Saturday && day.DayOfWeek != DayOfWeek.Sunday;
+
+                var progress = summary.HasActivity
+                    ? GetProgressPercent(summary.WorkTotal, TimeSpan.FromHours(8))
+                    : (isWeekday ? 0 : 0);
+
+                yield return new WorkstationTimeClockHistoryDayRow
                 {
-                    Label = "Lunch",
-                    Value = FormatDuration(summary.LunchTotal),
-                    AccentBrush = "#7FAEEA"
+                    DayText = day.ToString("ddd", CultureInfo.InvariantCulture),
+                    DateText = day.ToString("MMM d", CultureInfo.InvariantCulture),
+                    HoursText = summary.HasActivity ? FormatDuration(summary.WorkTotal) : "--",
+                    ProgressValue = progress,
+                    BarHeight = progress <= 0 ? 0 : Math.Max(8, progress / 100.0 * 86.0)
                 };
             }
+        }
+
+        private string BuildWeeklyTotalText()
+        {
+            var summary = BuildSelectedWeekSummary();
+            return $"Total {FormatDuration(summary.WorkTotal)}";
+        }
+
+        private string BuildPtoNextEligibleText()
+        {
+            if (!string.IsNullOrWhiteSpace(PtoBenefits.EligibleDate))
+                return PtoBenefits.EligibleDate;
+
+            return PtoBenefits.IsEligible ? "Now" : "Not set";
+        }
+
+        private static string FormatPtoRequestDateRange(WorkstationTimeOffRequestRecord request)
+        {
+            var start = string.IsNullOrWhiteSpace(request.StartDate) ? "Start not set" : request.StartDate;
+            var end = string.IsNullOrWhiteSpace(request.EndDate) ? start : request.EndDate;
+            var hours = request.HoursRequested.HasValue ? $" · {request.HoursRequested.Value:0.##}h requested" : "";
+
+            return string.Equals(start, end, StringComparison.OrdinalIgnoreCase)
+                ? $"{start}{hours}"
+                : $"{start} - {end}{hours}";
+        }
+
+        private static string NormalizePtoStatusText(string status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+                return "Awaiting review";
+
+            var normalized = status.Replace("_", " ").Replace("-", " ").Trim().ToLowerInvariant();
+            return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(normalized);
         }
 
         private IEnumerable<WorkstationTimeClockSummaryRow> BuildCurrentStatusSummaryRows()
@@ -2571,25 +5584,37 @@ namespace RunBook.Workstation.ViewModels
             {
                 Label = "Status",
                 Value = CurrentShiftStatus,
-                AccentBrush = TimeClockHeroAccentBrush
+                DetailText = TimeClockStateKey == "out" ? "Not recording time" : "Recording service time",
+                IconText = "S",
+                AccentBrush = TimeClockHeroAccentBrush,
+                ProgressValue = TimeClockStateKey == "out" ? 0 : 100
             };
             yield return new WorkstationTimeClockSummaryRow
             {
                 Label = TimeClockStateKey == "out" ? "Last Action" : "Since",
                 Value = BuildStatusTimeValue(),
-                AccentBrush = TimeClockHeroAccentBrush
+                DetailText = TimeClockStateKey == "out" ? "Last service punch" : "Current state started",
+                IconText = "T",
+                AccentBrush = TimeClockHeroAccentBrush,
+                ProgressValue = 100
             };
             yield return new WorkstationTimeClockSummaryRow
             {
                 Label = "Elapsed",
                 Value = BuildElapsedSummaryValue(),
-                AccentBrush = TimeClockHeroAccentBrush
+                DetailText = TimeClockStateKey == "out" ? "No active timer" : "Current state duration",
+                IconText = "E",
+                AccentBrush = TimeClockHeroAccentBrush,
+                ProgressValue = TimeClockStateKey == "out" ? 0 : 100
             };
             yield return new WorkstationTimeClockSummaryRow
             {
-                Label = "Sync",
+                Label = "Sync Status",
                 Value = BuildSyncSummaryValue(),
-                AccentBrush = HasPendingSyncItems ? "#E5B05F" : "#62D89B"
+                DetailText = HasPendingSyncItems ? "Pending local items" : "Last sync clean",
+                IconText = "C",
+                AccentBrush = HasPendingSyncItems ? "#F5A623" : "#58E58B",
+                ProgressValue = HasPendingSyncItems ? 55 : 100
             };
         }
 
@@ -2613,6 +5638,9 @@ namespace RunBook.Workstation.ViewModels
             foreach (var entry in orderedPunches)
             {
                 var eventTime = entry.LocalTime!.Value;
+                if (eventTime >= rangeStartLocal && eventTime < rangeEndLocal)
+                    summary.HasActivity = true;
+
                 CloseSummarySegment(summary, activeSegment, activeSegmentStart, eventTime, rangeStartLocal, rangeEndLocal);
 
                 var eventType = (entry.Punch.EventType ?? "").Trim().ToUpperInvariant();
@@ -2670,6 +5698,8 @@ namespace RunBook.Workstation.ViewModels
             if (overlap <= TimeSpan.Zero)
                 return;
 
+            summary.HasActivity = true;
+
             switch (activeSegment)
             {
                 case TimeClockSegment.Work:
@@ -2689,6 +5719,114 @@ namespace RunBook.Workstation.ViewModels
             var overlapStart = start > rangeStart ? start : rangeStart;
             var overlapEnd = end < rangeEnd ? end : rangeEnd;
             return overlapEnd > overlapStart ? overlapEnd - overlapStart : TimeSpan.Zero;
+        }
+
+        private static double GetProgressPercent(TimeSpan value, TimeSpan target)
+        {
+            if (target <= TimeSpan.Zero)
+                return 0;
+
+            return Math.Max(0, Math.Min(100, value.TotalSeconds / target.TotalSeconds * 100));
+        }
+
+        private static TimeSpan GetOvertime(TimeSpan worked, TimeSpan target)
+        {
+            return worked > target ? worked - target : TimeSpan.Zero;
+        }
+
+        private string BuildHeroSinceLine()
+        {
+            var local = ToLocalTime(_timeclockSnapshot?.StatusSinceUtc ?? "");
+            if (!local.HasValue)
+                return TimeClockStateKey == "out" ? "Ready when you are." : "Current state start time unavailable.";
+
+            return TimeClockStateKey switch
+            {
+                "working" => $"Working since {local.Value.ToString("h:mm tt", CultureInfo.InvariantCulture)}",
+                "break" => $"On break since {local.Value.ToString("h:mm tt", CultureInfo.InvariantCulture)}",
+                "lunch" => $"At lunch since {local.Value.ToString("h:mm tt", CultureInfo.InvariantCulture)}",
+                _ => $"Last action {local.Value.ToString("h:mm tt", CultureInfo.InvariantCulture)}"
+            };
+        }
+
+        private string BuildHeroClockInTime()
+        {
+            var today = DateTime.Now.Date;
+            var summary = SummarizePunchRange(today, today.AddDays(1));
+            return summary.FirstClockIn.HasValue
+                ? summary.FirstClockIn.Value.ToString("h:mm tt", CultureInfo.InvariantCulture)
+                : "--";
+        }
+
+        private string BuildHeroClockInDate()
+        {
+            var today = DateTime.Now.Date;
+            var summary = SummarizePunchRange(today, today.AddDays(1));
+            return summary.FirstClockIn.HasValue
+                ? summary.FirstClockIn.Value.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)
+                : DateTime.Now.ToString("MMM d, yyyy", CultureInfo.InvariantCulture);
+        }
+
+        private string BuildHeroElapsedValue()
+        {
+            var elapsed = GetElapsedSince(_timeclockSnapshot?.StatusSinceUtc);
+            return elapsed.HasValue && TimeClockStateKey != "out"
+                ? FormatDuration(elapsed.Value)
+                : "--";
+        }
+
+        private string BuildHeroShiftLine()
+        {
+            var detail = (CurrentShiftDetail ?? "").Trim();
+            if (detail.Length == 0 ||
+                detail.StartsWith("SHIFT:", StringComparison.OrdinalIgnoreCase) ||
+                detail.StartsWith("Since ", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Current shift";
+            }
+
+            return detail;
+        }
+
+        private TimeClockRangeSummary BuildSelectedWeekSummary()
+        {
+            return SummarizePunchRange(_selectedTimeClockWeekStart, _selectedTimeClockWeekStart.AddDays(7));
+        }
+
+        private string BuildWeeklyDateRange()
+        {
+            var startOfWeek = _selectedTimeClockWeekStart.Date;
+            var endOfWeek = startOfWeek.AddDays(6);
+            return $"{startOfWeek.ToString("MMM d", CultureInfo.InvariantCulture)} - {endOfWeek.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}";
+        }
+
+        private void GoToPreviousTimeClockWeek()
+        {
+            SetSelectedTimeClockWeekStart(_selectedTimeClockWeekStart.AddDays(-7));
+        }
+
+        private void GoToNextTimeClockWeek()
+        {
+            if (!CanGoToNextTimeClockWeek)
+                return;
+
+            SetSelectedTimeClockWeekStart(_selectedTimeClockWeekStart.AddDays(7));
+        }
+
+        private void GoToCurrentTimeClockWeek()
+        {
+            SetSelectedTimeClockWeekStart(GetWeekStart(DateTime.Now.Date));
+        }
+
+        private void SetSelectedTimeClockWeekStart(DateTime weekStart)
+        {
+            var normalized = GetWeekStart(weekStart.Date);
+            if (_selectedTimeClockWeekStart.Date == normalized.Date)
+                return;
+
+            _selectedTimeClockWeekStart = normalized;
+            RefreshTimeClockPresentation();
+            RaiseCommandStates();
         }
 
         private string BuildStatusTimeValue()
@@ -2720,6 +5858,16 @@ namespace RunBook.Workstation.ViewModels
             return "Synced";
         }
 
+        private string BuildTimeClockFooterStatusLine()
+        {
+            if (HasPendingSyncItems)
+                return "Saving recent time clock changes.";
+
+            return HasTimeClockActivity
+                ? $"Loaded {RecentPunches.Count} recent punches."
+                : $"Time clock ready for {SessionEmployeeName}.";
+        }
+
         private sealed class TimeClockRangeSummary
         {
             public DateTime? FirstClockIn { get; set; }
@@ -2727,6 +5875,12 @@ namespace RunBook.Workstation.ViewModels
             public TimeSpan BreakTotal { get; set; }
             public TimeSpan LunchTotal { get; set; }
             public int ClockInCount { get; set; }
+            public bool HasActivity { get; set; }
+        }
+
+        private static DateTime GetWeekStart(DateTime localDate)
+        {
+            return localDate.Date.AddDays(-(int)localDate.DayOfWeek);
         }
 
         private enum TimeClockSegment
@@ -2737,9 +5891,10 @@ namespace RunBook.Workstation.ViewModels
             Lunch
         }
 
-        private IEnumerable<WorkstationTimeClockActivityRow> BuildTimeClockActivityRows()
+        private IEnumerable<WorkstationTimeClockActivityRow> BuildTimeClockActivityRows(int? maxItems = null)
         {
-            foreach (var punch in RecentPunches.Take(8))
+            var punches = maxItems.HasValue ? RecentPunches.Take(maxItems.Value) : RecentPunches;
+            foreach (var punch in punches)
             {
                 var syncState = string.IsNullOrWhiteSpace(punch.SyncState) ? "synced" : punch.SyncState.Trim();
                 yield return new WorkstationTimeClockActivityRow
@@ -2748,9 +5903,86 @@ namespace RunBook.Workstation.ViewModels
                     TimeText = ToFriendlyPunchTime(punch.ClientTs),
                     StateText = ToFriendlySyncState(syncState),
                     DetailText = BuildPunchDetail(punch),
+                    IconText = GetActivityIconText((punch.EventType ?? "").Trim()),
                     AccentBrush = GetActivityAccentBrush((punch.EventType ?? "").Trim(), syncState)
                 };
             }
+        }
+
+        private IEnumerable<WorkstationShiftTimelineEntry> BuildTodayShiftTimelineEntries()
+        {
+            var today = DateTime.Today;
+            var entries = RecentPunches
+                .Select(punch => new
+                {
+                    Punch = punch,
+                    LocalTime = ToLocalTime(punch.ClientTs)
+                })
+                .Where(entry => entry.LocalTime.HasValue && entry.LocalTime.Value.Date == today)
+                .OrderBy(entry => entry.LocalTime!.Value)
+                .ThenBy(entry => GetTimelineEventSortOrder((entry.Punch.EventType ?? "").Trim()))
+                .ToList();
+
+            for (var index = 0; index < entries.Count; index++)
+            {
+                var entry = entries[index];
+                var eventType = (entry.Punch.EventType ?? "").Trim().ToUpperInvariant();
+                var isLast = index == entries.Count - 1;
+                var isCurrent = IsTimelineEventCurrent(eventType, isLast);
+                var isCompleted = !isCurrent;
+                var accent = GetTimelineAccentBrush(eventType, isCurrent, isCompleted);
+                var background = isCurrent
+                    ? GetTimelineBackgroundBrush(eventType)
+                    : "#FF101824";
+                var border = isCurrent
+                    ? accent
+                    : isCompleted
+                        ? accent
+                        : "#FF243246";
+                var subtitle = isCurrent
+                    ? "In Progress"
+                    : isLast && string.Equals(TimeClockStateKey, "out", StringComparison.OrdinalIgnoreCase)
+                        ? "Completed"
+                        : "Completed";
+                var leftConnectorBrush = index == 0
+                    ? "#243246"
+                    : GetTimelineAccentBrush((entries[index - 1].Punch.EventType ?? "").Trim().ToUpperInvariant(), false, true);
+                var leftConnectorOpacity = index == 0 ? 0 : 0.9;
+                var rightConnectorOpacity = isLast ? 0 : (isCompleted ? 0.9 : 0.35);
+
+                yield return new WorkstationShiftTimelineEntry
+                {
+                    SequenceNumber = index + 1,
+                    Title = ToEventLabel((entry.Punch.EventType ?? "").Trim().ToLowerInvariant()),
+                    TimestampDisplay = entry.LocalTime!.Value.ToString("h:mm tt", CultureInfo.InvariantCulture),
+                    Subtitle = subtitle,
+                    AccentBrush = accent,
+                    BackgroundBrush = background,
+                    BorderBrush = border,
+                    LeftConnectorBrush = leftConnectorBrush,
+                    RightConnectorBrush = accent,
+                    LeftConnectorOpacity = leftConnectorOpacity,
+                    RightConnectorOpacity = rightConnectorOpacity,
+                    IsFirst = index == 0,
+                    IsCurrent = isCurrent,
+                    IsCompleted = isCompleted,
+                    IsLast = isLast
+                };
+            }
+        }
+
+        private bool IsTimelineEventCurrent(string eventType, bool isLast)
+        {
+            if (!isLast)
+                return false;
+
+            return TimeClockStateKey switch
+            {
+                "working" => eventType == "CLOCK_IN",
+                "break" => eventType == "BREAK_START",
+                "lunch" => eventType == "LUNCH_START",
+                _ => false
+            };
         }
 
         private string BuildHeroPrimaryLine()
@@ -2824,7 +6056,38 @@ namespace RunBook.Workstation.ViewModels
         private static string FormatDuration(TimeSpan value)
         {
             var totalHours = (int)Math.Floor(value.TotalHours);
-            return $"{totalHours:00}:{value.Minutes:00}";
+            return $"{totalHours}h {value.Minutes:00}m";
+        }
+
+        private static string NormalizePacketTab(string? key)
+        {
+            return (key ?? "").Trim().ToLowerInvariant() switch
+            {
+                "drawings" => "drawings",
+                "references" => "references",
+                "checklist" => "checklist",
+                "inspections" => "inspections",
+                "attachments" => "attachments",
+                _ => "packet"
+            };
+        }
+
+        private static string NormalizeDataEntryTab(string? key)
+        {
+            return (key ?? "").Trim().ToLowerInvariant() switch
+            {
+                "material" => "material",
+                "inspection" => "inspection",
+                "notes" => "notes",
+                _ => "production"
+            };
+        }
+
+        private static string BuildMinutesText(double? minutes)
+        {
+            return minutes.HasValue && minutes.Value > 0
+                ? $"{minutes.Value:0.##} min"
+                : "--";
         }
 
         private static string FormatDisplayDateTime(string utc)
@@ -2865,17 +6128,72 @@ namespace RunBook.Workstation.ViewModels
         private static string GetActivityAccentBrush(string eventType, string syncState)
         {
             if (string.Equals(syncState, "failed", StringComparison.OrdinalIgnoreCase))
-                return "#E77D87";
+                return "#FF5A6A";
             if (string.Equals(syncState, "pending", StringComparison.OrdinalIgnoreCase))
-                return "#E5B05F";
+                return "#F5B642";
 
             return (eventType ?? "").Trim().ToUpperInvariant() switch
             {
-                "BREAK_START" or "BREAK_END" => "#E5B05F",
-                "LUNCH_START" or "LUNCH_END" => "#7FAEEA",
-                "CLOCK_IN" => "#62D89B",
-                "CLOCK_OUT" => "#E77D87",
-                _ => "#7EABD9"
+                "BREAK_START" or "BREAK_END" => "#F5B642",
+                "LUNCH_START" or "LUNCH_END" => "#F5B642",
+                "CLOCK_IN" => "#2BD576",
+                "CLOCK_OUT" => "#FF5A6A",
+                _ => "#38D5FF"
+            };
+        }
+
+        private static string GetTimelineAccentBrush(string eventType, bool isCurrent, bool isCompleted)
+        {
+            var baseAccent = (eventType ?? "").Trim().ToUpperInvariant() switch
+            {
+                "BREAK_START" or "BREAK_END" => "#F5B642",
+                "LUNCH_START" or "LUNCH_END" => "#F5B642",
+                "CLOCK_IN" => "#2BD576",
+                "CLOCK_OUT" => "#FF5A6A",
+                _ => "#38D5FF"
+            };
+
+            if (isCurrent || isCompleted)
+                return baseAccent;
+
+            return "#5A718E";
+        }
+
+        private static string GetTimelineBackgroundBrush(string eventType)
+        {
+            return (eventType ?? "").Trim().ToUpperInvariant() switch
+            {
+                "BREAK_START" or "BREAK_END" => "#2A1D08",
+                "LUNCH_START" or "LUNCH_END" => "#2A1D08",
+                "CLOCK_IN" => "#0D2A1B",
+                "CLOCK_OUT" => "#2A1015",
+                _ => "#101824"
+            };
+        }
+
+        private static int GetTimelineEventSortOrder(string eventType)
+        {
+            return (eventType ?? "").Trim().ToUpperInvariant() switch
+            {
+                "CLOCK_IN" => 0,
+                "BREAK_START" => 1,
+                "BREAK_END" => 2,
+                "LUNCH_START" => 3,
+                "LUNCH_END" => 4,
+                "CLOCK_OUT" => 5,
+                _ => 99
+            };
+        }
+
+        private static string GetActivityIconText(string eventType)
+        {
+            return (eventType ?? "").Trim().ToUpperInvariant() switch
+            {
+                "BREAK_START" or "BREAK_END" => "B",
+                "LUNCH_START" or "LUNCH_END" => "L",
+                "CLOCK_IN" => "IN",
+                "CLOCK_OUT" => "OUT",
+                _ => "T"
             };
         }
 
@@ -2914,7 +6232,9 @@ namespace RunBook.Workstation.ViewModels
 
             if (_authCache?.Package == null || _authCache.Package.Employees.Count == 0)
             {
-                StatusText = "No Desktop-issued employee auth cache is available yet.";
+                StatusText = string.IsNullOrWhiteSpace(_authCache?.LastRefreshError)
+                    ? "Employee auth cache is not available yet."
+                    : _authCache.LastRefreshError;
                 return false;
             }
 
@@ -2962,9 +6282,189 @@ namespace RunBook.Workstation.ViewModels
             OnPropertyChanged(nameof(WorkstationIdentityLine));
         }
 
+        private void BindToServiceAuthorityOnBoot()
+        {
+            try
+            {
+                var health = _api.GetLocalHealthAsync(Settings, CancellationToken.None).GetAwaiter().GetResult();
+                if (!ApplyServiceAuthorityHealth(health, "boot"))
+                {
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                BlockServiceAuthority("boot", "unavailable", ex.Message, "", "");
+                DebugLogService.Write($"Workstation boot could not bind shop from Service health | {ex.Message}");
+            }
+        }
+
+        private bool ApplyServiceAuthorityHealth(RunBookWorkstationApiClient.LocalHealthResponse health, string source)
+        {
+            if (health == null)
+                return false;
+
+            var expectedFolder = string.IsNullOrWhiteSpace(health.SafeCompanyName)
+                ? (health.CompanyDataFolderName ?? "").Trim()
+                : $"{health.SafeCompanyName.Trim().ToUpperInvariant()}_DATA";
+            var actualFolder = string.IsNullOrWhiteSpace(health.ActiveCompanyDataRoot)
+                ? ""
+                : (Path.GetFileName(health.ActiveCompanyDataRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) ?? "").Trim();
+            var hasRootMismatch = expectedFolder.Length > 0 &&
+                                  actualFolder.Length > 0 &&
+                                  !string.Equals(expectedFolder, actualFolder, StringComparison.OrdinalIgnoreCase);
+
+            if (!health.Ok ||
+                string.Equals(health.Status, "company_data_missing", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(health.Status, "no_company_context", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(health.Status, "invalid_context", StringComparison.OrdinalIgnoreCase) ||
+                hasRootMismatch ||
+                string.IsNullOrWhiteSpace(health.ShopId) ||
+                string.IsNullOrWhiteSpace(health.CompanyName))
+            {
+                var blockedMessage = string.Equals(health.Status, "company_data_missing", StringComparison.OrdinalIgnoreCase)
+                    ? "Active company data folder is missing."
+                    : hasRootMismatch
+                        ? "Service company context/root mismatch was detected."
+                        : string.IsNullOrWhiteSpace(health.ErrorMessage)
+                            ? "Service has no valid company context. Select a shop in Desktop and restart Service."
+                            : health.ErrorMessage;
+                BlockServiceAuthority(source, hasRootMismatch ? "context_root_mismatch" : health.Status, blockedMessage, health.ActiveCompanyDataRoot, health.MissingFolderName);
+                return false;
+            }
+
+            var previousShopId = (Settings.ShopId ?? "").Trim();
+            if (previousShopId.Length > 0 &&
+                !string.Equals(previousShopId, health.ShopId, StringComparison.OrdinalIgnoreCase))
+            {
+                WorkstationStorageService.ClearShopScopedCache(previousShopId);
+                DebugLogService.Write($"Workstation discarded stale cached shop scope | source={source} | old_shop_id={previousShopId} | new_shop_id={health.ShopId}");
+            }
+
+            Settings.ShopId = health.ShopId;
+            Settings.ShopName = string.IsNullOrWhiteSpace(health.CompanyName) ? Settings.ShopName : health.CompanyName;
+            SettingsShopId = Settings.ShopId;
+            SettingsShopName = Settings.ShopName;
+            WorkstationStorageService.SaveSettings(Settings);
+            WorkstationStorageService.ClearAllOtherShopScopedCaches(Settings.ShopId, health.SafeCompanyName);
+            _serviceWriteBlocked = false;
+            OfflineStatus = "RunBook.Service local authority connected.";
+
+            DebugLogService.Write(
+                $"StartupCompanyContext | app=RunBook.Workstation | source={source} | selected_shop_id={health.ShopId} | company_name={health.CompanyName} | safe_company_name={health.SafeCompanyName} | company_data_folder_name={health.CompanyDataFolderName} | resolved_data_root={health.ActiveCompanyDataRoot} | context_file_path=service-health | context_loaded_timestamp={health.ContextLoadedUtc} | context_source={health.ContextSource} | status={health.Status}");
+            return true;
+        }
+
+        private void BlockServiceAuthority(string source, string status, string message, string root, string missingFolder)
+        {
+            _serviceWriteBlocked = true;
+            var userMessage = string.Equals(status, "unavailable", StringComparison.OrdinalIgnoreCase)
+                ? "Device trust could not be validated because RunBook.Service is unavailable. Continuing with the last saved workstation pairing."
+                : string.Equals(status, "company_data_missing", StringComparison.OrdinalIgnoreCase)
+                    ? "Device trust could not be validated because RunBook.Service cannot find the active company data folder. Continuing with the last saved workstation pairing."
+                    : string.IsNullOrWhiteSpace(message)
+                        ? "Device trust could not be validated because RunBook.Service has no valid company context. Continuing with the last saved workstation pairing."
+                        : $"Device trust could not be validated right now. Continuing with the last saved workstation pairing. {message}";
+            OfflineStatus = userMessage;
+            StatusText = userMessage;
+            ShowRunBookIssueAlert(
+                $"service-authority-{status}",
+                "RunBook.Service Needs Attention",
+                userMessage,
+                Registration == null
+                    ? "Start RunBook.Service and confirm the correct shop/company is selected. If this workstation has never been paired, pair it after Service is healthy."
+                    : "Start RunBook.Service and confirm it can see the active company data folder. This workstation will keep using the saved pairing while Service is temporarily unavailable.");
+
+            CurrentSession = null;
+            _timeclockSnapshot = null;
+            MarkRegistrationValidationDegraded(status, userMessage);
+            WorkstationStorageService.SaveSession(null);
+            WorkstationStorageService.SaveTimeclockState(null);
+            if (CurrentSession != null)
+                Logout();
+            else
+                RaiseCommandStates();
+
+            DebugLogService.Write($"Workstation service authority blocked | source={source} | status={status} | paired={Registration != null} | shop_id={Registration?.ShopId ?? Settings.ShopId} | workstation_id={Registration?.WorkstationId ?? Settings.WorkstationId} | trust_status={Registration?.TrustStatus ?? "missing"} | validation_failure={status} | folder={missingFolder} | root={root}");
+        }
+
+        private bool EnsureServiceWritable()
+        {
+            if (!_serviceWriteBlocked)
+                return true;
+
+            OfflineStatus = "RunBook Service cannot find the active company data folder.";
+            StatusText = "RunBook Service cannot find the active company data folder.";
+            ShowRunBookIssueAlert(
+                "service-write-blocked",
+                "RunBook.Service Needs Attention",
+                "RunBook.Service cannot find the active company data folder, so Workstation cannot write or sync safely.",
+                "Start RunBook.Service and confirm the active company data folder exists for the selected shop.");
+            return false;
+        }
+
+        private bool HasUsableSavedRegistration()
+        {
+            return Registration != null &&
+                   Registration.IsActive &&
+                   string.Equals(Registration.Status, "active", StringComparison.OrdinalIgnoreCase) &&
+                   !string.IsNullOrWhiteSpace(Registration.DeviceToken) &&
+                   !string.IsNullOrWhiteSpace(Registration.ShopId) &&
+                   !string.IsNullOrWhiteSpace(Settings.ShopId) &&
+                   string.Equals(Registration.ShopId, Settings.ShopId, StringComparison.OrdinalIgnoreCase) &&
+                   !string.IsNullOrWhiteSpace(Registration.WorkstationId) &&
+                   !string.IsNullOrWhiteSpace(Settings.WorkstationId) &&
+                   string.Equals(Registration.WorkstationId, Settings.WorkstationId, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void MarkRegistrationTrusted(string reason)
+        {
+            if (Registration == null)
+                return;
+
+            var now = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+            Registration.TrustStatus = "trusted";
+            Registration.LastValidatedUtc = now;
+            Registration.LastSyncUtc = now;
+            Registration.LastValidationError = "";
+            Registration.PairingRequiredReason = "";
+            Registration.RefreshAvailable = false;
+            WorkstationStorageService.SaveRegistration(Registration);
+            DebugLogService.Write($"Workstation trust diagnostics | paired=true | shop_id={Registration.ShopId} | workstation_id={Registration.WorkstationId} | trust_status={Registration.TrustStatus} | last_validated_utc={Registration.LastValidatedUtc} | pairing_required_reason= | validation_failure= | reason={reason}");
+            RefreshConnectionStatuses();
+        }
+
+        private void MarkRegistrationValidationDegraded(string reason, string message)
+        {
+            if (Registration == null)
+            {
+                DebugLogService.Write($"Workstation trust diagnostics | paired=false | shop_id={Settings.ShopId} | workstation_id={Settings.WorkstationId} | trust_status=missing | last_validated_utc= | pairing_required_reason=no_local_trust | validation_failure={reason}");
+                return;
+            }
+
+            Registration.TrustStatus = "degraded";
+            Registration.LastValidationError = string.IsNullOrWhiteSpace(message)
+                ? "Device trust could not be validated right now. Continuing with the last saved workstation pairing."
+                : message.Trim();
+            Registration.PairingRequiredReason = "";
+            Registration.RefreshAvailable = false;
+            WorkstationStorageService.SaveRegistration(Registration);
+            DebugLogService.Write($"Workstation trust diagnostics | paired=true | shop_id={Registration.ShopId} | workstation_id={Registration.WorkstationId} | trust_status={Registration.TrustStatus} | last_validated_utc={Registration.LastValidatedUtc} | pairing_required_reason= | validation_failure={reason}");
+            RefreshConnectionStatuses();
+        }
+
         private void HandleTrustFailure(string message)
         {
-            MarkDesktopRequestSuccess();
+            MarkLocalHostRequestSuccess();
+            var code = GetErrorCode(message);
+            if (Registration != null)
+            {
+                Registration.TrustStatus = "pairing_required";
+                Registration.LastValidationError = GetPairingRequiredMessageForTrustFailure(code);
+                Registration.PairingRequiredReason = code;
+                WorkstationStorageService.SaveRegistration(Registration);
+            }
+            DebugLogService.Write($"Workstation registration cleared | paired=false | shop_id={Registration?.ShopId ?? Settings.ShopId} | workstation_id={Registration?.WorkstationId ?? Settings.WorkstationId} | trust_status=pairing_required | pairing_required_reason={code} | validation_failure={code}");
             Registration = null;
             WorkstationStorageService.SaveRegistration(null);
             _authCache = null;
@@ -2972,13 +6472,37 @@ namespace RunBook.Workstation.ViewModels
             RosterEmployees.Clear();
             if (CurrentSession != null)
                 Logout();
-            OfflineStatus = "Desktop enrollment is no longer valid for this workstation.";
+            OfflineStatus = "Workstation enrollment is no longer valid for this Service-linked local host.";
             UpdateAuthCacheStatus(new WorkstationAuthCacheHealth
             {
                 State = WorkstationAuthCacheState.Expired,
-                Message = "Desktop workstation trust was revoked or replaced. Re-enroll with a new pairing code."
+                Message = "Local workstation trust was revoked or replaced. Re-enroll with a new pairing code."
             });
             StatusText = message;
+            ShowRunBookIssueAlert(
+                $"workstation-trust-{code}",
+                "Workstation Pairing Required",
+                GetPairingRequiredMessageForTrustFailure(code),
+                "Ask a supervisor or administrator for a new pairing code, then pair this workstation again from Settings.");
+        }
+
+        private static string GetErrorCode(string message)
+        {
+            var trimmed = (message ?? "").Trim();
+            var separator = trimmed.IndexOf(':');
+            return separator > 0 ? trimmed.Substring(0, separator).Trim() : trimmed;
+        }
+
+        private static string GetPairingRequiredMessageForTrustFailure(string code)
+        {
+            return code switch
+            {
+                "WORKSTATION_REVOKED" => "This workstation was unpaired or disabled by an administrator. Enter a new pairing code to reconnect.",
+                "WORKSTATION_TOKEN_INVALID" => "This workstation's saved pairing could not be verified. Please pair again.",
+                "WORKSTATION_NOT_ENROLLED" => "This workstation has not been paired yet. Enter a pairing code to connect it to your shop.",
+                "WORKSTATION_IDENTITY_MISMATCH" => "This workstation's saved pairing no longer matches this machine. Please pair again.",
+                _ => "This workstation's saved pairing could not be verified. Please pair again.",
+            };
         }
 
         private static bool IsTrustFailure(string message)
@@ -3006,20 +6530,62 @@ namespace RunBook.Workstation.ViewModels
         private static string NormalizePairingCode(string value)
             => new string((value ?? "").Where(char.IsLetterOrDigit).ToArray()).Trim();
 
-        private async Task InitializeFromControlSessionAsync()
+        private void NormalizeDesktopBaseUrl()
         {
-            if (ControlSessionService.HasSession())
+            if (WorkstationStorageService.ShouldForceLocalService())
             {
-                await RunBusyAsync(async () =>
-                {
-                    await SyncCurrentShopAsync();
-                    await RefreshAuthPackageAsyncCore(false);
-                    await LoadRosterCoreAsync();
-                });
+                Settings.DesktopBaseUrl = "http://localhost:30112";
+                SettingsDesktopBaseUrl = Settings.DesktopBaseUrl;
                 return;
             }
 
-            await RefreshAuthPackageAsyncCore(false);
+            var current = (Settings.DesktopBaseUrl ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(current))
+                return;
+
+            if (!Uri.TryCreate(current, UriKind.Absolute, out var uri))
+                return;
+
+            if (!IsLoopbackHost(uri.Host))
+                return;
+
+            var workstationHost = (Settings.WorkstationName ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(workstationHost) || IsLoopbackHost(workstationHost))
+                return;
+
+            var builder = new UriBuilder(uri)
+            {
+                Host = workstationHost
+            };
+
+            Settings.DesktopBaseUrl = builder.Uri.ToString().TrimEnd('/');
+            SettingsDesktopBaseUrl = Settings.DesktopBaseUrl;
+        }
+
+        private static bool IsLoopbackHost(string host)
+        {
+            var normalized = (host ?? "").Trim();
+            return normalized.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("::1", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private async Task InitializeFromControlSessionAsync()
+        {
+            ControlSessionStatus = ControlSessionService.GetStatusLabel();
+            OnPropertyChanged(nameof(HasSupervisorSession));
+            OnPropertyChanged(nameof(ShowSupervisorSignInFields));
+            OnPropertyChanged(nameof(ShowSupervisorEnrollmentActions));
+            OnPropertyChanged(nameof(SupervisorDialogTitle));
+            OnPropertyChanged(nameof(SupervisorDialogSubtitle));
+            RefreshConnectionStatuses();
+            _isControlConfirmedAvailable = false;
+            await RunBusyAsync(async () =>
+            {
+                await RefreshAuthPackageAsyncCore(false);
+                if (ControlSessionService.HasSession())
+                    await LoadRosterCoreAsync();
+            });
         }
 
         private async Task SyncCurrentShopAsync()
@@ -3028,33 +6594,37 @@ namespace RunBook.Workstation.ViewModels
                 return;
 
             var currentShop = await _api.GetCurrentShopAsync(Settings.ControlBaseUrl, CancellationToken.None);
-            var desktopShopId = GetTrustedDesktopShopId();
+            var serviceShopId = (Settings.ShopId ?? "").Trim();
             if (!currentShop.Found || string.IsNullOrWhiteSpace(currentShop.ShopId))
             {
-                if (!string.IsNullOrWhiteSpace(desktopShopId))
-                    return;
-
-                Settings.ShopId = "";
-                Settings.ShopName = "Unassigned shop";
-                SettingsShopId = "";
-                SettingsShopName = Settings.ShopName;
-                WorkstationStorageService.SaveSettings(Settings);
-                OnPropertyChanged(nameof(ConnectivityLine));
+                DebugLogService.Write("Workstation Control shop sync ignored | Control reported no active shop. Service remains the local shop authority.");
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(desktopShopId) &&
-                !string.Equals(currentShop.ShopId, desktopShopId, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(serviceShopId) &&
+                !string.Equals(currentShop.ShopId, serviceShopId, StringComparison.OrdinalIgnoreCase))
             {
+                DebugLogService.Write($"Workstation Control shop sync ignored | service_shop_id={serviceShopId} | control_shop_id={currentShop.ShopId}");
                 return;
             }
 
-            Settings.ShopId = currentShop.ShopId;
-            Settings.ShopName = string.IsNullOrWhiteSpace(currentShop.ShopName) ? Settings.ShopName : currentShop.ShopName;
-            SettingsShopId = Settings.ShopId;
-            SettingsShopName = Settings.ShopName;
-            WorkstationStorageService.SaveSettings(Settings);
-            OnPropertyChanged(nameof(ConnectivityLine));
+            DebugLogService.Write($"Workstation Control shop reported informational match | shop_id={currentShop.ShopId} | shop_name={currentShop.ShopName}");
+        }
+
+        private async Task TrySyncCurrentShopIfConfirmedAsync()
+        {
+            if (!_isControlConfirmedAvailable || !ControlSessionService.HasSession() || string.IsNullOrWhiteSpace(Settings.ControlBaseUrl))
+                return;
+
+            try
+            {
+                await SyncCurrentShopAsync();
+            }
+            catch (Exception ex)
+            {
+                _isControlConfirmedAvailable = false;
+                DebugLogService.Write($"Optional Control sync skipped | {ex.Message}");
+            }
         }
 
         private string GetTrustedDesktopShopId()
@@ -3085,23 +6655,57 @@ namespace RunBook.Workstation.ViewModels
         private Task LoadRosterCoreAsync()
         {
             LoadRosterFromAuthCache();
+            OnPropertyChanged(nameof(RosterDiagnosticLine));
+            OnPropertyChanged(nameof(RosterAvatarStatusLine));
+            OnPropertyChanged(nameof(RecentRosterEmployees));
+            OnPropertyChanged(nameof(HasMoreRosterEmployees));
+            OnPropertyChanged(nameof(HasRosterEmployees));
+            OnPropertyChanged(nameof(ShowRecentEmployeeEmptyState));
+            OnPropertyChanged(nameof(RecentEmployeeEmptyText));
+            OnPropertyChanged(nameof(RecentEmployeeEmptyDetailText));
+            OnPropertyChanged(nameof(QuickSearchHelperText));
+            OnPropertyChanged(nameof(EmployeeBrowserEmployees));
+            RaiseCommandStates();
             if (RosterEmployees.Count == 0)
-                StatusText = "No workstation-ready employees found in the Desktop auth cache.";
+            {
+                StatusText = _authCache?.Package == null
+                    ? (string.IsNullOrWhiteSpace(_authCache?.LastRefreshError)
+                        ? "Employee auth cache is not available yet."
+                        : _authCache.LastRefreshError)
+                    : "RunBook Service auth is loaded, but no workstation-ready employees are available to show.";
+            }
             return Task.CompletedTask;
         }
 
         private bool CanLoadRoster()
         {
-            return !string.IsNullOrWhiteSpace(Settings.ShopId)
-                && _authCache?.Package != null
-                && string.Equals(_authCache.Package.ShopId, Settings.ShopId, StringComparison.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(Settings.ShopId))
+            {
+                return false;
+            }
+
+            if (_authCache?.Package == null)
+            {
+                return false;
+            }
+
+            if (!string.Equals(_authCache.Package.ShopId, Settings.ShopId, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private void LoadRosterFromAuthCache()
         {
             RosterEmployees.Clear();
             if (!CanLoadRoster())
+            {
+                OnPropertyChanged(nameof(RosterDiagnosticLine));
+                OnPropertyChanged(nameof(RosterAvatarStatusLine));
                 return;
+            }
 
             var employees = _authCache!.Package.Employees
                 .Where(employee => employee.IsActive)
@@ -3111,7 +6715,137 @@ namespace RunBook.Workstation.ViewModels
                 .ToList();
 
             foreach (var employee in employees)
+            {
+                employee.AvatarDisplayUrl = ResolveRosterAvatarDisplayUrl(employee.AvatarDisplayUrl, employee.EmployeeAvatarRef);
+            }
+
+            foreach (var employee in employees)
                 RosterEmployees.Add(employee);
+
+            RefreshRosterEmployeeStatuses();
+
+            foreach (var employee in employees.Take(3))
+            {
+                var imageSourceResolves = DoesAvatarImageSourceResolve(employee.AvatarDisplayUrl);
+                DebugLogService.Write(
+                    $"RosterAvatarTrace | DisplayName={employee.DisplayName} | HasAvatarDisplayUrl={employee.HasAvatarDisplayUrl} | AvatarDisplayUrl={employee.AvatarDisplayUrl} | ImageSourceResolves={imageSourceResolves} | FallbackInitialsActive={!employee.HasAvatarDisplayUrl}");
+            }
+
+            OnPropertyChanged(nameof(RosterDiagnosticLine));
+            OnPropertyChanged(nameof(RosterAvatarStatusLine));
+            NotifySessionEmployeeAvatarProperties();
+        }
+
+        private void RefreshRosterEmployeeStatuses()
+        {
+            var activeEmployeeId = CurrentSession?.Employee?.EmployeeId ?? "";
+            var activeRemoteEmployeeId = CurrentSession?.Employee?.RemoteEmployeeId ?? "";
+            var activeEmployeeCode = CurrentSession?.Employee?.EmployeeCode ?? "";
+
+            foreach (var employee in RosterEmployees)
+            {
+                var isCurrent = (!string.IsNullOrWhiteSpace(activeRemoteEmployeeId) && string.Equals(employee.RemoteEmployeeId, activeRemoteEmployeeId, StringComparison.OrdinalIgnoreCase)) ||
+                                (!string.IsNullOrWhiteSpace(activeEmployeeId) && string.Equals(employee.EmployeeId, activeEmployeeId, StringComparison.OrdinalIgnoreCase)) ||
+                                (!string.IsNullOrWhiteSpace(activeEmployeeCode) && string.Equals(employee.EmployeeCode, activeEmployeeCode, StringComparison.OrdinalIgnoreCase));
+
+                if (isCurrent)
+                {
+                    ApplyEmployeeStatusChip(employee, TimeClockStateKey switch
+                    {
+                        "working" => "CLOCKED IN",
+                        "break" => "ON BREAK",
+                        "lunch" => "AT LUNCH",
+                        _ => "SIGNED IN"
+                    });
+                }
+                else
+                {
+                    ApplyEmployeeStatusChip(employee, "AVAILABLE");
+                }
+            }
+
+            NotifySessionEmployeeAvatarProperties();
+        }
+
+        private void NotifySessionEmployeeAvatarProperties()
+        {
+            OnPropertyChanged(nameof(ActiveSessionRosterEmployee));
+            OnPropertyChanged(nameof(SessionEmployeeAvatarDisplayUrl));
+            OnPropertyChanged(nameof(SessionEmployeeHasAvatarDisplayUrl));
+            OnPropertyChanged(nameof(SessionEmployeeAvatarBrush));
+        }
+
+        private static void ApplyEmployeeStatusChip(WorkstationRosterEmployee employee, string state)
+        {
+            employee.StatusChipText = state;
+            switch (state)
+            {
+                case "CLOCKED IN":
+                    employee.StatusChipForeground = "#2BD576";
+                    employee.StatusChipBackground = "#142BD576";
+                    employee.StatusChipBorder = "#4A2BD576";
+                    break;
+                case "ON BREAK":
+                case "AT LUNCH":
+                    employee.StatusChipForeground = "#F5B642";
+                    employee.StatusChipBackground = "#19F5B642";
+                    employee.StatusChipBorder = "#52F5B642";
+                    break;
+                case "SIGNED IN":
+                    employee.StatusChipForeground = "#38D5FF";
+                    employee.StatusChipBackground = "#1838D5FF";
+                    employee.StatusChipBorder = "#4A38D5FF";
+                    break;
+                default:
+                    employee.StatusChipForeground = "#AAB6C8";
+                    employee.StatusChipBackground = "#151C2836";
+                    employee.StatusChipBorder = "#2F425B";
+                    break;
+            }
+        }
+
+        private static string ResolveRosterAvatarDisplayUrl(string avatarDisplayUrl, WorkstationAvatarRef? avatarRef)
+        {
+            if (string.IsNullOrWhiteSpace(avatarDisplayUrl))
+                return "";
+
+            try
+            {
+                var resolvedPath = AvatarImageCacheService.ResolveDisplayPathAsync(avatarDisplayUrl, avatarRef).GetAwaiter().GetResult();
+                return string.IsNullOrWhiteSpace(resolvedPath) ? avatarDisplayUrl : resolvedPath;
+            }
+            catch
+            {
+                return avatarDisplayUrl;
+            }
+        }
+
+        private static bool DoesAvatarImageSourceResolve(string avatarDisplayUrl)
+        {
+            if (string.IsNullOrWhiteSpace(avatarDisplayUrl))
+                return false;
+
+            if (avatarDisplayUrl.StartsWith("pack://", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    return Application.GetResourceStream(new Uri(avatarDisplayUrl, UriKind.Absolute)) != null;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+
+            if (Uri.TryCreate(avatarDisplayUrl, UriKind.Absolute, out var absoluteUri))
+            {
+                if (absoluteUri.IsFile)
+                    return File.Exists(absoluteUri.LocalPath);
+
+                return absoluteUri.Scheme == Uri.UriSchemeHttp || absoluteUri.Scheme == Uri.UriSchemeHttps;
+            }
+
+            return File.Exists(avatarDisplayUrl);
         }
 
         private WorkstationRosterEmployee? FindRosterEmployee(string remoteEmployeeId, string employeeId, string employeeCode)
@@ -3127,11 +6861,34 @@ namespace RunBook.Workstation.ViewModels
 
         private void UpdateAuthCacheStatus(WorkstationAuthCacheHealth? health = null)
         {
+            var savedPairingMessage = GetSavedPairingDegradedMessage();
+            if (!string.IsNullOrWhiteSpace(savedPairingMessage) && (_authCache?.Package == null || _authCache.Package.Employees.Count == 0))
+            {
+                AuthCacheStatus = savedPairingMessage;
+                return;
+            }
+
             health ??= GetAuthCacheHealth();
-            var suffix = string.IsNullOrWhiteSpace(_authCache?.LastRefreshError)
+            var lastError = ToUserFacingAuthCacheError(_authCache?.LastRefreshError);
+            var suffix = string.IsNullOrWhiteSpace(lastError)
                 ? ""
-                : $" Last error: {_authCache.LastRefreshError}";
+                : $" Last error: {lastError}";
             AuthCacheStatus = health.Message + suffix;
+        }
+
+        private string? GetSavedPairingDegradedMessage()
+        {
+            if (Registration == null)
+                return null;
+
+            if (!string.Equals(Registration.TrustStatus, "degraded", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(Registration.TrustStatus, "offline", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(Registration.TrustStatus, "blocked", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            return string.IsNullOrWhiteSpace(Registration.LastValidationError)
+                ? "Device trust could not be validated right now. Continuing with the last saved workstation pairing."
+                : Registration.LastValidationError;
         }
 
         private static WorkstationEmployeeAuthPackage MapAuthPackage(RunBookWorkstationApiClient.LocalAuthPackage? package)
@@ -3233,10 +6990,29 @@ namespace RunBook.Workstation.ViewModels
                 CanCameraView = employee.CanCameraView,
                 HasWorkstationPasscode = employee.HasWorkstationPasscode,
                 SessionTimeoutMinutes = employee.SessionTimeoutMinutes < 1 ? 15 : employee.SessionTimeoutMinutes,
-                AvatarDisplayUrl = employee.AvatarDisplayUrl,
+                AvatarDisplayUrl = FirstNonEmpty(employee.EmployeeAvatarRef?.LocalApiUrl, employee.AvatarDisplayUrl),
+                EmployeeAvatarRef = MapAvatarRef(employee.EmployeeAvatarRef),
                 UpdatedUtc = employee.UpdatedUtc,
             };
         }
+
+        private static string FirstNonEmpty(params string?[] values)
+            => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? "";
+
+        private static WorkstationAvatarRef MapAvatarRef(RunBookWorkstationApiClient.AvatarRefDto? avatarRef)
+            => avatarRef == null
+                ? WorkstationAvatarRef.Placeholder()
+                : new WorkstationAvatarRef
+                {
+                    AvatarAssetId = avatarRef.AvatarAssetId ?? "",
+                    EmployeePublicId = avatarRef.EmployeePublicId ?? "",
+                    MachinePublicId = avatarRef.MachinePublicId ?? "",
+                    LocalApiUrl = avatarRef.LocalApiUrl ?? "",
+                    ContentHash = avatarRef.ContentHash ?? "",
+                    UpdatedAtUtc = avatarRef.UpdatedAtUtc ?? "",
+                    ContentType = avatarRef.ContentType ?? "",
+                    IsPlaceholder = avatarRef.IsPlaceholder,
+                };
 
         private static WorkstationRosterEmployee MapRosterEmployee(WorkstationAuthPackageEmployee employee)
         {
@@ -3250,6 +7026,7 @@ namespace RunBook.Workstation.ViewModels
                 Role = ToRosterRole(employee.Role, employee),
                 Initials = BuildInitials(displayName),
                 AvatarDisplayUrl = employee.AvatarDisplayUrl,
+                EmployeeAvatarRef = employee.EmployeeAvatarRef,
                 AvatarBrush = PickAvatarBrush(displayName),
                 AccentBrush = PickAccentBrush(displayName),
                 AccessSummary = BuildAccessSummary(employee),
@@ -3445,31 +7222,61 @@ namespace RunBook.Workstation.ViewModels
                 FeatureSetName = package.FeatureSetName,
                 TemplateKey = package.TemplateKey,
                 SessionId = package.SessionId,
-                Tasks = package.Tasks.Select(task => new WorkstationInspectionTask
-                {
-                    FeatureId = task.FeatureId,
-                    BalloonNumber = task.BalloonNumber,
-                    ItemNumber = task.ItemNumber,
-                    Zone = task.Zone,
-                    FeatureText = task.FeatureText,
-                    Nominal = task.Nominal,
-                    TolPlus = task.TolPlus,
-                    TolMinus = task.TolMinus,
-                    Units = task.Units,
-                    Classification = task.Classification,
-                    InspectionMethod = task.InspectionMethod,
-                    Frequency = task.Frequency,
-                    InputType = task.InputType,
-                    InputOptionsJson = task.InputOptionsJson,
-                    Notes = task.Notes,
-                    SampleIndex = task.SampleIndex < 1 ? 1 : task.SampleIndex,
-                    ActualValue = task.ActualValue,
-                    PassFail = task.PassFail,
-                    Inspector = task.Inspector,
-                    MeasuredUtc = task.MeasuredUtc,
-                    ResultNotes = task.ResultNotes,
-                }).ToList()
+                Tasks = package.Tasks.Select(MapInspectionTask).ToList()
             };
+        }
+
+        private static WorkstationInspectionTask MapInspectionTask(RunBookWorkstationApiClient.InspectionTask task)
+        {
+            return new WorkstationInspectionTask
+            {
+                FeatureId = task.FeatureId,
+                BalloonNumber = task.BalloonNumber,
+                ItemNumber = task.ItemNumber,
+                Zone = task.Zone,
+                FeatureText = task.FeatureText,
+                Nominal = task.Nominal,
+                TolPlus = task.TolPlus,
+                TolMinus = task.TolMinus,
+                Units = task.Units,
+                Classification = task.Classification,
+                InspectionMethod = task.InspectionMethod,
+                Frequency = task.Frequency,
+                InputType = task.InputType,
+                InputOptionsJson = task.InputOptionsJson,
+                Notes = task.Notes,
+                SampleIndex = task.SampleIndex < 1 ? 1 : task.SampleIndex,
+                ActualValue = task.ActualValue,
+                PassFail = task.PassFail,
+                Inspector = task.Inspector,
+                MeasuredUtc = task.MeasuredUtc,
+                ResultNotes = task.ResultNotes,
+            };
+        }
+
+        private static WorkstationQuantityEventEntry MapQuantityEvent(RunBookWorkstationApiClient.OperationQuantityEvent quantityEvent)
+        {
+            return new WorkstationQuantityEventEntry
+            {
+                EventId = quantityEvent.EventId,
+                EventType = quantityEvent.EventType,
+                Quantity = quantityEvent.Quantity,
+                GoodQuantity = quantityEvent.GoodQuantity,
+                ScrapQuantity = quantityEvent.ScrapQuantity,
+                EmployeeName = quantityEvent.EmployeeName,
+                Source = quantityEvent.Source,
+                Notes = quantityEvent.Notes,
+                CreatedUtc = quantityEvent.CreatedUtc,
+            };
+        }
+
+        private static bool IsInProcessInspection(WorkstationInspectionTaskPackage? package)
+        {
+            if (package == null)
+                return false;
+
+            var label = $"{package.TemplateKey} {package.FeatureSetName}";
+            return label.IndexOf("process", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static string BuildInitials(string displayName)
@@ -3480,6 +7287,14 @@ namespace RunBook.Workstation.ViewModels
                 .Select(part => char.ToUpperInvariant(part[0]));
             var initials = new string(parts.ToArray());
             return string.IsNullOrWhiteSpace(initials) ? "RB" : initials;
+        }
+
+        private static string BuildFirstName(string displayName)
+        {
+            var first = (displayName ?? "")
+                .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault();
+            return string.IsNullOrWhiteSpace(first) ? "Operator" : first;
         }
 
         private static string BuildAccessSummary(WorkstationAuthPackageEmployee employee)
@@ -3544,17 +7359,71 @@ namespace RunBook.Workstation.ViewModels
                     return;
                 }
 
-                StatusText = GetUserFacingErrorMessage(ex);
-                if (IsConnectivityFailure(ex))
+                if (StartsWithErrorCode(rawMessage, "PAIRING_REQUIRED"))
                 {
-                    MarkDesktopRequestFailure(ex.Message);
+                    var userMessage = GetUserFacingErrorMessage(ex);
+                    StatusText = userMessage;
+                    ShowRunBookIssueAlert(
+                        "pairing-required",
+                        "Workstation Pairing Required",
+                        userMessage,
+                        "Open Settings, enter a current workstation pairing code from a supervisor or administrator, then refresh registration.");
+                    return;
+                }
+
+                StatusText = GetUserFacingErrorMessage(ex);
+                if (ShouldAttributeToLocalHostFailure(ex))
+                {
+                    MarkLocalHostRequestFailure(ex.Message);
                     OfflineStatus = "Unable to reach RunBook service.";
+                    ShowRunBookIssueAlert(
+                        "local-service-unreachable",
+                        "RunBook.Service Unreachable",
+                        "Workstation could not reach the local RunBook.Service authority.",
+                        Registration == null
+                            ? "Start RunBook.Service. If this workstation has never been paired, pair it after Service is reachable."
+                            : "Start RunBook.Service or check the local network/port. The saved workstation pairing remains on this device while Service is unavailable.");
                 }
             }
             finally
             {
                 IsBusy = false;
             }
+        }
+
+        private bool ShouldAttributeToLocalHostFailure(Exception ex)
+        {
+            if (!IsConnectivityFailure(ex))
+                return false;
+
+            var message = ex.Message ?? "";
+            if (message.IndexOf("30112", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("RunBook.Service", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("workstation-local", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("local workstation authority", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+
+            return false;
+        }
+
+        private string BuildStartOperationUnavailableMessage()
+        {
+            if (SelectedWorkOrder?.IsBackupJob == true ||
+                (SelectedWorkOrder?.AssignmentLabel ?? "").IndexOf("backup", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                (WorkOrderDetail?.AssignmentLabel ?? "").IndexOf("backup", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "This job is visible as a backup job, but it is not currently executable for you.\nAsk a supervisor to assign it before starting production time.";
+            }
+
+            var status = (SelectedOperation?.Status ?? "").Trim();
+            if (status.Equals("In Progress", StringComparison.OrdinalIgnoreCase))
+                return "This operation is already in progress.";
+
+            if (status.Equals("Complete", StringComparison.OrdinalIgnoreCase) ||
+                status.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+                return "This operation has already been completed.";
+
+            return "This operation cannot be started right now.\nRefresh the work order or ask a supervisor to confirm your assignment.";
         }
 
         private static bool IsConnectivityFailure(Exception ex)
@@ -3580,9 +7449,13 @@ namespace RunBook.Workstation.ViewModels
             if (message.Length == 0)
                 return "RunBook could not complete that action.";
 
+            if (IsWorkstationRegistrationRequiredMessage(message))
+                return WorkstationRegistrationRequiredUserMessage;
+
                 return message switch
                 {
-                    "Workstation request does not match the active Desktop shop." => "This workstation is pointed at a different Desktop shop. Refresh registration and employee auth, then try again.",
+                    "Workstation request does not match the active Desktop shop." => "This workstation is pointed at a different Service-selected local shop. Refresh registration and employee auth, then try again.",
+                    "Workstation request does not match the active shop." => "This workstation is pointed at a different local shop. Refresh registration and employee auth, then try again.",
                     "Work order is not available to Workstation." => "This job is no longer available on this workstation.",
                     "Work order is visible on Workstation but is not currently executable by this employee." => "This job is visible here, but you cannot work it right now.",
                     "This work order is not currently executable by this employee." => "This job is not currently executable for you.",
@@ -3596,43 +7469,260 @@ namespace RunBook.Workstation.ViewModels
               };
         }
 
+        private static bool IsConnectivityFailureMessage(string? message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return false;
+
+            return message.IndexOf("actively refused", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   message.IndexOf("timed out", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   message.IndexOf("No connection could be made", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   message.IndexOf("Unable to connect", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   message.IndexOf("connection", StringComparison.OrdinalIgnoreCase) >= 0 && message.IndexOf("30112", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static string GetServiceFailureStatus(string endpoint, string? message, string fallback)
+        {
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                if (IsWorkstationRegistrationRequiredMessage(message))
+                    return WorkstationRegistrationRequiredUserMessage;
+
+                if (message.IndexOf("endpoint not implemented on Service", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return $"Service endpoint failed: {endpoint} (endpoint not implemented on Service)";
+
+                if (message.IndexOf("auth cache", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return "Employee auth cache is not available yet.";
+            }
+
+            return fallback;
+        }
+
+        private static bool IsWorkstationRegistrationRequiredMessage(string? message)
+        {
+            return !string.IsNullOrWhiteSpace(message)
+                && message.IndexOf(WorkstationRegistrationRequiredRawMessage, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static string ToUserFacingAuthCacheError(string? message)
+        {
+            var trimmed = (message ?? "").Trim();
+            if (trimmed.Length == 0)
+                return "";
+
+            return IsWorkstationRegistrationRequiredMessage(trimmed)
+                ? WorkstationRegistrationRequiredUserMessage
+                : trimmed;
+        }
+
         private void HandleEmployeeSessionFailure(string message)
         {
             var userMessage = GetUserFacingErrorMessage(new InvalidOperationException(message));
-            MarkDesktopRequestSuccess();
+            MarkLocalHostRequestSuccess();
             Logout();
-            OfflineStatus = "Desktop connected, but the workstation sign-in is no longer valid.";
+            OfflineStatus = "RunBook.Service is reachable, but the workstation sign-in is no longer valid.";
             StatusText = userMessage;
+        }
+
+        private void MarkLocalHostRequestSuccess()
+        {
+            _lastLocalHostSuccessUtc = DateTime.UtcNow;
+            _lastLocalHostFailureUtc = null;
+            _lastLocalHostFailureReason = "";
+            UpdateConnectionStatuses();
+        }
+
+        private void MarkLocalHostRequestFailure(string? reason)
+        {
+            _lastLocalHostFailureUtc = DateTime.UtcNow;
+            _lastLocalHostFailureReason = reason ?? "";
+            UpdateConnectionStatuses();
         }
 
         private void MarkDesktopRequestSuccess()
         {
             _lastDesktopSuccessUtc = DateTime.UtcNow;
             _lastDesktopFailureReason = "";
-            RefreshConnectionStatuses();
+            UpdateConnectionStatuses();
         }
 
         private void MarkDesktopRequestFailure(string? reason)
         {
             _lastDesktopFailureUtc = DateTime.UtcNow;
             _lastDesktopFailureReason = reason ?? "";
-            RefreshConnectionStatuses();
+            UpdateConnectionStatuses();
         }
 
-        private void RefreshConnectionStatuses()
+        private void RefreshConnectionStatuses(bool force = true)
+        {
+            var nowUtc = DateTime.UtcNow;
+            if (!force && nowUtc - _lastConnectionStatusRefreshUtc < TimeSpan.FromSeconds(5))
+            {
+                UpdateConnectionStatuses();
+                return;
+            }
+
+            if (_suppressAutomaticConnectionProbes)
+            {
+                UpdateConnectionStatuses();
+                _lastConnectionStatusRefreshUtc = nowUtc;
+                return;
+            }
+
+            RefreshLocalHostProbe(nowUtc, force);
+
+            var desktopProbeInterval = force ? DesktopProbeForceInterval : DesktopProbePassiveInterval;
+            if (!RegistrationMissingDesktopProbePrerequisites() &&
+                (!_lastDesktopProbeCheckedUtc.HasValue || nowUtc - _lastDesktopProbeCheckedUtc.Value >= desktopProbeInterval))
+            {
+                var desktopProbe = _connectionStatusService.ProbeDesktop(Settings, Registration);
+                _lastDesktopProbeCheckedUtc = desktopProbe.CheckedUtc;
+
+                if (desktopProbe.Attempted)
+                {
+                    if (desktopProbe.Succeeded)
+                    {
+                        _lastDesktopProbeSuccessUtc = desktopProbe.CheckedUtc;
+                        _lastDesktopProbeFailureReason = "";
+                    }
+                    else
+                    {
+                        _lastDesktopProbeFailureUtc = desktopProbe.CheckedUtc;
+                        _lastDesktopProbeFailureReason = desktopProbe.FailureReason;
+                    }
+                }
+            }
+
+            UpdateConnectionStatuses();
+            _lastConnectionStatusRefreshUtc = DateTime.UtcNow;
+        }
+
+        private void UpdateConnectionStatuses()
         {
             var statuses = _connectionStatusService.BuildStatuses(
                 Settings,
                 Registration,
                 CurrentSession,
-                _lastDesktopSuccessUtc,
-                _lastDesktopFailureUtc,
-                _lastDesktopFailureReason);
+                _lastLocalHostProbeCheckedUtc,
+                _lastLocalHostSuccessUtc,
+                _lastLocalHostFailureUtc,
+                _lastLocalHostFailureReason,
+                _lastDesktopProbeCheckedUtc,
+                _lastDesktopProbeSuccessUtc,
+                _lastDesktopProbeFailureUtc,
+                _lastDesktopProbeFailureReason);
 
             ConnectionStatuses.Clear();
             foreach (var status in statuses)
-                ConnectionStatuses.Add(status);
+            {
+                var key = (status.Key ?? "").Trim().ToLowerInvariant();
+                if (key == "local_host" || key == "desktop_link")
+                {
+                    status.Label = key == "local_host"
+                        ? (status.Health == ConnectionHealth.Healthy ? "Service Connected" : "Service Offline")
+                        : (status.Health == ConnectionHealth.Healthy ? "Desktop Connected" : "Desktop Offline");
+                    ConnectionStatuses.Add(status);
+                }
+            }
         }
+
+        private bool RegistrationMissingDesktopProbePrerequisites()
+        {
+            return string.IsNullOrWhiteSpace(Settings.DesktopBaseUrl) ||
+                   Registration == null ||
+                   !Registration.IsActive ||
+                   string.IsNullOrWhiteSpace(Registration.DeviceToken);
+        }
+
+        private bool LocalHostProbeMissingPrerequisites()
+            => false;
+
+        private void RefreshLocalHostProbe(DateTime nowUtc, bool force)
+        {
+            if (LocalHostProbeMissingPrerequisites())
+            {
+                _pendingLocalHostProbeRefresh = false;
+                return;
+            }
+
+            var probeDue = !_lastLocalHostProbeCheckedUtc.HasValue ||
+                           force ||
+                           nowUtc - _lastLocalHostProbeCheckedUtc.Value >= TimeSpan.FromSeconds(2);
+            if (!probeDue)
+                return;
+
+            if (_isLocalHostProbeInFlight)
+            {
+                _pendingLocalHostProbeRefresh = true;
+                return;
+            }
+
+            StartLocalHostProbe();
+        }
+
+        private void StartLocalHostProbe()
+        {
+            _isLocalHostProbeInFlight = true;
+            _pendingLocalHostProbeRefresh = false;
+            var probeGeneration = ++_localHostProbeGeneration;
+            var settings = new WorkstationSettings
+            {
+                DesktopBaseUrl = Settings.DesktopBaseUrl
+            };
+
+            _ = RunLocalHostProbeAsync(settings, probeGeneration);
+        }
+
+        private async Task RunLocalHostProbeAsync(WorkstationSettings settings, int probeGeneration)
+        {
+            var localHostProbe = await _connectionStatusService.ProbeLocalHostAsync(settings).ConfigureAwait(false);
+            RunBookWorkstationApiClient.LocalHealthResponse? health = null;
+            if (localHostProbe.Attempted && localHostProbe.Succeeded)
+            {
+                try
+                {
+                    health = await _api.GetLocalHealthAsync(settings, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch
+                {
+                }
+            }
+
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                if (probeGeneration != _localHostProbeGeneration)
+                    return;
+
+                _isLocalHostProbeInFlight = false;
+                _lastLocalHostProbeCheckedUtc = localHostProbe.CheckedUtc;
+
+                if (localHostProbe.Attempted)
+                {
+                    if (localHostProbe.Succeeded)
+                    {
+                        _lastLocalHostSuccessUtc = localHostProbe.CheckedUtc;
+                        _lastLocalHostFailureUtc = null;
+                        _lastLocalHostFailureReason = "";
+                        if (health != null)
+                            ApplyServiceAuthorityHealth(health, "probe");
+                    }
+                    else
+                    {
+                        _lastLocalHostFailureUtc = localHostProbe.CheckedUtc;
+                        _lastLocalHostFailureReason = localHostProbe.FailureReason;
+                        BlockServiceAuthority("probe", "unavailable", localHostProbe.FailureReason ?? "RunBook Service is unavailable.", "", "");
+                    }
+                }
+
+                UpdateConnectionStatuses();
+
+                if (_pendingLocalHostProbeRefresh)
+                    StartLocalHostProbe();
+            });
+        }
+
+        private string BuildLocalHostEndpointLabel()
+            => "http://localhost:30112";
 
         private static WorkstationTimeclockSnapshot MapSnapshot(RunBookWorkstationApiClient.DesktopTimeclockSnapshot? snapshot)
         {
@@ -3650,6 +7740,7 @@ namespace RunBook.Workstation.ViewModels
             model.SupportsLunch = snapshot.SupportsLunch;
             model.LastSyncUtc = snapshot.LastSyncUtc;
             model.LastSyncMessage = snapshot.LastSyncMessage;
+            model.Benefits = MapBenefits(snapshot.Benefits);
             model.RecentPunches = snapshot.RecentPunches.Select(punch => new WorkstationPunchRecord
             {
                 Id = punch.Id,
@@ -3676,6 +7767,43 @@ namespace RunBook.Workstation.ViewModels
                 SyncState = string.IsNullOrWhiteSpace(request.SyncState) ? "synced" : request.SyncState,
             }).ToList();
             return model;
+        }
+
+        private static WorkstationEmployeeBenefitsSummary MapBenefits(RunBookWorkstationApiClient.DesktopBenefitsSummary? benefits)
+        {
+            if (benefits == null)
+                return new WorkstationEmployeeBenefitsSummary();
+
+            return new WorkstationEmployeeBenefitsSummary
+            {
+                PolicyName = benefits.PolicyName,
+                IsEligible = benefits.IsEligible,
+                EligibleDate = benefits.EligibleDate,
+                EligibilitySummary = benefits.EligibilitySummary,
+                AccrualSummary = benefits.AccrualSummary,
+                CarryoverSummary = benefits.CarryoverSummary,
+                ResetDate = benefits.ResetDate,
+                TotalPaidHours = benefits.TotalPaidHours,
+                Buckets = (benefits.Buckets ?? new List<RunBookWorkstationApiClient.DesktopBenefitBucket>()).Select(bucket => new WorkstationBenefitBucket
+                {
+                    Code = bucket.Code,
+                    Label = bucket.Label,
+                    AvailableHours = bucket.AvailableHours,
+                    UsedHours = bucket.UsedHours,
+                    PendingHours = bucket.PendingHours,
+                    AccruedHours = bucket.AccruedHours,
+                    CarryoverHours = bucket.CarryoverHours,
+                    ExpiresOn = bucket.ExpiresOn,
+                }).ToList(),
+                RecentLedger = (benefits.RecentLedger ?? new List<RunBookWorkstationApiClient.DesktopBenefitLedgerEntry>()).Select(entry => new WorkstationBenefitLedgerEntry
+                {
+                    Date = entry.Date,
+                    Type = entry.Type,
+                    Label = entry.Label,
+                    Hours = entry.Hours,
+                    Note = entry.Note,
+                }).ToList(),
+            };
         }
 
         private static WorkstationPunchRecord ClonePunch(WorkstationPunchRecord punch)
@@ -3795,6 +7923,121 @@ namespace RunBook.Workstation.ViewModels
             };
         }
 
+        private WorkstationWorkOrderOperationSummary? GetActiveOperationForCurrentSession()
+        {
+            var employeeName = (CurrentSession?.Employee?.DisplayName ?? "").Trim();
+            return WorkOrderDetail?.Operations?
+                .Where(operation => operation.CanStop || operation.IsInProgress)
+                .FirstOrDefault(operation =>
+                    string.IsNullOrWhiteSpace(operation.OperatorName) ||
+                    employeeName.Length == 0 ||
+                    string.Equals(operation.OperatorName.Trim(), employeeName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private WorkstationCurrentJobContext? BuildResumeOperationContext(WorkstationWorkOrderOperationSummary operation)
+        {
+            if (WorkOrderDetail == null || operation == null)
+                return null;
+
+            return new WorkstationCurrentJobContext
+            {
+                WorkOrderId = WorkOrderDetail.WorkOrderId,
+                WorkOrderNumber = WorkOrderDetail.WorkOrderNumber,
+                PartNumber = WorkOrderDetail.PartNumber,
+                PartDescription = WorkOrderDetail.PartDescription,
+                VisibilitySource = WorkOrderDetail.VisibilitySource,
+                OperationId = operation.OperationId,
+                OperationNumber = operation.OperationNumber,
+                OperationTitle = operation.Title,
+                OperationStatus = operation.Status,
+                StartedUtc = operation.StartedUtc,
+                AssignmentLabel = WorkOrderDetail.AssignmentLabel,
+            };
+        }
+
+        private async Task PromptToResumePausedOperationAsync()
+        {
+            var candidate = _pendingResumeOperation;
+            var capturedFromPunchOut = _pendingResumeOperationCapturedFromPunchOut;
+            if (candidate == null && HasWorkOrdersAccess)
+            {
+                await RefreshWorkOrdersAsync(false);
+                candidate = RecentJob;
+                capturedFromPunchOut = false;
+            }
+
+            if (!capturedFromPunchOut && !CanResumePausedOperation(candidate))
+                return;
+
+            var resume = await ShowRunBookDecisionAsync(
+                "Resume Operation?",
+                $"Do you want to resume OP{candidate!.OperationNumber:000} - {candidate.OperationTitle}?",
+                "Resume Operation",
+                "Keep Paused");
+
+            if (!resume)
+            {
+                _pendingResumeOperation = null;
+                _pendingResumeOperationCapturedFromPunchOut = false;
+                return;
+            }
+
+            await ResumePausedOperationAsync(candidate);
+        }
+
+        private async Task ResumePausedOperationAsync(WorkstationCurrentJobContext candidate)
+        {
+            if (!EnsureServiceWritable())
+                return;
+
+            if (CurrentSession == null || !HasOperationExecutionAccess || candidate.WorkOrderId <= 0 || candidate.OperationId <= 0)
+                return;
+
+            SelectedModule = VisibleModules.FirstOrDefault(module => string.Equals(module.Key, "workorders", StringComparison.OrdinalIgnoreCase)) ?? SelectedModule;
+            await RunBusyAsync(async () =>
+            {
+                var response = await _api.StartOperationAsync(
+                    Settings,
+                    CurrentSession,
+                    candidate.WorkOrderId,
+                    candidate.OperationId,
+                    "Resumed after clock in.",
+                    CancellationToken.None);
+                ApplyWorkOrderMutationResponse(response, candidate.OperationId);
+                _pendingResumeOperation = null;
+                _pendingResumeOperationCapturedFromPunchOut = false;
+                StatusText = $"Resumed OP{candidate.OperationNumber:000} - {candidate.OperationTitle}.";
+            });
+
+            if (CurrentSession != null && HasWorkOrdersAccess)
+                await RefreshWorkOrdersAsync(false);
+        }
+
+        private static bool CanResumePausedOperation(WorkstationCurrentJobContext? candidate)
+        {
+            if (candidate == null || candidate.WorkOrderId <= 0 || candidate.OperationId <= 0)
+                return false;
+
+            var status = (candidate.OperationStatus ?? "").Trim();
+            return status.IndexOf("stop", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   status.IndexOf("pause", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsProductionPausePunch(string eventType)
+        {
+            var normalized = (eventType ?? "").Trim().ToUpperInvariant();
+            return normalized == "CLOCK_OUT" || normalized == "BREAK_START" || normalized == "LUNCH_START";
+        }
+
+        private static bool IsProductionResumePunch(string eventType)
+        {
+            var normalized = (eventType ?? "").Trim().ToUpperInvariant();
+            return normalized == "CLOCK_IN" || normalized == "BREAK_END" || normalized == "LUNCH_END";
+        }
+
+        private static bool IsClockOutPunch(string eventType)
+            => string.Equals((eventType ?? "").Trim(), "clock_out", StringComparison.OrdinalIgnoreCase);
+
         private static string ToShiftTitle(string status)
         {
             return (status ?? "").Trim().ToUpperInvariant() switch
@@ -3863,6 +8106,126 @@ namespace RunBook.Workstation.ViewModels
                 : (string.IsNullOrWhiteSpace(value) ? "No due date" : value);
         }
 
+        private static string FormatCaptureExpiry(string value)
+        {
+            if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed))
+                return $"Expires {parsed.ToLocalTime():h:mm tt}";
+
+            return string.IsNullOrWhiteSpace(value) ? "Expires soon" : $"Expires {value}";
+        }
+
+        private void UpdateOperationAttachmentIntakeQr()
+        {
+            if (SelectedWorkOrder == null || SelectedOperation == null)
+            {
+                OperationAttachmentIntakeUrl = "";
+                OperationAttachmentIntakeQrImage = null;
+                OperationAttachmentIntakeStatusText = "Select an operation to create an attachment intake QR.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(Settings.ShopId))
+            {
+                OperationAttachmentIntakeUrl = "";
+                OperationAttachmentIntakeQrImage = null;
+                OperationAttachmentIntakeStatusText = "Shop identity is required before Mobile can attach operation files.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(Settings.ControlBaseUrl))
+            {
+                OperationAttachmentIntakeUrl = "";
+                OperationAttachmentIntakeQrImage = null;
+                OperationAttachmentIntakeStatusText = "Control URL is required before Mobile can attach operation files.";
+                return;
+            }
+
+            if (SelectedWorkOrder.WorkOrderId <= 0 || SelectedOperation.OperationId <= 0)
+            {
+                OperationAttachmentIntakeUrl = "";
+                OperationAttachmentIntakeQrImage = null;
+                OperationAttachmentIntakeStatusText = "The selected operation is not eligible for Mobile attachment intake yet.";
+                return;
+            }
+
+            var issuedAt = DateTimeOffset.UtcNow;
+            var expiresAt = issuedAt.AddMinutes(30);
+            // TODO(release): this is a temporary Control/Mobile attachment intake compatibility QR.
+            // The final always-visible operation QR should open the Service-owned operation context/menu;
+            // short-lived action QR/session handoff should be generated only after an action is selected.
+            var payload = new OperationAttachmentIntakeQrPayload
+            {
+                Kind = "operation-attachment-intake",
+                ShopPublicId = Settings.ShopId.Trim(),
+                WorkOrderRef = BuildOperationAttachmentWorkOrderRef(Settings.ShopId, SelectedWorkOrder.WorkOrderId),
+                OperationRef = BuildOperationAttachmentOperationRef(Settings.ShopId, SelectedWorkOrder.WorkOrderId, SelectedOperation.OperationId),
+                ExpiresAt = expiresAt.ToString("O", CultureInfo.InvariantCulture)
+            };
+
+            var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+            var encoded = Base64UrlEncode(Encoding.UTF8.GetBytes(json));
+            var url = $"runbookmobile:///operation-attachment-intake?payload={Uri.EscapeDataString(encoded)}";
+            OperationAttachmentIntakeUrl = url;
+            OperationAttachmentIntakeQrImage = BuildQrImage(url);
+            OperationAttachmentIntakeStatusText = "Temporary: scan to add operation attachment";
+        }
+
+        // TODO(release): replace these temporary attachment target refs with canonical remote work order/operation public ids
+        // once Service/Desktop exposes the canonical public-id contract to Workstation.
+        private static string BuildOperationAttachmentWorkOrderRef(string shopId, int workOrderId)
+        {
+            return "wo_" + BuildOperationAttachmentRefHash("work-order", shopId, workOrderId.ToString(CultureInfo.InvariantCulture));
+        }
+
+        private static string BuildOperationAttachmentOperationRef(string shopId, int workOrderId, int operationId)
+        {
+            return "op_" + BuildOperationAttachmentRefHash(
+                "operation",
+                shopId,
+                workOrderId.ToString(CultureInfo.InvariantCulture),
+                operationId.ToString(CultureInfo.InvariantCulture));
+        }
+
+        private static string BuildOperationAttachmentRefHash(params string[] parts)
+        {
+            var seed = "runbook-operation-attachment-target-ref-v1|" + string.Join("|", parts ?? Array.Empty<string>());
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(seed.ToLowerInvariant()));
+            var builder = new StringBuilder(24);
+            for (var index = 0; index < 12; index++)
+                builder.Append(bytes[index].ToString("x2", CultureInfo.InvariantCulture));
+            return builder.ToString();
+        }
+
+        private static string Base64UrlEncode(byte[] bytes)
+        {
+            return Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        }
+
+        private static BitmapImage BuildQrImage(string value)
+        {
+            using var generator = new QRCodeGenerator();
+            using var data = generator.CreateQrCode(value ?? "", QRCodeGenerator.ECCLevel.M);
+            var qr = new PngByteQRCode(data);
+            var bytes = qr.GetGraphic(18);
+            using var stream = new MemoryStream(bytes);
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.StreamSource = stream;
+            image.EndInit();
+            image.Freeze();
+            return image;
+        }
+
+        private sealed class OperationAttachmentIntakeQrPayload
+        {
+            public string Kind { get; set; } = "";
+            public string ShopPublicId { get; set; } = "";
+            public string WorkOrderRef { get; set; } = "";
+            public string OperationRef { get; set; } = "";
+            public string ExpiresAt { get; set; } = "";
+        }
+
         private static string ToEventLabel(string key) => key switch
         {
             "clock_in" => "Clock In",
@@ -3874,6 +8237,28 @@ namespace RunBook.Workstation.ViewModels
             _ => key
         };
 
+        private async Task InitializeFromControlSessionSafeAsync()
+        {
+            try
+            {
+                await InitializeFromControlSessionAsync();
+            }
+            catch (Exception ex)
+            {
+                DebugLogService.WriteException("InitializeFromControlSessionSafeAsync", ex);
+                if (IsConnectivityFailure(ex))
+                {
+                    MarkLocalHostRequestFailure(ex.Message);
+                    OfflineStatus = "RunBook.Service is unavailable right now.";
+                    StatusText = "RunBook could not reach the local workstation authority.";
+                    UpdateAuthCacheStatus();
+                    return;
+                }
+
+                StatusText = GetUserFacingErrorMessage(ex);
+            }
+        }
+
         private void RaiseCommandStates()
         {
             if (LoginCommand is RelayCommand login) login.RaiseCanExecuteChanged();
@@ -3882,6 +8267,10 @@ namespace RunBook.Workstation.ViewModels
             if (ConnectControlCommand is RelayCommand connect) connect.RaiseCanExecuteChanged();
             if (DisconnectControlCommand is RelayCommand disconnect) disconnect.RaiseCanExecuteChanged();
             if (RefreshRegistrationCommand is RelayCommand refresh) refresh.RaiseCanExecuteChanged();
+            if (RefreshEmployeeAuthCommand is RelayCommand refreshEmployeeAuth) refreshEmployeeAuth.RaiseCanExecuteChanged();
+            if (OpenSupervisorDialogCommand is RelayCommand openSupervisor) openSupervisor.RaiseCanExecuteChanged();
+            if (CloseSupervisorDialogCommand is RelayCommand closeSupervisor) closeSupervisor.RaiseCanExecuteChanged();
+            if (CloseRunBookAlertCommand is RelayCommand closeRunBookAlert) closeRunBookAlert.RaiseCanExecuteChanged();
             if (RefreshTimeClockCommand is RelayCommand refreshClock) refreshClock.RaiseCanExecuteChanged();
             if (ClockInCommand is RelayCommand clockIn) clockIn.RaiseCanExecuteChanged();
             if (ClockOutCommand is RelayCommand clockOut) clockOut.RaiseCanExecuteChanged();
@@ -3891,6 +8280,15 @@ namespace RunBook.Workstation.ViewModels
             if (LunchEndCommand is RelayCommand lunchEnd) lunchEnd.RaiseCanExecuteChanged();
             if (SyncPendingCommand is RelayCommand syncPending) syncPending.RaiseCanExecuteChanged();
             if (SubmitTimeOffCommand is RelayCommand submitTimeOff) submitTimeOff.RaiseCanExecuteChanged();
+            if (OpenTimeOffRequestsDialogCommand is RelayCommand openTimeOffRequests) openTimeOffRequests.RaiseCanExecuteChanged();
+            if (CloseTimeOffRequestsDialogCommand is RelayCommand closeTimeOffRequests) closeTimeOffRequests.RaiseCanExecuteChanged();
+            if (OpenPtoBenefitsCommand is RelayCommand openPtoBenefits) openPtoBenefits.RaiseCanExecuteChanged();
+            if (ClosePtoBenefitsCommand is RelayCommand closePtoBenefits) closePtoBenefits.RaiseCanExecuteChanged();
+            if (OpenTimeClockActivityDialogCommand is RelayCommand openTimeClockActivity) openTimeClockActivity.RaiseCanExecuteChanged();
+            if (CloseTimeClockActivityDialogCommand is RelayCommand closeTimeClockActivity) closeTimeClockActivity.RaiseCanExecuteChanged();
+            if (PreviousTimeClockWeekCommand is RelayCommand previousTimeClockWeek) previousTimeClockWeek.RaiseCanExecuteChanged();
+            if (NextTimeClockWeekCommand is RelayCommand nextTimeClockWeek) nextTimeClockWeek.RaiseCanExecuteChanged();
+            if (CurrentTimeClockWeekCommand is RelayCommand currentTimeClockWeek) currentTimeClockWeek.RaiseCanExecuteChanged();
             if (RefreshWorkOrdersCommand is RelayCommand refreshWorkOrders) refreshWorkOrders.RaiseCanExecuteChanged();
             if (ResumeCurrentJobCommand is RelayCommand resumeCurrentJob) resumeCurrentJob.RaiseCanExecuteChanged();
             if (ResumeRecentJobCommand is RelayCommand resumeRecentJob) resumeRecentJob.RaiseCanExecuteChanged();
@@ -3901,21 +8299,148 @@ namespace RunBook.Workstation.ViewModels
             if (StartOperationCommand is RelayCommand startOperation) startOperation.RaiseCanExecuteChanged();
             if (StopOperationCommand is RelayCommand stopOperation) stopOperation.RaiseCanExecuteChanged();
             if (CompleteOperationCommand is RelayCommand completeOperation) completeOperation.RaiseCanExecuteChanged();
+            if (SaveDataEntryCommand is RelayCommand saveDataEntry) saveDataEntry.RaiseCanExecuteChanged();
             if (SubmitQuantityCommand is RelayCommand submitQuantity) submitQuantity.RaiseCanExecuteChanged();
             if (SubmitScrapCommand is RelayCommand submitScrap) submitScrap.RaiseCanExecuteChanged();
+            if (BeginRecordQuantityCommand is RelayCommand beginRecordQuantity) beginRecordQuantity.RaiseCanExecuteChanged();
+            if (CancelRecordQuantityCommand is RelayCommand cancelRecordQuantity) cancelRecordQuantity.RaiseCanExecuteChanged();
+            if (SaveQuantityEventCommand is RelayCommand saveQuantityEvent) saveQuantityEvent.RaiseCanExecuteChanged();
             if (SubmitOperationNoteCommand is RelayCommand submitNote) submitNote.RaiseCanExecuteChanged();
             if (SubmitOperationHelpCommand is RelayCommand submitHelp) submitHelp.RaiseCanExecuteChanged();
             if (RefreshInspectionTasksCommand is RelayCommand refreshInspection) refreshInspection.RaiseCanExecuteChanged();
             if (SelectInspectionTaskCommand is RelayCommand<WorkstationInspectionTask> selectInspection) selectInspection.RaiseCanExecuteChanged();
             if (SubmitInspectionResultCommand is RelayCommand submitInspection) submitInspection.RaiseCanExecuteChanged();
+            if (OpenOperationInspectionCommand is RelayCommand openOperationInspection) openOperationInspection.RaiseCanExecuteChanged();
+            if (CloseOperationInspectionCommand is RelayCommand closeOperationInspection) closeOperationInspection.RaiseCanExecuteChanged();
+            if (OpenMobileCaptureCommand is RelayCommand openMobileCapture) openMobileCapture.RaiseCanExecuteChanged();
+            if (CloseMobileCaptureCommand is RelayCommand closeMobileCapture) closeMobileCapture.RaiseCanExecuteChanged();
+            if (RefreshOperationAttachmentsCommand is RelayCommand refreshOperationAttachments) refreshOperationAttachments.RaiseCanExecuteChanged();
+            if (PrimaryOperatorActionCommand is RelayCommand primaryOperatorAction) primaryOperatorAction.RaiseCanExecuteChanged();
             if (OpenRosterEmployeeCommand is RelayCommand<WorkstationRosterEmployee> openRoster) openRoster.RaiseCanExecuteChanged();
+            if (LaunchWelcomeFlowCommand is RelayCommand<string> launchWelcomeFlow) launchWelcomeFlow.RaiseCanExecuteChanged();
+            if (OpenEmployeeBrowserCommand is RelayCommand openEmployeeBrowser) openEmployeeBrowser.RaiseCanExecuteChanged();
+            if (CloseEmployeeBrowserCommand is RelayCommand closeEmployeeBrowser) closeEmployeeBrowser.RaiseCanExecuteChanged();
+            if (SubmitEmployeeQuickSearchCommand is RelayCommand submitEmployeeQuickSearch) submitEmployeeQuickSearch.RaiseCanExecuteChanged();
             if (AppendPasscodeDigitCommand is RelayCommand<string> append) append.RaiseCanExecuteChanged();
             if (BackspacePasscodeCommand is RelayCommand backspace) backspace.RaiseCanExecuteChanged();
             if (ClearPasscodeCommand is RelayCommand clear) clear.RaiseCanExecuteChanged();
             if (CancelPasscodeCommand is RelayCommand cancel) cancel.RaiseCanExecuteChanged();
         }
 
+        private UnlockTimingTrace? GetOrCreateUnlockTrace(WorkstationRosterEmployee? employee)
+        {
+            if (_unlockTimingTrace != null && !_unlockTimingTrace.ShellVisibleLogged)
+                return _unlockTimingTrace;
+
+            if (employee == null)
+                return _unlockTimingTrace;
+
+            _unlockTimingTrace = UnlockTimingTrace.Start(employee);
+            return _unlockTimingTrace;
+        }
+
+        private static void LogUnlockTrace(UnlockTimingTrace? trace, string step, string? details = null)
+        {
+            if (trace == null)
+                return;
+
+            var suffix = string.IsNullOrWhiteSpace(details) ? "" : $" | {details}";
+            DebugLogService.Write($"UnlockTrace | {trace.TraceId} | {step} | elapsed_ms={trace.Stopwatch.ElapsedMilliseconds}{suffix}");
+        }
+
+        private Brush BuildTimeClockHeroGradientBrush()
+        {
+            var brush = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0.5),
+                EndPoint = new Point(1, 0.5)
+            };
+
+            switch (TimeClockStateKey)
+            {
+                case "working":
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F20D2A1B"), 0));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F00E1F1B"), 0.24));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#E008141D"), 0.66));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F008111D"), 1));
+                    break;
+                case "break":
+                case "lunch":
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F22A1D08"), 0));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#EE20180C"), 0.24));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#D810131C"), 0.66));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F008111D"), 1));
+                    break;
+                default:
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F22A1015"), 0));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#EA1A0D18"), 0.28));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#D610111C"), 0.68));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#F008111D"), 1));
+                    break;
+            }
+
+            brush.Freeze();
+            return brush;
+        }
+
+        private Brush BuildTimeClockHeroGlowWashBrush()
+        {
+            var brush = new RadialGradientBrush
+            {
+                Center = new Point(0.08, 0.48),
+                GradientOrigin = new Point(0.08, 0.44),
+                RadiusX = 1.05,
+                RadiusY = 1.2
+            };
+
+            switch (TimeClockStateKey)
+            {
+                case "working":
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#722BD576"), 0));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#360D2A1B"), 0.36));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#160E1F1B"), 0.68));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#0008111D"), 1));
+                    break;
+                case "break":
+                case "lunch":
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#66F5B642"), 0));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#342A1D08"), 0.36));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#1620180C"), 0.68));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#0008111D"), 1));
+                    break;
+                default:
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#2EFF5A6A"), 0));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#222A1015"), 0.36));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#141A0D18"), 0.68));
+                    brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString("#0008111D"), 1));
+                    break;
+            }
+
+            brush.Freeze();
+            return brush;
+        }
+
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+        private sealed class UnlockTimingTrace
+        {
+            public string TraceId { get; }
+            public Stopwatch Stopwatch { get; }
+            public bool ShellVisibleLogged { get; set; }
+
+            private UnlockTimingTrace(string traceId)
+            {
+                TraceId = traceId;
+                Stopwatch = Stopwatch.StartNew();
+            }
+
+            public static UnlockTimingTrace Start(WorkstationRosterEmployee employee)
+            {
+                var employeeKey = string.IsNullOrWhiteSpace(employee.EmployeeCode) ? employee.EmployeeId : employee.EmployeeCode;
+                var traceId = $"unlock-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{(employeeKey ?? "employee").Trim()}";
+                return new UnlockTimingTrace(traceId);
+            }
+        }
     }
 }

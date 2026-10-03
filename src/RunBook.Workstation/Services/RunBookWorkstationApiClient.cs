@@ -1,9 +1,12 @@
 using RunBook.Workstation.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -14,21 +17,35 @@ namespace RunBook.Workstation.Services
 {
     public sealed class RunBookWorkstationApiClient
     {
+        private const int LocalServicePort = 30112;
+        private const string LocalServiceBaseUrl = "http://localhost:30112";
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         };
 
         private readonly HttpClient _client;
+        private readonly Func<WorkstationRegistrationSnapshot?> _registrationProvider;
+        private readonly string _localServiceBaseUrl;
 
-        public RunBookWorkstationApiClient(HttpClient? client = null)
+        public RunBookWorkstationApiClient(HttpClient? client = null, Func<WorkstationRegistrationSnapshot?>? registrationProvider = null)
+            : this(new Uri(LocalServiceBaseUrl, UriKind.Absolute), client, registrationProvider)
         {
-            _client = client ?? new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+        }
+
+        internal RunBookWorkstationApiClient(
+            Uri localServiceBaseUri,
+            HttpClient? client = null,
+            Func<WorkstationRegistrationSnapshot?>? registrationProvider = null)
+        {
+            _localServiceBaseUrl = ValidateLocalServiceBaseUri(localServiceBaseUri);
+            _client = client ?? WorkstationHttpClientFactory.Create(timeout: TimeSpan.FromSeconds(20));
+            _registrationProvider = registrationProvider ?? WorkstationStorageService.LoadRegistration;
         }
 
         public async Task<WorkstationRegistrationSnapshot> RegisterAsync(WorkstationSettings settings, CancellationToken cancellationToken)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildUrl(settings.DesktopBaseUrl, "api/workstation-local/register"));
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildServiceUrl("api/workstation-local/register"));
             request.Content = new StringContent(JsonSerializer.Serialize(new
             {
                 shop_id = settings.ShopId,
@@ -53,6 +70,12 @@ namespace RunBook.Workstation.Services
                 EnrollmentVersion = payload?.Workstation?.EnrollmentVersion ?? 1,
                 Existing = payload?.Existing ?? false,
                 LastSyncUtc = DateTime.UtcNow.ToString("O"),
+                TrustStatus = "trusted",
+                LastValidatedUtc = DateTime.UtcNow.ToString("O"),
+                LastValidationError = "",
+                PairingRequiredReason = "",
+                TokenExpiresUtc = "",
+                RefreshAvailable = false,
             };
         }
 
@@ -86,12 +109,12 @@ namespace RunBook.Workstation.Services
         public async Task<LocalAuthPackageResponse> GetLocalAuthPackageAsync(WorkstationSettings settings, CancellationToken cancellationToken)
         {
             var context = GetLocalDesktopContext(settings);
-            var url = BuildUrl(settings.DesktopBaseUrl, $"api/workstation-local/auth-package?shop_id={Uri.EscapeDataString(context.ShopId)}&workstation_id={Uri.EscapeDataString(context.WorkstationId)}");
+            var url = BuildServiceUrl($"api/workstation-local/auth-package?shop_id={Uri.EscapeDataString(context.ShopId)}&workstation_id={Uri.EscapeDataString(context.WorkstationId)}");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             AddLocalDeviceAuthorization(request, settings);
             using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
             var payload = await DeserializeAsync<LocalAuthPackageResponse>(response, cancellationToken).ConfigureAwait(false);
-            EnsureSuccess(response, payload?.Error, "Unable to load Desktop employee auth package.");
+            EnsureSuccess(response, payload?.Error, "Unable to load local employee auth package.");
             return payload ?? throw new InvalidOperationException("Empty auth package response.");
         }
 
@@ -101,11 +124,14 @@ namespace RunBook.Workstation.Services
             string employeeId,
             string employeeCode,
             string passcode,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string? unlockTraceId = null)
         {
             var context = GetLocalDesktopContext(settings);
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildUrl(settings.DesktopBaseUrl, "api/workstation-local/login"));
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildServiceUrl("api/workstation-local/login"));
             AddLocalDeviceAuthorization(request, settings);
+            if (!string.IsNullOrWhiteSpace(unlockTraceId))
+                request.Headers.TryAddWithoutValidation("X-RunBook-Unlock-Trace-Id", unlockTraceId);
             request.Content = new StringContent(JsonSerializer.Serialize(new
             {
                 shop_id = context.ShopId,
@@ -116,13 +142,27 @@ namespace RunBook.Workstation.Services
                 passcode
             }, JsonOptions), Encoding.UTF8, "application/json");
 
+            var sendStopwatch = Stopwatch.StartNew();
+            DebugLogService.Write($"UnlockTrace | {unlockTraceId ?? "none"} | workstation_local_api_call_start | elapsed_ms=0 | endpoint=/api/workstation-local/login");
             using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            DebugLogService.Write($"UnlockTrace | {unlockTraceId ?? "none"} | workstation_local_api_call_end | elapsed_ms={sendStopwatch.ElapsedMilliseconds} | status_code={(int)response.StatusCode}");
+            var parseStopwatch = Stopwatch.StartNew();
             var payload = await DeserializeAsync<LocalEmployeeSessionResponse>(response, cancellationToken).ConfigureAwait(false);
-            EnsureSuccess(response, payload?.Error, "Unable to sign in to Desktop.");
+            DebugLogService.Write($"UnlockTrace | {unlockTraceId ?? "none"} | response_parsing_complete | elapsed_ms={parseStopwatch.ElapsedMilliseconds}");
+            EnsureSuccess(response, payload?.Error, "Unable to sign in to the local workstation authority.");
             if (payload?.Session == null || payload.Payload == null || string.IsNullOrWhiteSpace(payload.Session.Token))
-                throw new InvalidOperationException("Desktop did not return a valid workstation sign-in session.");
+                throw new InvalidOperationException("Local workstation authority did not return a valid workstation sign-in session.");
 
             return payload;
+        }
+
+        public async Task<LocalHealthResponse> GetLocalHealthAsync(WorkstationSettings settings, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, BuildServiceUrl("api/workstation-local/health"));
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<LocalHealthResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to reach local workstation authority.");
+            return payload ?? throw new InvalidOperationException("Empty local workstation authority health response.");
         }
 
         public async Task<CurrentShopResponse> GetCurrentShopAsync(string baseUrl, CancellationToken cancellationToken)
@@ -136,19 +176,19 @@ namespace RunBook.Workstation.Services
             return payload ?? throw new InvalidOperationException("Empty current shop response.");
         }
 
-        public async Task<DesktopTimeclockStateResponse> GetDesktopTimeclockStateAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, CancellationToken cancellationToken)
+        public async Task<DesktopTimeclockStateResponse> GetLocalTimeclockStateAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, CancellationToken cancellationToken)
         {
-            var url = BuildLocalSessionUrl(settings, "api/workstation-local/timeclock/state");
+            var url = BuildServiceSessionUrl(settings, "api/workstation-local/timeclock/state");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             AddLocalDeviceAuthorization(request, settings);
             AddLocalEmployeeSession(request, session);
             using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
             var payload = await DeserializeAsync<DesktopTimeclockStateResponse>(response, cancellationToken).ConfigureAwait(false);
-            EnsureSuccess(response, payload?.Error, "Unable to load Desktop time clock state.");
-            return payload ?? throw new InvalidOperationException("Empty Desktop time clock response.");
+            EnsureSuccess(response, payload?.Error, "Unable to load local time clock state.");
+            return payload ?? throw new InvalidOperationException("Empty local time clock response.");
         }
 
-        public async Task<DesktopSyncResponse> SyncDesktopTimeclockAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, IEnumerable<WorkstationSyncQueueItem> items, CancellationToken cancellationToken)
+        public async Task<DesktopSyncResponse> SyncLocalTimeclockAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, IEnumerable<WorkstationSyncQueueItem> items, CancellationToken cancellationToken)
         {
             var body = new DesktopSyncRequest
             {
@@ -157,19 +197,20 @@ namespace RunBook.Workstation.Services
                 Items = items?.Select(MapSyncItem).ToList() ?? new List<DesktopSyncItem>()
             };
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildUrl(settings.DesktopBaseUrl, "api/workstation-local/timeclock/sync"));
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildServiceSessionUrl(settings, "api/workstation-local/timeclock/sync"));
             AddLocalDeviceAuthorization(request, settings);
             AddLocalEmployeeSession(request, session);
             request.Content = new StringContent(JsonSerializer.Serialize(body, JsonOptions), Encoding.UTF8, "application/json");
             using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
             var payload = await DeserializeAsync<DesktopSyncResponse>(response, cancellationToken).ConfigureAwait(false);
-            EnsureSuccess(response, payload?.Error, "Unable to sync Desktop time clock items.");
-            return payload ?? throw new InvalidOperationException("Empty Desktop sync response.");
+            EnsureSuccess(response, payload?.Error, "Unable to sync local time clock items.");
+            return payload ?? throw new InvalidOperationException("Empty local time clock sync response.");
         }
+
 
         public async Task<CapabilityPayloadResponse> GetSessionMeAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, CancellationToken cancellationToken)
         {
-            var url = BuildLocalSessionUrl(settings, "api/workstation-local/session/me");
+            var url = BuildServiceSessionUrl(settings, "api/workstation-local/session/me");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             AddLocalDeviceAuthorization(request, settings);
             AddLocalEmployeeSession(request, session);
@@ -181,7 +222,7 @@ namespace RunBook.Workstation.Services
 
         public async Task<CapabilityPayloadResponse> GetNavigationAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, CancellationToken cancellationToken)
         {
-            var url = BuildLocalSessionUrl(settings, "api/workstation-local/navigation");
+            var url = BuildServiceSessionUrl(settings, "api/workstation-local/navigation");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             AddLocalDeviceAuthorization(request, settings);
             AddLocalEmployeeSession(request, session);
@@ -191,9 +232,52 @@ namespace RunBook.Workstation.Services
             return payload ?? throw new InvalidOperationException("Empty workstation navigation response.");
         }
 
+        public async Task<RuntimeAccessTokenResponse> IssueRuntimeAccessTokenAsync(WorkstationSettings settings, WorkstationRuntimeAccessRequest runtimeAccessRequest, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildLocalSessionUrl(settings, "api/workstation-local/runtime-access-token"));
+            AddLocalDeviceAuthorization(request, settings);
+            if (!string.IsNullOrWhiteSpace(runtimeAccessRequest.EmployeeSessionToken))
+                request.Headers.TryAddWithoutValidation("X-RunBook-Employee-Session", runtimeAccessRequest.EmployeeSessionToken);
+            request.Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                scope_mode = runtimeAccessRequest.ScopeMode,
+                shop_id = runtimeAccessRequest.ShopId,
+                workstation_id = runtimeAccessRequest.WorkstationId,
+                workstation_name = runtimeAccessRequest.WorkstationName,
+                operator_id = runtimeAccessRequest.OperatorId,
+                operator_display_name = runtimeAccessRequest.OperatorDisplayName
+            }, JsonOptions), Encoding.UTF8, "application/json");
+
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<RuntimeAccessTokenResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to issue runtime access token.");
+            return payload ?? throw new InvalidOperationException("Empty runtime access token response.");
+        }
+
+        public async Task<RuntimeAccessTokenResponse> RefreshRuntimeAccessTokenAsync(WorkstationSettings settings, WorkstationRuntimeAccessTokenRecord current, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildLocalSessionUrl(settings, "api/workstation-local/runtime-access-token/refresh"));
+            AddLocalDeviceAuthorization(request, settings);
+            if (!string.IsNullOrWhiteSpace(current.EmployeeSessionToken))
+                request.Headers.TryAddWithoutValidation("X-RunBook-Employee-Session", current.EmployeeSessionToken);
+            request.Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                refresh_token = current.RefreshToken,
+                scope_mode = current.ScopeMode,
+                shop_id = current.ShopId,
+                workstation_id = current.WorkstationId,
+                operator_id = current.OperatorId
+            }, JsonOptions), Encoding.UTF8, "application/json");
+
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<RuntimeAccessTokenResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to refresh runtime access token.");
+            return payload ?? throw new InvalidOperationException("Empty runtime token refresh response.");
+        }
+
         public async Task<WorkOrderListResponse> GetWorkOrdersAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, CancellationToken cancellationToken)
         {
-            var url = BuildLocalSessionUrl(settings, "api/workstation-local/work-orders");
+            var url = BuildServiceSessionUrl(settings, "api/workstation-local/work-orders");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             AddLocalDeviceAuthorization(request, settings);
             AddLocalEmployeeSession(request, session);
@@ -205,7 +289,7 @@ namespace RunBook.Workstation.Services
 
         public async Task<WorkOrderDetailResponse> GetWorkOrderDetailAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, CancellationToken cancellationToken)
         {
-            var url = BuildLocalSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}");
+            var url = BuildServiceSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             AddLocalDeviceAuthorization(request, settings);
             AddLocalEmployeeSession(request, session);
@@ -256,6 +340,18 @@ namespace RunBook.Workstation.Services
         public async Task<WorkOrderDetailResponse> AddOperationNoteAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, string note, CancellationToken cancellationToken)
             => await PostWorkOrderOperationAsync(settings, session, $"api/workstation-local/work-orders/{workOrderId}/notes", new { operation_id = operationId, note }, cancellationToken).ConfigureAwait(false);
 
+        public async Task<MaterialReceiptResponse> SaveMaterialReceiptAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, MaterialReceiptSubmitRequest receipt, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildLocalSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}/operations/{operationId}/material-receipt"));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            request.Content = new StringContent(JsonSerializer.Serialize(receipt, JsonOptions), Encoding.UTF8, "application/json");
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<MaterialReceiptResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to save material receipt.");
+            return payload ?? throw new InvalidOperationException("Empty material receipt response.");
+        }
+
         public async Task<InspectionTaskResponse> GetInspectionTasksAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, CancellationToken cancellationToken)
         {
             var relative = operationId > 0
@@ -289,6 +385,81 @@ namespace RunBook.Workstation.Services
             var payload = await DeserializeAsync<InspectionTaskResponse>(response, cancellationToken).ConfigureAwait(false);
             EnsureSuccess(response, payload?.Error, "Unable to submit workstation inspection result.");
             return payload ?? throw new InvalidOperationException("Empty inspection submit response.");
+        }
+
+        public async Task<MobileCaptureSessionResponse> CreateMobileCaptureSessionAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, string attachmentType, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildLocalSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}/operations/{operationId}/mobile-capture/session"));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            request.Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                attachment_type = attachmentType
+            }, JsonOptions), Encoding.UTF8, "application/json");
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<MobileCaptureSessionResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to create mobile capture session.");
+            return payload ?? throw new InvalidOperationException("Empty mobile capture session response.");
+        }
+
+        public async Task<OperationAttachmentResponse> GetOperationAttachmentsAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, BuildLocalSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}/operations/{operationId}/attachments"));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<OperationAttachmentResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to load operation attachments.");
+            return payload ?? throw new InvalidOperationException("Empty operation attachment response.");
+        }
+
+        public async Task<OperationPacketResponse> GetOperationPacketAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, BuildLocalSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}/operations/{operationId}/packet"));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<OperationPacketResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to load operation packet.");
+            return payload ?? throw new InvalidOperationException("Empty operation packet response.");
+        }
+
+        public async Task<QuantityEventResponse> SubmitQuantityEventAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, int workOrderId, int operationId, QuantityEventSubmitRequest quantityEvent, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildLocalSessionUrl(settings, $"api/workstation-local/work-orders/{workOrderId}/operations/{operationId}/quantity-events"));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            request.Content = new StringContent(JsonSerializer.Serialize(quantityEvent, JsonOptions), Encoding.UTF8, "application/json");
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<QuantityEventResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to save quantity event.");
+            return payload ?? throw new InvalidOperationException("Empty quantity event response.");
+        }
+
+        public async Task<DrawingContentResponse> DownloadPacketDocumentAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, string relativeRoute, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, BuildLocalSessionUrl(settings, relativeRoute));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var payload = await DeserializeAsync<DrawingContentResponse>(response, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, payload?.Error, "Unable to download packet document.");
+            return payload ?? throw new InvalidOperationException("Empty packet document response.");
+        }
+
+        public async Task<PacketDocumentThumbnailResponse> DownloadPacketDocumentThumbnailAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, string relativeRoute, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, BuildLocalSessionUrl(settings, relativeRoute));
+            AddLocalDeviceAuthorization(request, settings);
+            AddLocalEmployeeSession(request, session);
+            using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            EnsureSuccess(response, null, "Unable to download packet document thumbnail.");
+            var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+            return new PacketDocumentThumbnailResponse
+            {
+                ContentType = response.Content.Headers.ContentType?.MediaType ?? "image/png",
+                Bytes = bytes
+            };
         }
 
         private async Task<WorkOrderDetailResponse> PostWorkOrderOperationAsync(WorkstationSettings settings, WorkstationSessionSnapshot session, string relativeUrl, object body, CancellationToken cancellationToken)
@@ -341,27 +512,35 @@ namespace RunBook.Workstation.Services
             return request;
         }
 
-        private static string BuildLocalSessionUrl(WorkstationSettings settings, string relativeUrl)
+        private string BuildLocalSessionUrl(WorkstationSettings settings, string relativeUrl)
         {
             var context = GetLocalDesktopContext(settings);
             var query = $"shop_id={Uri.EscapeDataString(context.ShopId)}&workstation_id={Uri.EscapeDataString(context.WorkstationId)}";
             var separator = relativeUrl.Contains('?') ? "&" : "?";
-            return BuildUrl(settings.DesktopBaseUrl, $"{relativeUrl}{separator}{query}");
+            return BuildServiceUrl($"{relativeUrl}{separator}{query}");
         }
 
-        private static void AddLocalDeviceAuthorization(HttpRequestMessage request, WorkstationSettings settings)
+        private string BuildServiceSessionUrl(WorkstationSettings settings, string relativeUrl)
         {
-            var registration = WorkstationStorageService.LoadRegistration();
+            var context = GetLocalDesktopContext(settings);
+            var query = $"shop_id={Uri.EscapeDataString(context.ShopId)}&workstation_id={Uri.EscapeDataString(context.WorkstationId)}";
+            var separator = relativeUrl.Contains('?') ? "&" : "?";
+            return BuildServiceUrl($"{relativeUrl}{separator}{query}");
+        }
+
+        private void AddLocalDeviceAuthorization(HttpRequestMessage request, WorkstationSettings settings)
+        {
+            var registration = _registrationProvider();
             if (registration == null || string.IsNullOrWhiteSpace(registration.DeviceToken))
-                throw new InvalidOperationException("Workstation is not enrolled with Desktop yet.");
+                throw new InvalidOperationException("Workstation registration with RunBook Service is required.");
 
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", registration.DeviceToken);
             request.Headers.TryAddWithoutValidation("X-RunBook-Workstation-Id", registration.WorkstationId ?? settings.WorkstationId ?? "");
         }
 
-        private static (string ShopId, string WorkstationId) GetLocalDesktopContext(WorkstationSettings settings)
+        private (string ShopId, string WorkstationId) GetLocalDesktopContext(WorkstationSettings settings)
         {
-            var registration = WorkstationStorageService.LoadRegistration();
+            var registration = _registrationProvider();
             var shopId = !string.IsNullOrWhiteSpace(registration?.ShopId)
                 ? (registration?.ShopId ?? "").Trim()
                 : (settings.ShopId ?? "").Trim();
@@ -382,6 +561,114 @@ namespace RunBook.Workstation.Services
         private static string BuildUrl(string baseUrl, string relativeUrl)
             => $"{(baseUrl ?? string.Empty).TrimEnd('/')}/{relativeUrl.TrimStart('/')}";
 
+        private string BuildServiceUrl(string relativeUrl)
+        {
+            return BuildUrl(_localServiceBaseUrl, relativeUrl);
+        }
+
+        private static string ValidateLocalServiceBaseUri(Uri localServiceBaseUri)
+        {
+            if (localServiceBaseUri == null)
+                throw new ArgumentNullException(nameof(localServiceBaseUri));
+            if (!localServiceBaseUri.IsAbsoluteUri)
+                throw new ArgumentException("The local Service endpoint must be an absolute URI.", nameof(localServiceBaseUri));
+
+            var original = localServiceBaseUri.OriginalString;
+            if (string.IsNullOrWhiteSpace(original) ||
+                !string.Equals(original, original.Trim(), StringComparison.Ordinal) ||
+                original.IndexOf('\\') >= 0)
+            {
+                throw new ArgumentException("The local Service endpoint is malformed.", nameof(localServiceBaseUri));
+            }
+
+            if (!string.Equals(localServiceBaseUri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("The local Service endpoint must use HTTP.", nameof(localServiceBaseUri));
+            if (!string.IsNullOrEmpty(localServiceBaseUri.UserInfo))
+                throw new ArgumentException("The local Service endpoint must not contain credentials.", nameof(localServiceBaseUri));
+            if (!string.IsNullOrEmpty(localServiceBaseUri.Query) ||
+                !string.IsNullOrEmpty(localServiceBaseUri.Fragment) ||
+                original.IndexOf('?') >= 0 ||
+                original.IndexOf('#') >= 0)
+                throw new ArgumentException("The local Service endpoint must not contain a query or fragment.", nameof(localServiceBaseUri));
+            if (!string.Equals(localServiceBaseUri.AbsolutePath, "/", StringComparison.Ordinal))
+                throw new ArgumentException("The local Service endpoint must not contain a path.", nameof(localServiceBaseUri));
+
+            var host = localServiceBaseUri.Host.Trim('[', ']');
+            if (!IsApprovedLoopbackHost(host))
+            {
+                throw new ArgumentException("The local Service endpoint must use an approved loopback host.", nameof(localServiceBaseUri));
+            }
+
+            var schemeSeparator = original.IndexOf("://", StringComparison.Ordinal);
+            var authorityStart = schemeSeparator + 3;
+            var authorityEnd = original.IndexOfAny(new[] { '/', '?', '#' }, authorityStart);
+            if (authorityEnd < 0)
+                authorityEnd = original.Length;
+            var authority = original.Substring(authorityStart, authorityEnd - authorityStart);
+            var suffix = original.Substring(authorityEnd);
+            if (suffix.Length > 0 && !string.Equals(suffix, "/", StringComparison.Ordinal))
+                throw new ArgumentException("The local Service endpoint must not contain a path or traversal.", nameof(localServiceBaseUri));
+
+            var authorityHost = GetAuthorityHost(authority);
+            var portText = GetExplicitPortText(authority);
+            if (authority.IndexOf('@') >= 0 ||
+                !IsApprovedLoopbackHost(authorityHost) ||
+                !string.Equals(authorityHost, host, StringComparison.OrdinalIgnoreCase) ||
+                portText.Length == 0 ||
+                !portText.All(char.IsDigit) ||
+                !int.TryParse(portText, out var port) ||
+                port < 1 ||
+                port > 65535 ||
+                localServiceBaseUri.Port != port)
+            {
+                throw new ArgumentException("The local Service endpoint must contain an explicit valid port.", nameof(localServiceBaseUri));
+            }
+
+            var formattedHost = host.Equals("::1", StringComparison.OrdinalIgnoreCase) ? "[::1]" : host.ToLowerInvariant();
+            return $"http://{formattedHost}:{port}";
+        }
+
+        private static string GetExplicitPortText(string authority)
+        {
+            if (string.IsNullOrEmpty(authority))
+                return "";
+
+            if (authority[0] == '[')
+            {
+                var closingBracket = authority.IndexOf(']');
+                return closingBracket >= 0 && closingBracket + 1 < authority.Length && authority[closingBracket + 1] == ':'
+                    ? authority.Substring(closingBracket + 2)
+                    : "";
+            }
+
+            var separator = authority.LastIndexOf(':');
+            return separator > 0 && separator == authority.IndexOf(':')
+                ? authority.Substring(separator + 1)
+                : "";
+        }
+
+        private static string GetAuthorityHost(string authority)
+        {
+            if (string.IsNullOrEmpty(authority))
+                return "";
+
+            if (authority[0] == '[')
+            {
+                var closingBracket = authority.IndexOf(']');
+                return closingBracket > 1 ? authority.Substring(1, closingBracket - 1) : "";
+            }
+
+            var separator = authority.LastIndexOf(':');
+            return separator > 0 ? authority.Substring(0, separator) : "";
+        }
+
+        private static bool IsApprovedLoopbackHost(string host)
+        {
+            return host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                   host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+                   host.Equals("::1", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static async Task<T?> DeserializeAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
         {
             var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
@@ -394,6 +681,9 @@ namespace RunBook.Workstation.Services
         {
             if (response.IsSuccessStatusCode)
                 return;
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                throw new InvalidOperationException($"Service endpoint failed: {response.RequestMessage?.RequestUri?.AbsolutePath ?? "(unknown)"} (endpoint not implemented on Service).");
 
             throw new InvalidOperationException(string.IsNullOrWhiteSpace(apiError) ? fallbackMessage : apiError);
         }
@@ -408,6 +698,57 @@ namespace RunBook.Workstation.Services
             public bool Existing { get; set; }
             [JsonPropertyName("workstation")]
             public RegisterWorkstation? Workstation { get; set; }
+        }
+
+        public sealed class LocalHealthResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+
+            [JsonPropertyName("status")]
+            public string Status { get; set; } = "";
+
+            [JsonPropertyName("shop_id")]
+            public string ShopId { get; set; } = "";
+
+            [JsonPropertyName("company_name")]
+            public string CompanyName { get; set; } = "";
+
+            [JsonPropertyName("error_message")]
+            public string ErrorMessage { get; set; } = "";
+
+            [JsonPropertyName("missing_folder_name")]
+            public string MissingFolderName { get; set; } = "";
+
+            [JsonPropertyName("safe_company_name")]
+            public string SafeCompanyName { get; set; } = "";
+
+            [JsonPropertyName("company_data_folder_name")]
+            public string CompanyDataFolderName { get; set; } = "";
+
+            [JsonPropertyName("active_company_data_root")]
+            public string ActiveCompanyDataRoot { get; set; } = "";
+
+            [JsonPropertyName("context_loaded_utc")]
+            public string ContextLoadedUtc { get; set; } = "";
+
+            [JsonPropertyName("context_source")]
+            public string ContextSource { get; set; } = "";
+
+            [JsonPropertyName("monitoring_active")]
+            public bool MonitoringActive { get; set; }
+
+            [JsonPropertyName("monitored_machine_count")]
+            public int MonitoredMachineCount { get; set; }
+
+            [JsonPropertyName("listening_port")]
+            public int ListeningPort { get; set; }
+
+            [JsonPropertyName("timestamp_utc")]
+            public string TimestampUtc { get; set; } = "";
         }
 
         public sealed class RegisterWorkstation
@@ -683,8 +1024,38 @@ namespace RunBook.Workstation.Services
             [JsonPropertyName("avatar_display_url")]
             public string AvatarDisplayUrl { get; set; } = "";
 
+            [JsonPropertyName("employee_avatar_ref")]
+            public AvatarRefDto? EmployeeAvatarRef { get; set; }
+
             [JsonPropertyName("updated_utc")]
             public string UpdatedUtc { get; set; } = "";
+        }
+
+        public sealed class AvatarRefDto
+        {
+            [JsonPropertyName("avatar_asset_id")]
+            public string AvatarAssetId { get; set; } = "";
+
+            [JsonPropertyName("employee_public_id")]
+            public string EmployeePublicId { get; set; } = "";
+
+            [JsonPropertyName("machine_public_id")]
+            public string MachinePublicId { get; set; } = "";
+
+            [JsonPropertyName("local_api_url")]
+            public string LocalApiUrl { get; set; } = "";
+
+            [JsonPropertyName("content_hash")]
+            public string ContentHash { get; set; } = "";
+
+            [JsonPropertyName("updated_at_utc")]
+            public string UpdatedAtUtc { get; set; } = "";
+
+            [JsonPropertyName("content_type")]
+            public string ContentType { get; set; } = "";
+
+            [JsonPropertyName("is_placeholder")]
+            public bool IsPlaceholder { get; set; } = true;
         }
 
         public sealed class TimeClockPunch
@@ -739,10 +1110,70 @@ namespace RunBook.Workstation.Services
             public string LastSyncUtc { get; set; } = "";
             [JsonPropertyName("last_sync_message")]
             public string LastSyncMessage { get; set; } = "";
+            [JsonPropertyName("benefits")]
+            public DesktopBenefitsSummary Benefits { get; set; } = new DesktopBenefitsSummary();
             [JsonPropertyName("recent_punches")]
             public List<TimeClockPunch> RecentPunches { get; set; } = new List<TimeClockPunch>();
             [JsonPropertyName("recent_time_off_requests")]
             public List<DesktopTimeOffRequest> RecentTimeOffRequests { get; set; } = new List<DesktopTimeOffRequest>();
+        }
+
+        public sealed class DesktopBenefitsSummary
+        {
+            [JsonPropertyName("policy_name")]
+            public string PolicyName { get; set; } = "";
+            [JsonPropertyName("is_eligible")]
+            public bool IsEligible { get; set; }
+            [JsonPropertyName("eligible_date")]
+            public string EligibleDate { get; set; } = "";
+            [JsonPropertyName("eligibility_summary")]
+            public string EligibilitySummary { get; set; } = "";
+            [JsonPropertyName("accrual_summary")]
+            public string AccrualSummary { get; set; } = "";
+            [JsonPropertyName("carryover_summary")]
+            public string CarryoverSummary { get; set; } = "";
+            [JsonPropertyName("reset_date")]
+            public string ResetDate { get; set; } = "";
+            [JsonPropertyName("total_paid_hours")]
+            public decimal TotalPaidHours { get; set; }
+            [JsonPropertyName("buckets")]
+            public List<DesktopBenefitBucket> Buckets { get; set; } = new List<DesktopBenefitBucket>();
+            [JsonPropertyName("recent_ledger")]
+            public List<DesktopBenefitLedgerEntry> RecentLedger { get; set; } = new List<DesktopBenefitLedgerEntry>();
+        }
+
+        public sealed class DesktopBenefitBucket
+        {
+            [JsonPropertyName("code")]
+            public string Code { get; set; } = "";
+            [JsonPropertyName("label")]
+            public string Label { get; set; } = "";
+            [JsonPropertyName("available_hours")]
+            public decimal AvailableHours { get; set; }
+            [JsonPropertyName("used_hours")]
+            public decimal UsedHours { get; set; }
+            [JsonPropertyName("pending_hours")]
+            public decimal PendingHours { get; set; }
+            [JsonPropertyName("accrued_hours")]
+            public decimal AccruedHours { get; set; }
+            [JsonPropertyName("carryover_hours")]
+            public decimal CarryoverHours { get; set; }
+            [JsonPropertyName("expires_on")]
+            public string ExpiresOn { get; set; } = "";
+        }
+
+        public sealed class DesktopBenefitLedgerEntry
+        {
+            [JsonPropertyName("date")]
+            public string Date { get; set; } = "";
+            [JsonPropertyName("type")]
+            public string Type { get; set; } = "";
+            [JsonPropertyName("label")]
+            public string Label { get; set; } = "";
+            [JsonPropertyName("hours")]
+            public decimal Hours { get; set; }
+            [JsonPropertyName("note")]
+            public string Note { get; set; } = "";
         }
 
         public sealed class DesktopTimeOffRequest
@@ -883,6 +1314,75 @@ namespace RunBook.Workstation.Services
 
             [JsonPropertyName("payload")]
             public CapabilityPayload? Payload { get; set; }
+        }
+
+        public sealed class RuntimeAccessTokenResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+
+            [JsonPropertyName("token")]
+            public RuntimeAccessTokenPayload? Token { get; set; }
+        }
+
+        public sealed class RuntimeAccessTokenPayload
+        {
+            [JsonPropertyName("access_token")]
+            public string AccessToken { get; set; } = "";
+
+            [JsonPropertyName("refresh_token")]
+            public string RefreshToken { get; set; } = "";
+
+            [JsonPropertyName("expires_at_utc")]
+            public string ExpiresAtUtc { get; set; } = "";
+
+            [JsonPropertyName("refresh_expires_at_utc")]
+            public string RefreshExpiresAtUtc { get; set; } = "";
+
+            [JsonPropertyName("token_type")]
+            public string TokenType { get; set; } = "Bearer";
+
+            [JsonPropertyName("scope_mode")]
+            public string ScopeMode { get; set; } = "workstation";
+
+            [JsonPropertyName("claims")]
+            public RuntimeAccessClaims Claims { get; set; } = new RuntimeAccessClaims();
+        }
+
+        public sealed class RuntimeAccessClaims
+        {
+            [JsonPropertyName("iss")]
+            public string Issuer { get; set; } = "desktop-local";
+
+            [JsonPropertyName("aud")]
+            public string Audience { get; set; } = "runbook-runtime";
+
+            [JsonPropertyName("sub")]
+            public string Subject { get; set; } = "";
+
+            [JsonPropertyName("shop_id")]
+            public string ShopId { get; set; } = "";
+
+            [JsonPropertyName("workstation_id")]
+            public string WorkstationId { get; set; } = "";
+
+            [JsonPropertyName("workstation_name")]
+            public string WorkstationName { get; set; } = "";
+
+            [JsonPropertyName("operator_id")]
+            public string OperatorId { get; set; } = "";
+
+            [JsonPropertyName("operator_display_name")]
+            public string OperatorDisplayName { get; set; } = "";
+
+            [JsonPropertyName("scope_claims")]
+            public List<string> ScopeClaims { get; set; } = new List<string>();
+
+            [JsonPropertyName("allowed_channels")]
+            public List<string> AllowedChannels { get; set; } = new List<string>();
         }
 
         public sealed class CapabilityPayload
@@ -1395,6 +1895,631 @@ namespace RunBook.Workstation.Services
 
             [JsonPropertyName("inspection")]
             public InspectionTaskPackage? Inspection { get; set; }
+        }
+
+        public sealed class MobileCaptureSessionResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+
+            [JsonPropertyName("capture")]
+            public MobileCaptureSession? Capture { get; set; }
+        }
+
+        public sealed class MobileCaptureSession
+        {
+            [JsonPropertyName("token")]
+            public string Token { get; set; } = "";
+
+            [JsonPropertyName("capture_url")]
+            public string CaptureUrl { get; set; } = "";
+
+            [JsonPropertyName("short_url")]
+            public string ShortUrl { get; set; } = "";
+
+            [JsonPropertyName("expires_utc")]
+            public string ExpiresUtc { get; set; } = "";
+
+            [JsonPropertyName("attachment_type")]
+            public string AttachmentType { get; set; } = "";
+
+            [JsonPropertyName("work_order_id")]
+            public int WorkOrderId { get; set; }
+
+            [JsonPropertyName("work_order_number")]
+            public string WorkOrderNumber { get; set; } = "";
+
+            [JsonPropertyName("operation_id")]
+            public int OperationId { get; set; }
+
+            [JsonPropertyName("operation_number")]
+            public int OperationNumber { get; set; }
+
+            [JsonPropertyName("operation_title")]
+            public string OperationTitle { get; set; } = "";
+        }
+
+        public sealed class OperationAttachmentResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+
+            [JsonPropertyName("attachments")]
+            public OperationAttachmentPackage? Attachments { get; set; }
+        }
+
+        public sealed class OperationAttachmentPackage
+        {
+            [JsonPropertyName("work_order_id")]
+            public int WorkOrderId { get; set; }
+
+            [JsonPropertyName("work_order_number")]
+            public string WorkOrderNumber { get; set; } = "";
+
+            [JsonPropertyName("operation_id")]
+            public int OperationId { get; set; }
+
+            [JsonPropertyName("operation_number")]
+            public int OperationNumber { get; set; }
+
+            [JsonPropertyName("items")]
+            public List<OperationAttachment> Items { get; set; } = new List<OperationAttachment>();
+        }
+
+        public sealed class OperationAttachment
+        {
+            [JsonPropertyName("attachment_id")]
+            public string AttachmentId { get; set; } = "";
+
+            [JsonPropertyName("file_name")]
+            public string FileName { get; set; } = "";
+
+            [JsonPropertyName("attachment_type")]
+            public string AttachmentType { get; set; } = "";
+
+            [JsonPropertyName("content_type")]
+            public string ContentType { get; set; } = "";
+
+            [JsonPropertyName("size_bytes")]
+            public long SizeBytes { get; set; }
+
+            [JsonPropertyName("created_utc")]
+            public string CreatedUtc { get; set; } = "";
+
+            [JsonPropertyName("operation_number")]
+            public int OperationNumber { get; set; }
+        }
+
+        public sealed class OperationPacketResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+
+            [JsonPropertyName("packet")]
+            public OperationPacket? Packet { get; set; }
+        }
+
+        public sealed class OperationPacket
+        {
+            [JsonPropertyName("work_order_id")]
+            public int WorkOrderId { get; set; }
+
+            [JsonPropertyName("work_order_number")]
+            public string WorkOrderNumber { get; set; } = "";
+
+            [JsonPropertyName("operation_id")]
+            public int OperationId { get; set; }
+
+            [JsonPropertyName("operation_number")]
+            public int OperationNumber { get; set; }
+
+            [JsonPropertyName("operation_title")]
+            public string OperationTitle { get; set; } = "";
+
+            [JsonPropertyName("operation_type_id")]
+            public int OperationTypeId { get; set; }
+
+            [JsonPropertyName("operation_type")]
+            public string OperationType { get; set; } = "";
+
+            [JsonPropertyName("operation_type_display")]
+            public string OperationTypeDisplay { get; set; } = "";
+
+            [JsonPropertyName("department_display")]
+            public string DepartmentDisplay { get; set; } = "";
+
+            [JsonPropertyName("work_center_display")]
+            public string WorkCenterDisplay { get; set; } = "";
+
+            [JsonPropertyName("setup_minutes")]
+            public double SetupMinutes { get; set; }
+
+            [JsonPropertyName("cycle_minutes")]
+            public double CycleMinutes { get; set; }
+
+            [JsonPropertyName("notes_display")]
+            public string NotesDisplay { get; set; } = "";
+
+            [JsonPropertyName("detail_notes_display")]
+            public string DetailNotesDisplay { get; set; } = "";
+
+            [JsonPropertyName("material_summary_display")]
+            public string MaterialSummaryDisplay { get; set; } = "";
+
+            [JsonPropertyName("evidence_required")]
+            public int EvidenceRequired { get; set; }
+
+            [JsonPropertyName("require_photo")]
+            public bool RequirePhoto { get; set; }
+
+            [JsonPropertyName("require_video")]
+            public bool RequireVideo { get; set; }
+
+            [JsonPropertyName("require_qa_signoff")]
+            public bool RequireQaSignoff { get; set; }
+
+            [JsonPropertyName("require_supervisor_signoff")]
+            public bool RequireSupervisorSignoff { get; set; }
+
+            [JsonPropertyName("require_attachment")]
+            public bool RequireAttachment { get; set; }
+
+            [JsonPropertyName("require_checklist")]
+            public bool RequireChecklist { get; set; }
+
+            [JsonPropertyName("require_notes")]
+            public bool RequireNotes { get; set; }
+
+            [JsonPropertyName("checklist_items")]
+            public List<OperationPacketChecklistItem> ChecklistItems { get; set; } = new List<OperationPacketChecklistItem>();
+
+            [JsonPropertyName("reference_items")]
+            public List<OperationPacketReferenceItem> ReferenceItems { get; set; } = new List<OperationPacketReferenceItem>();
+
+            [JsonPropertyName("has_preview_routes")]
+            public bool HasPreviewRoutes { get; set; }
+
+            [JsonPropertyName("has_thumbnail_routes")]
+            public bool HasThumbnailRoutes { get; set; }
+
+            [JsonPropertyName("has_balloon_geometry")]
+            public bool HasBalloonGeometry { get; set; }
+
+            [JsonPropertyName("drawing_documents")]
+            public List<OperationPacketDocument> DrawingDocuments { get; set; } = new List<OperationPacketDocument>();
+
+            [JsonPropertyName("ballooned_drawing_documents")]
+            public List<OperationPacketDocument> BalloonedDrawingDocuments { get; set; } = new List<OperationPacketDocument>();
+
+            [JsonPropertyName("inspection_documents")]
+            public List<OperationPacketDocument> InspectionDocuments { get; set; } = new List<OperationPacketDocument>();
+
+            [JsonPropertyName("operation_references")]
+            public List<OperationPacketDocument> OperationReferences { get; set; } = new List<OperationPacketDocument>();
+
+            [JsonPropertyName("operation_attachments")]
+            public List<OperationAttachment> OperationAttachments { get; set; } = new List<OperationAttachment>();
+
+            [JsonPropertyName("material_documents")]
+            public List<OperationPacketDocument> MaterialDocuments { get; set; } = new List<OperationPacketDocument>();
+
+            [JsonPropertyName("material_unit_options")]
+            public List<string> MaterialUnitOptions { get; set; } = new List<string>();
+
+            [JsonPropertyName("ordered_quantity")]
+            public double? OrderedQuantity { get; set; }
+
+            [JsonPropertyName("completed_quantity")]
+            public double CompletedQuantity { get; set; }
+
+            [JsonPropertyName("scrap_quantity")]
+            public double ScrapQuantity { get; set; }
+
+            [JsonPropertyName("remaining_quantity")]
+            public double? RemainingQuantity { get; set; }
+
+            [JsonPropertyName("accepted_quantity")]
+            public double AcceptedQuantity { get; set; }
+
+            [JsonPropertyName("rejected_quantity")]
+            public double RejectedQuantity { get; set; }
+
+            [JsonPropertyName("recent_quantity_events")]
+            public List<OperationQuantityEvent> RecentQuantityEvents { get; set; } = new List<OperationQuantityEvent>();
+
+            [JsonPropertyName("material_requirements")]
+            public List<MaterialRequirementDto> MaterialRequirements { get; set; } = new List<MaterialRequirementDto>();
+
+            [JsonPropertyName("material_receipts")]
+            public List<MaterialReceiptDto> MaterialReceipts { get; set; } = new List<MaterialReceiptDto>();
+
+            [JsonPropertyName("material_traces")]
+            public List<MaterialTraceDto> MaterialTraces { get; set; } = new List<MaterialTraceDto>();
+
+            [JsonPropertyName("balloon_markers")]
+            public List<BalloonMarker> BalloonMarkers { get; set; } = new List<BalloonMarker>();
+
+            [JsonPropertyName("inspection_tasks")]
+            public List<InspectionTask> InspectionTasks { get; set; } = new List<InspectionTask>();
+        }
+
+        public sealed class OperationQuantityEvent
+        {
+            [JsonPropertyName("event_id")]
+            public string EventId { get; set; } = "";
+
+            [JsonPropertyName("work_order_id")]
+            public string WorkOrderId { get; set; } = "";
+
+            [JsonPropertyName("operation_id")]
+            public string OperationId { get; set; } = "";
+
+            [JsonPropertyName("operation_number")]
+            public int? OperationNumber { get; set; }
+
+            [JsonPropertyName("event_type")]
+            public string EventType { get; set; } = "";
+
+            [JsonPropertyName("quantity")]
+            public double Quantity { get; set; }
+
+            [JsonPropertyName("good_quantity")]
+            public double? GoodQuantity { get; set; }
+
+            [JsonPropertyName("scrap_quantity")]
+            public double? ScrapQuantity { get; set; }
+
+            [JsonPropertyName("employee_id")]
+            public string EmployeeId { get; set; } = "";
+
+            [JsonPropertyName("employee_name")]
+            public string EmployeeName { get; set; } = "";
+
+            [JsonPropertyName("source")]
+            public string Source { get; set; } = "";
+
+            [JsonPropertyName("notes")]
+            public string Notes { get; set; } = "";
+
+            [JsonPropertyName("created_utc")]
+            public string CreatedUtc { get; set; } = "";
+
+            [JsonPropertyName("created_by")]
+            public string CreatedBy { get; set; } = "";
+
+            [JsonPropertyName("packing_list_number")]
+            public string PackingListNumber { get; set; } = "";
+
+            [JsonPropertyName("operation_display")]
+            public string OperationDisplay { get; set; } = "";
+        }
+
+        public sealed class QuantityEventSubmitRequest
+        {
+            [JsonPropertyName("eventType")]
+            public string EventType { get; set; } = "OperationCompleted";
+
+            [JsonPropertyName("quantity")]
+            public double Quantity { get; set; }
+
+            [JsonPropertyName("goodQuantity")]
+            public double? GoodQuantity { get; set; }
+
+            [JsonPropertyName("scrapQuantity")]
+            public double? ScrapQuantity { get; set; }
+
+            [JsonPropertyName("notes")]
+            public string Notes { get; set; } = "";
+
+            [JsonPropertyName("packingListNumber")]
+            public string PackingListNumber { get; set; } = "";
+
+            [JsonPropertyName("employeeId")]
+            public string EmployeeId { get; set; } = "";
+
+            [JsonPropertyName("employeeName")]
+            public string EmployeeName { get; set; } = "";
+        }
+
+        public sealed class QuantityEventResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+
+            [JsonPropertyName("message")]
+            public string Message { get; set; } = "";
+
+            [JsonPropertyName("saved_event")]
+            public OperationQuantityEvent? SavedEvent { get; set; }
+
+            [JsonPropertyName("work_order_quantity_summary")]
+            public QuantitySummary? WorkOrderQuantitySummary { get; set; }
+
+            [JsonPropertyName("operation_quantity_summary")]
+            public QuantitySummary? OperationQuantitySummary { get; set; }
+        }
+
+        public sealed class QuantitySummary
+        {
+            [JsonPropertyName("work_order_id")]
+            public string WorkOrderId { get; set; } = "";
+
+            [JsonPropertyName("operation_id")]
+            public string OperationId { get; set; } = "";
+
+            [JsonPropertyName("operation_number")]
+            public int? OperationNumber { get; set; }
+
+            [JsonPropertyName("operation_display")]
+            public string OperationDisplay { get; set; } = "";
+
+            [JsonPropertyName("ordered_quantity")]
+            public double? OrderedQuantity { get; set; }
+
+            [JsonPropertyName("required_quantity")]
+            public double? RequiredQuantity { get; set; }
+
+            [JsonPropertyName("completed_quantity")]
+            public double CompletedQuantity { get; set; }
+
+            [JsonPropertyName("accepted_quantity")]
+            public double AcceptedQuantity { get; set; }
+
+            [JsonPropertyName("rejected_quantity")]
+            public double RejectedQuantity { get; set; }
+
+            [JsonPropertyName("scrap_quantity")]
+            public double ScrapQuantity { get; set; }
+
+            [JsonPropertyName("remaining_quantity")]
+            public double? RemainingQuantity { get; set; }
+
+            [JsonPropertyName("remaining_to_complete")]
+            public double? RemainingToComplete { get; set; }
+        }
+
+        public sealed class MaterialRequirementDto
+        {
+            [JsonPropertyName("material_requirement_id")]
+            public int MaterialRequirementId { get; set; }
+            [JsonPropertyName("work_order_op_id")]
+            public int WorkOrderOpId { get; set; }
+            [JsonPropertyName("expected_shape")]
+            public string ExpectedShape { get; set; } = "";
+            [JsonPropertyName("expected_size")]
+            public string ExpectedSize { get; set; } = "";
+            [JsonPropertyName("expected_grade")]
+            public string ExpectedGrade { get; set; } = "";
+            [JsonPropertyName("expected_spec")]
+            public string ExpectedSpec { get; set; } = "";
+            [JsonPropertyName("expected_quantity")]
+            public double ExpectedQuantity { get; set; }
+            [JsonPropertyName("expected_unit")]
+            public string ExpectedUnit { get; set; } = "";
+            [JsonPropertyName("material_summary_display")]
+            public string MaterialSummaryDisplay { get; set; } = "";
+        }
+
+        public sealed class MaterialReceiptDto
+        {
+            [JsonPropertyName("material_receipt_id")]
+            public int MaterialReceiptId { get; set; }
+            [JsonPropertyName("work_order_op_id")]
+            public int WorkOrderOpId { get; set; }
+            [JsonPropertyName("material_requirement_id")]
+            public int MaterialRequirementId { get; set; }
+            [JsonPropertyName("received_shape")]
+            public string ReceivedShape { get; set; } = "";
+            [JsonPropertyName("received_size")]
+            public string ReceivedSize { get; set; } = "";
+            [JsonPropertyName("received_grade")]
+            public string ReceivedGrade { get; set; } = "";
+            [JsonPropertyName("received_spec")]
+            public string ReceivedSpec { get; set; } = "";
+            [JsonPropertyName("received_quantity")]
+            public double ReceivedQuantity { get; set; }
+            [JsonPropertyName("received_unit")]
+            public string ReceivedUnit { get; set; } = "";
+            [JsonPropertyName("condition_status")]
+            public string ConditionStatus { get; set; } = "";
+            [JsonPropertyName("receiver_name")]
+            public string ReceiverName { get; set; } = "";
+            [JsonPropertyName("received_utc")]
+            public string ReceivedUtc { get; set; } = "";
+            [JsonPropertyName("notes")]
+            public string Notes { get; set; } = "";
+        }
+
+        public sealed class MaterialTraceDto
+        {
+            [JsonPropertyName("material_trace_id")]
+            public int MaterialTraceId { get; set; }
+            [JsonPropertyName("material_requirement_id")]
+            public int MaterialRequirementId { get; set; }
+            [JsonPropertyName("material_receipt_id")]
+            public int MaterialReceiptId { get; set; }
+            [JsonPropertyName("heat_lot_number")]
+            public string HeatLotNumber { get; set; } = "";
+            [JsonPropertyName("received_quantity")]
+            public double ReceivedQuantity { get; set; }
+            [JsonPropertyName("unit")]
+            public string Unit { get; set; } = "";
+            [JsonPropertyName("cert_status")]
+            public string CertStatus { get; set; } = "";
+            [JsonPropertyName("created_utc")]
+            public string CreatedUtc { get; set; } = "";
+            [JsonPropertyName("notes")]
+            public string Notes { get; set; } = "";
+        }
+
+        public sealed class MaterialReceiptSubmitRequest
+        {
+            [JsonPropertyName("material_requirement_id")]
+            public int MaterialRequirementId { get; set; }
+            [JsonPropertyName("received_shape")]
+            public string ReceivedShape { get; set; } = "";
+            [JsonPropertyName("received_size")]
+            public string ReceivedSize { get; set; } = "";
+            [JsonPropertyName("received_grade")]
+            public string ReceivedGrade { get; set; } = "";
+            [JsonPropertyName("received_spec")]
+            public string ReceivedSpec { get; set; } = "";
+            [JsonPropertyName("received_quantity")]
+            public double ReceivedQuantity { get; set; }
+            [JsonPropertyName("received_unit")]
+            public string ReceivedUnit { get; set; } = "";
+            [JsonPropertyName("condition_status")]
+            public string ConditionStatus { get; set; } = "OK";
+            [JsonPropertyName("notes")]
+            public string Notes { get; set; } = "";
+            [JsonPropertyName("storage_location")]
+            public string StorageLocation { get; set; } = "";
+            [JsonPropertyName("heat_lots")]
+            public List<MaterialReceiptHeatLotSubmitRequest> HeatLots { get; set; } = new List<MaterialReceiptHeatLotSubmitRequest>();
+        }
+
+        public sealed class MaterialReceiptHeatLotSubmitRequest
+        {
+            [JsonPropertyName("heat_lot_number")]
+            public string HeatLotNumber { get; set; } = "";
+            [JsonPropertyName("quantity")]
+            public double Quantity { get; set; }
+            [JsonPropertyName("unit")]
+            public string Unit { get; set; } = "";
+            [JsonPropertyName("cert_received")]
+            public bool CertReceived { get; set; }
+            [JsonPropertyName("notes")]
+            public string Notes { get; set; } = "";
+        }
+
+        public sealed class MaterialReceiptResponse
+        {
+            [JsonPropertyName("ok")]
+            public bool Ok { get; set; }
+            [JsonPropertyName("error")]
+            public string? Error { get; set; }
+            [JsonPropertyName("message")]
+            public string Message { get; set; } = "";
+            [JsonPropertyName("work_order")]
+            public WorkOrderDetail? WorkOrder { get; set; }
+            [JsonPropertyName("material_receipt_id")]
+            public int MaterialReceiptId { get; set; }
+            [JsonPropertyName("material_trace_ids")]
+            public List<int> MaterialTraceIds { get; set; } = new List<int>();
+        }
+
+        public sealed class OperationPacketChecklistItem
+        {
+            [JsonPropertyName("label")]
+            public string Label { get; set; } = "";
+
+            [JsonPropertyName("is_required")]
+            public bool IsRequired { get; set; }
+        }
+
+        public sealed class OperationPacketReferenceItem
+        {
+            [JsonPropertyName("display_name")]
+            public string DisplayName { get; set; } = "";
+
+            [JsonPropertyName("released_relative_path")]
+            public string ReleasedRelativePath { get; set; } = "";
+
+            [JsonPropertyName("category")]
+            public string Category { get; set; } = "";
+        }
+
+        public sealed class OperationPacketDocument
+        {
+            [JsonPropertyName("id")]
+            public string Id { get; set; } = "";
+
+            [JsonPropertyName("title")]
+            public string Title { get; set; } = "";
+
+            [JsonPropertyName("type")]
+            public string Type { get; set; } = "";
+
+            [JsonPropertyName("source")]
+            public string Source { get; set; } = "";
+
+            [JsonPropertyName("revision")]
+            public string Revision { get; set; } = "";
+
+            [JsonPropertyName("page_count")]
+            public int PageCount { get; set; }
+
+            [JsonPropertyName("content_type")]
+            public string ContentType { get; set; } = "";
+
+            [JsonPropertyName("created_utc")]
+            public string CreatedUtc { get; set; } = "";
+
+            [JsonPropertyName("updated_utc")]
+            public string UpdatedUtc { get; set; } = "";
+
+            [JsonPropertyName("preview_route")]
+            public string PreviewRoute { get; set; } = "";
+
+            [JsonPropertyName("download_route")]
+            public string DownloadRoute { get; set; } = "";
+
+            [JsonPropertyName("thumbnail_route")]
+            public string ThumbnailRoute { get; set; } = "";
+
+            [JsonPropertyName("operation_number")]
+            public int OperationNumber { get; set; }
+        }
+
+        public sealed class PacketDocumentThumbnailResponse
+        {
+            public string ContentType { get; set; } = "image/png";
+            public byte[] Bytes { get; set; } = Array.Empty<byte>();
+        }
+
+        public sealed class BalloonMarker
+        {
+            [JsonPropertyName("balloon_number")]
+            public int BalloonNumber { get; set; }
+
+            [JsonPropertyName("page")]
+            public int Page { get; set; }
+
+            [JsonPropertyName("feature_id")]
+            public int FeatureId { get; set; }
+
+            [JsonPropertyName("characteristic_id")]
+            public int CharacteristicId { get; set; }
+
+            [JsonPropertyName("has_geometry")]
+            public bool HasGeometry { get; set; }
+
+            [JsonPropertyName("x")]
+            public double X { get; set; }
+
+            [JsonPropertyName("y")]
+            public double Y { get; set; }
+
+            [JsonPropertyName("width")]
+            public double Width { get; set; }
+
+            [JsonPropertyName("height")]
+            public double Height { get; set; }
+
+            [JsonPropertyName("radius")]
+            public double Radius { get; set; }
         }
 
         public sealed class InspectionTaskPackage

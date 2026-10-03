@@ -1,0 +1,30 @@
+# ---- Build output ----
+bin/
+obj/
+**/bin/
+**/obj/
+artifacts/
+artifacts/**
+
+# ---- Local tooling ----
+.vs/
+.dotnet/
+.dotnet_cli/
+.nuget/
+.expo/
+.next/
+temp-*/
+temp_*/
+tmp_build_verify/
+buildverify/
+
+# ---- RunBook Workstation local runtime state ----
+# Runtime state is user/machine data. It must never be tracked or staged as a
+# production artifact. Redacted examples belong under config/, not Data/.
+**/Data/**
+**/App/_machine/**
+diagnostics/workstation-ui-dump.txt
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db
