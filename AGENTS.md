@@ -16,7 +16,7 @@ Architecture violations are not allowed even if the code compiles.
 - App bibles in `Docs/Architecture/` are secondary authorities for app-local boundaries.
 - `Docs/Architecture/RunBook-Production-Packaging-Bible.md` is authoritative for production packaging and runtime containment.
 - If this file conflicts with the System Bible, the System Bible wins.
-- This repo does not carry `Docs/Architecture/` locally. Reference the shared architecture docs at `D:\RunBook.Desktop\Docs\Architecture\`.
+- This repo does not carry `Docs/Architecture/` locally. Reference the shared architecture docs at `../RunBook.Desktop/Docs/Architecture/`, relative to this repo root.
 
 ## 3. Non-Negotiable Architecture Rules
 

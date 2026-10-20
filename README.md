@@ -81,7 +81,7 @@ Workstation currently talks to:
 
 ## Build
 
-From `D:\RunBook.Workstation`:
+From this repository root:
 
 ```powershell
 dotnet build .\RunBook.Workstation.sln
