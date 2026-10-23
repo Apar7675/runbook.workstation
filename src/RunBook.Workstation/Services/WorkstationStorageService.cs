@@ -150,6 +150,31 @@ namespace RunBook.Workstation.Services
             TimeclockQueueReadError = "";
         }
 
+        public static bool TryEnsureTimeclockQueueReadable(out string error)
+        {
+            try
+            {
+                EnsureTimeclockQueueReadable();
+                error = "";
+                return true;
+            }
+            catch (InvalidDataException ex)
+            {
+                TimeclockQueueReadError = error = ex.Message;
+                return false;
+            }
+        }
+
+        public static bool TrySaveTimeclockQueue(WorkstationSyncQueueItem[] items, out string error)
+        {
+            lock (FileWriteGate)
+            {
+                var saved = WorkstationOutboxFile.TryWrite(GetTimeclockQueuePath(), items ?? Array.Empty<WorkstationSyncQueueItem>(), out error);
+                TimeclockQueueReadError = saved ? "" : error;
+                return saved;
+            }
+        }
+
         public static void SaveTimeclockQueue(WorkstationSyncQueueItem[] items)
         {
             lock (FileWriteGate)

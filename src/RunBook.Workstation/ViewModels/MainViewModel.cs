@@ -254,8 +254,8 @@ namespace RunBook.Workstation.ViewModels
             BreakEndCommand = new RelayCommand(async () => await SubmitPunchAsync("break_end", ""), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             LunchStartCommand = new RelayCommand(async () => await SubmitPunchAsync("lunch_start", ""), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             LunchEndCommand = new RelayCommand(async () => await SubmitPunchAsync("lunch_end", ""), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
-            SyncPendingCommand = new RelayCommand(async () => await SyncPendingQueueAsync(true), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
-            SubmitTimeOffCommand = new RelayCommand(async () => await SubmitTimeOffAsync(), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
+            SyncPendingCommand = new RelayCommand(async () => await RunBusyAsync(() => SyncPendingQueueAsync(true)), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
+            SubmitTimeOffCommand = new RelayCommand(async () => await RunBusyAsync(SubmitTimeOffAsync), () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             OpenTimeOffRequestsDialogCommand = new RelayCommand(OpenTimeOffRequestsDialog, () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
             CloseTimeOffRequestsDialogCommand = new RelayCommand(CloseTimeOffRequestsDialog, () => IsTimeOffRequestsDialogOpen && !IsBusy);
             OpenPtoBenefitsCommand = new RelayCommand(OpenPtoBenefitsDialog, () => CurrentSession != null && HasTimeClockAccess && !IsBusy);
@@ -286,7 +286,7 @@ namespace RunBook.Workstation.ViewModels
             CancelRecordQuantityCommand = new RelayCommand(CancelRecordQuantity, () => !IsBusy && IsRecordQuantityPanelOpen);
             SaveQuantityEventCommand = new RelayCommand(async () => await SaveQuantityEventAsync(), () => CurrentSession != null && SelectedWorkOrder != null && SelectedOperation != null && HasProductionQuantityAccess && CanSaveQuantityEvent && !IsBusy);
             SubmitOperationNoteCommand = new RelayCommand(async () => await SubmitOperationNoteAsync(), () => CurrentSession != null && HasProductionNoteAccess && SelectedOperation != null && !IsBusy);
-            SubmitOperationHelpCommand = new RelayCommand(async () => await SubmitOperationHelpAsync(), () => CurrentSession != null && HasWorkOrdersAccess && SelectedOperation != null && !IsBusy);
+            SubmitOperationHelpCommand = new RelayCommand(async () => await RunBusyAsync(SubmitOperationHelpAsync), () => CurrentSession != null && HasWorkOrdersAccess && SelectedOperation != null && !IsBusy);
             RefreshInspectionTasksCommand = new RelayCommand(async () => await RefreshInspectionTasksAsync(false), () => CurrentSession != null && HasInspectionViewAccess && SelectedWorkOrder != null && !IsBusy);
             SelectInspectionTaskCommand = new RelayCommand<WorkstationInspectionTask>(SelectInspectionTask, task => task != null && !IsBusy);
             SubmitInspectionResultCommand = new RelayCommand(async () => await SubmitInspectionResultAsync(), () => CurrentSession != null && HasInspectionEntryAccess && _inspectionResultSubmissionAvailable && SelectedInspectionTask != null && SelectedWorkOrder != null && !IsBusy);
@@ -2293,7 +2293,8 @@ namespace RunBook.Workstation.ViewModels
                     return;
                 }
 
-                EnqueuePunch(eventType, note);
+                if (!EnqueuePunch(eventType, note))
+                    return;
                 await SyncPendingQueueAsync(false);
                 punchSubmitted = true;
                 if (activeOperation != null)
@@ -3649,9 +3650,10 @@ namespace RunBook.Workstation.ViewModels
                 return;
             }
 
-            WorkstationStorageService.EnsureTimeclockQueueReadable();
+            if (!EnsureOutboxReady())
+                return;
             var now = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
-            PendingSyncItems.Add(new WorkstationSyncQueueItem
+            var item = new WorkstationSyncQueueItem
             {
                 QueueId = Guid.NewGuid().ToString("D"),
                 ClientEventId = $"{Settings.WorkstationId}-{Guid.NewGuid():D}",
@@ -3672,9 +3674,10 @@ namespace RunBook.Workstation.ViewModels
                 OperationNumber = SelectedOperation.OperationNumber,
                 OperationTitle = SelectedOperation.Title,
                 SyncStatus = "pending"
-            });
+            };
 
-            SaveQueue();
+            if (!TryAppendQueueItem(item))
+                return;
             OperationActionNoteText = "";
             StatusText = "Help request queued for foreman review.";
             await SyncPendingQueueAsync(false);
@@ -4757,10 +4760,43 @@ namespace RunBook.Workstation.ViewModels
             }
         }
 
-        private void SaveQueue()
+        private bool EnsureOutboxReady(bool showAlert = true)
         {
-            WorkstationStorageService.SaveTimeclockQueue(PendingSyncItems.ToArray());
+            if (WorkstationStorageService.TryEnsureTimeclockQueueReadable(out var error))
+                return true;
+            ShowOutboxRecovery(error, showAlert);
+            return false;
+        }
+
+        private void ShowOutboxRecovery(string error, bool showAlert = true)
+        {
+            StatusText = error;
+            TimeClockStatus = "Saved events need administrator attention; the original outbox is intact.";
+            OfflineStatus = "Workstation outbox needs attention before events can be recorded or synced.";
+            if (showAlert)
+                ShowRunBookIssueAlert("outbox-recovery-required", "Saved Workstation Events Need Attention",
+                    error, "Keep the original outbox. Ask an administrator to recover its events or restore file access, then retry.");
+        }
+
+        private bool SaveQueue(WorkstationSyncQueueItem[]? items = null)
+        {
+            if (!WorkstationStorageService.TrySaveTimeclockQueue(items ?? PendingSyncItems.ToArray(), out var error))
+            {
+                ShowOutboxRecovery(error);
+                return false;
+            }
             UpdatePendingSummary();
+            return true;
+        }
+
+        private bool TryAppendQueueItem(WorkstationSyncQueueItem item)
+        {
+            // Publish durably before accepting the event into the UI collection.
+            if (!SaveQueue(PendingSyncItems.Append(item).ToArray()))
+                return false;
+            PendingSyncItems.Add(item);
+            UpdatePendingSummary();
+            return true;
         }
 
         private async Task RefreshLocalTimeclockStateAsync()
@@ -4880,7 +4916,8 @@ namespace RunBook.Workstation.ViewModels
             if (syncSession == null || !HasTimeClockAccess)
                 return;
 
-            WorkstationStorageService.EnsureTimeclockQueueReadable();
+            if (!EnsureOutboxReady(manual))
+                return;
             var pendingItems = PendingSyncItems
                 .Where(item => WorkstationQueuePolicy.BelongsToSession(item, syncSession))
                 .Where(item =>
@@ -4929,7 +4966,8 @@ namespace RunBook.Workstation.ViewModels
             if (!WorkstationQueuePolicy.MatchesDeviceScope(syncSession, Settings.ShopId, Settings.WorkstationId))
                 return;
 
-            SaveQueue();
+            if (!SaveQueue())
+                return;
             if (localSnapshotResponse?.Snapshot != null &&
                 string.Equals(CurrentSession?.Token, syncSession.Token, StringComparison.Ordinal))
             {
@@ -4941,7 +4979,8 @@ namespace RunBook.Workstation.ViewModels
                 RebuildLocalProjection();
             }
 
-            RemoveSyncedQueueItems();
+            if (!RemoveSyncedQueueItems())
+                return;
 
             if (localError.Length == 0)
             {
@@ -4987,7 +5026,7 @@ namespace RunBook.Workstation.ViewModels
             }
         }
 
-        private void RemoveSyncedQueueItems()
+        private bool RemoveSyncedQueueItems()
         {
             var synced = PendingSyncItems
                 .Where(item => string.Equals(item.SyncStatus, "synced", StringComparison.OrdinalIgnoreCase))
@@ -4996,13 +5035,16 @@ namespace RunBook.Workstation.ViewModels
             foreach (var item in synced)
                 PendingSyncItems.Remove(item);
 
-            SaveQueue();
+            if (!SaveQueue())
+                return false;
             RebuildLocalProjection();
+            return true;
         }
 
-        private void EnqueuePunch(string eventType, string note)
+        private bool EnqueuePunch(string eventType, string note)
         {
-            WorkstationStorageService.EnsureTimeclockQueueReadable();
+            if (!EnsureOutboxReady())
+                return false;
             var now = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
             var item = new WorkstationSyncQueueItem
             {
@@ -5023,10 +5065,11 @@ namespace RunBook.Workstation.ViewModels
                 SyncStatus = "pending"
             };
 
-            PendingSyncItems.Add(item);
-            SaveQueue();
+            if (!TryAppendQueueItem(item))
+                return false;
             RebuildLocalProjection();
             TimeClockStatus = $"{ToEventLabel(eventType)} pending local sync.";
+            return true;
         }
 
         private async Task SubmitTimeOffAsync()
@@ -5063,9 +5106,10 @@ namespace RunBook.Workstation.ViewModels
                 requestedHours = parsedHours;
             }
 
-            WorkstationStorageService.EnsureTimeclockQueueReadable();
+            if (!EnsureOutboxReady())
+                return;
             var now = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
-            PendingSyncItems.Add(new WorkstationSyncQueueItem
+            var item = new WorkstationSyncQueueItem
             {
                 QueueId = Guid.NewGuid().ToString("D"),
                 ClientEventId = $"{Settings.WorkstationId}-{Guid.NewGuid():D}",
@@ -5085,9 +5129,10 @@ namespace RunBook.Workstation.ViewModels
                 EndDate = endDate,
                 HoursRequested = requestedHours,
                 SyncStatus = "pending",
-            });
+            };
 
-            SaveQueue();
+            if (!TryAppendQueueItem(item))
+                return;
             RebuildLocalProjection();
             TimeOffStartDate = "";
             TimeOffEndDate = "";
@@ -7745,7 +7790,10 @@ namespace RunBook.Workstation.ViewModels
         }
 
         private string BuildLocalHostEndpointLabel()
-            => "http://localhost:30112";
+        {
+            try { return WorkstationServiceEndpoint.Canonical(WorkstationServiceEndpoint.Resolve(Settings)).TrimEnd('/'); }
+            catch (ArgumentException) { return "Service address needs attention"; }
+        }
 
         private static WorkstationTimeclockSnapshot MapSnapshot(RunBookWorkstationApiClient.DesktopTimeclockSnapshot? snapshot)
         {

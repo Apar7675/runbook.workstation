@@ -66,6 +66,8 @@ try
     try { WorkstationOutboxFile.Write(queue, new[] { Item("11") }); }
     catch (InvalidDataException) { overwriteRejected = true; }
     Assert(overwriteRejected && File.ReadAllBytes(queue).SequenceEqual(evidence), "unreadable original cannot be overwritten with new events");
+    var controlledFailure = WorkstationOutboxFile.TryWrite(queue, new[] { Item("11") }, out var recoveryMessage);
+    Assert(!controlledFailure && recoveryMessage.Contains("preserved") && File.ReadAllBytes(queue).SequenceEqual(evidence), "UI publication receives a recovery result without an exception or original-byte loss");
     WorkstationAtomicFile.Write(queue, Encoding.UTF8.GetBytes("[]")); // Explicit synthetic recovery.
     WorkstationOutboxFile.Write(queue, new[] { aPunch, aPto });
     Assert(WorkstationOutboxFile.Read(queue).Select(item => item.ClientEventId).SequenceEqual(new[] { aPunch.ClientEventId, aPto.ClientEventId }), "valid recovered outbox retains exact event identities");
@@ -83,6 +85,17 @@ try
     if (OperatingSystem.IsWindows())
         Assert(File.ReadAllText(queue) == "new complete queue", "failed publication preserves previously durable queue");
     Assert(!Directory.EnumerateFiles(folder, "*.tmp").Any(), "failed publication cleans temporary file only");
+    WorkstationOutboxFile.Write(queue, new[] { aPunch });
+    var durableBytes = File.ReadAllBytes(queue);
+    using (var locked = new FileStream(queue, FileMode.Open, FileAccess.Read, FileShare.Read))
+    {
+        var accepted = WorkstationOutboxFile.TryWrite(queue, new[] { aPunch, aPto }, out var error);
+        if (OperatingSystem.IsWindows())
+            Assert(!accepted && error.Contains("not recorded"), "failed durable append reports that the new event was not accepted");
+    }
+    if (OperatingSystem.IsWindows())
+        Assert(File.ReadAllBytes(queue).SequenceEqual(durableBytes), "controlled append failure preserves the complete previous outbox");
+    Assert(!Directory.EnumerateFiles(folder, "*.tmp").Any(), "controlled append failure leaves no temporary payload");
 }
 finally
 {

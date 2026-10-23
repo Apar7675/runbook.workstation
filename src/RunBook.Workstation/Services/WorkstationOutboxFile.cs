@@ -33,6 +33,22 @@ namespace RunBook.Workstation.Services
             }
         }
 
+        public static bool TryWrite(string path, WorkstationSyncQueueItem[] items, out string error)
+        {
+            try
+            {
+                Write(path, items);
+                error = "";
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                error = ex is InvalidDataException ? ex.Message :
+                    "Workstation events could not be saved. The existing outbox was preserved and the new action was not recorded. Resolve file access with an administrator, then retry.";
+                return false;
+            }
+        }
+
         public static void Write(string path, WorkstationSyncQueueItem[] items)
         {
             // Never overwrite unreadable historical events with an empty/new queue.
