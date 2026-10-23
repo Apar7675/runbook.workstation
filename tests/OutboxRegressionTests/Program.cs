@@ -65,7 +65,7 @@ try
     {
         var rejected = false;
         try { WorkstationAtomicFile.Write(queue, Encoding.UTF8.GetBytes("must not replace locked destination")); }
-        catch (IOException) { rejected = true; }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { rejected = true; }
         if (OperatingSystem.IsWindows()) Assert(rejected, "Windows lock must reject publication");
     }
     if (OperatingSystem.IsWindows())
