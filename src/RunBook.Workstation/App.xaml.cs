@@ -26,8 +26,8 @@ namespace RunBook.Workstation
 
             if (ShouldRunControlIndependenceVerification())
             {
-                RunControlIndependenceVerificationAsync().GetAwaiter().GetResult();
-                Shutdown(0);
+                var passed = RunControlIndependenceVerificationAsync().GetAwaiter().GetResult();
+                Shutdown(passed ? 0 : 1);
                 return;
             }
 #endif
@@ -117,13 +117,14 @@ namespace RunBook.Workstation
                     || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase));
         }
 
-        private static async Task RunControlIndependenceVerificationAsync()
+        private static async Task<bool> RunControlIndependenceVerificationAsync()
         {
             try
             {
                 var verifier = new ControlIndependenceVerifier();
                 var result = await verifier.RunAsync().ConfigureAwait(false);
                 DebugLogService.Write($"Control independence verification completed | PASS={result.Passed} | ControlCallAttempts={result.ControlCallAttempts}");
+                return result.Passed;
             }
             catch (Exception ex)
             {

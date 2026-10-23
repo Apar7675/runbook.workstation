@@ -16,7 +16,13 @@ Architecture violations are not allowed even if the code compiles.
 - App bibles in `Docs/Architecture/` are secondary authorities for app-local boundaries.
 - `Docs/Architecture/RunBook-Production-Packaging-Bible.md` is authoritative for production packaging and runtime containment.
 - If this file conflicts with the System Bible, the System Bible wins.
-- This repo does not carry `Docs/Architecture/` locally. Reference the shared architecture docs at `../RunBook.Desktop/Docs/Architecture/`, relative to this repo root.
+- Before every coding task, read the current System Bible and RunBook-AI-Cloud-Workflow.md from the coordinated Desktop repository, plus the Workstation Bible and these repository rules.
+- For GitHub-only work, read the current documents in `Apar7675/runbook-desktop/Docs/Architecture/` at a pinned revision. Do not substitute older C:/D: copies or claim a GitHub edit has updated the running F: package.
+- This repo does not carry `Docs/Architecture/` locally. Reference the shared architecture docs at `../../RunBook/Office/RunBook.Desktop/Docs/Architecture/` in the current workspace.
+
+## Current development workflow
+
+Before work, read [RunBook-AI-Cloud-Workflow.md](../../RunBook/Office/RunBook.Desktop/Docs/Architecture/RunBook-AI-Cloud-Workflow.md) for current development authority, startup, shared-session coordination and authorized scope. Use its current instructions before historical migration directions. Architecture and application/data ownership rules remain in force.
 
 ## 3. Non-Negotiable Architecture Rules
 
@@ -80,3 +86,4 @@ Architecture violations are not allowed even if the code compiles.
 ## 9. Instruction For Missing Context
 
 If a change depends on architecture details not present in the current context, do not guess. Ask for the relevant System Bible or app bible section before proceeding.
+

@@ -4852,10 +4852,12 @@ namespace RunBook.Workstation.ViewModels
 
         private async Task SyncPendingQueueAsync(bool manual)
         {
-            if (CurrentSession == null || !HasTimeClockAccess)
+            var syncSession = CurrentSession;
+            if (syncSession == null || !HasTimeClockAccess)
                 return;
 
             var pendingItems = PendingSyncItems
+                .Where(item => WorkstationQueuePolicy.BelongsToSession(item, syncSession))
                 .Where(item =>
                     string.Equals(item.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase) ||
                     (manual && string.Equals(item.SyncStatus, "failed", StringComparison.OrdinalIgnoreCase)))
@@ -4867,7 +4869,7 @@ namespace RunBook.Workstation.ViewModels
             if (pendingItems.Count == 0)
             {
                 if (manual)
-                    StatusText = "No pending workstation items to sync.";
+                    StatusText = "No pending items for this employee. Other employees' queued items are retained.";
                 return;
             }
 
@@ -4879,7 +4881,9 @@ namespace RunBook.Workstation.ViewModels
 
             try
             {
-                var response = await _api.SyncLocalTimeclockAsync(Settings, CurrentSession, pendingItems, CancellationToken.None);
+                var response = await _api.SyncLocalTimeclockAsync(Settings, syncSession, pendingItems, CancellationToken.None);
+                if (!WorkstationQueuePolicy.MatchesDeviceScope(syncSession, Settings.ShopId, Settings.WorkstationId))
+                    return; // The original outbox remains pending in its original shop folder.
                 ApplySyncResults(response.Results);
                 localSnapshotResponse = response;
                 MarkLocalHostRequestSuccess();
@@ -4897,8 +4901,12 @@ namespace RunBook.Workstation.ViewModels
                     MarkLocalHostRequestFailure(ex.Message);
             }
 
+            if (!WorkstationQueuePolicy.MatchesDeviceScope(syncSession, Settings.ShopId, Settings.WorkstationId))
+                return;
+
             SaveQueue();
-            if (localSnapshotResponse?.Snapshot != null)
+            if (localSnapshotResponse?.Snapshot != null &&
+                string.Equals(CurrentSession?.Token, syncSession.Token, StringComparison.Ordinal))
             {
                 var snapshot = MapSnapshot(localSnapshotResponse.Snapshot);
                 ApplySnapshot(snapshot, true);
@@ -5105,6 +5113,7 @@ namespace RunBook.Workstation.ViewModels
                 .ToList();
 
             var pendingPunches = PendingSyncItems.Where(entry =>
+                CurrentSession != null && WorkstationQueuePolicy.BelongsToSession(entry, CurrentSession) &&
                 string.Equals(entry.ItemType, "punch", StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(entry.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase))
                 .Select(item => new WorkstationPunchRecord
@@ -5139,6 +5148,7 @@ namespace RunBook.Workstation.ViewModels
                 .Select(CloneRequest)
                 .ToList();
             foreach (var item in PendingSyncItems.Where(entry =>
+                CurrentSession != null && WorkstationQueuePolicy.BelongsToSession(entry, CurrentSession) &&
                 string.Equals(entry.ItemType, "time_off_request", StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(entry.SyncStatus, "pending", StringComparison.OrdinalIgnoreCase)))
             {

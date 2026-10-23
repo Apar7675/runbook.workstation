@@ -136,8 +136,7 @@ namespace RunBook.Workstation.Services
         public static void ClearShopScopedCache(string? shopId, string? safeCompanyName = null)
         {
             var folder = GetShopScopedCacheFolder(shopId, safeCompanyName);
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, recursive: true);
+            WorkstationQueuePolicy.ClearDisposableCache(folder);
         }
 
         public static void ClearAllOtherShopScopedCaches(string? activeShopId, string? safeCompanyName = null)
@@ -155,7 +154,7 @@ namespace RunBook.Workstation.Services
 
                 try
                 {
-                    Directory.Delete(folder, recursive: true);
+                    WorkstationQueuePolicy.ClearDisposableCache(folder);
                 }
                 catch
                 {
@@ -343,9 +342,7 @@ namespace RunBook.Workstation.Services
                 {
                     try
                     {
-                        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
-                        stream.Write(bytes, 0, bytes.Length);
-                        stream.Flush(flushToDisk: true);
+                        WorkstationAtomicFile.Write(path, bytes);
                         return;
                     }
                     catch (IOException) when (attempt < FileWriteRetryCount)
