@@ -17,8 +17,6 @@ namespace RunBook.Workstation.Services
 {
     public sealed class RunBookWorkstationApiClient
     {
-        private const int LocalServicePort = 30112;
-        private const string LocalServiceBaseUrl = "http://localhost:30112";
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
@@ -26,31 +24,35 @@ namespace RunBook.Workstation.Services
 
         private readonly HttpClient _client;
         private readonly Func<WorkstationRegistrationSnapshot?> _registrationProvider;
-        private readonly string _localServiceBaseUrl;
+        private readonly string? _localServiceBaseUrl;
 
         public RunBookWorkstationApiClient(HttpClient? client = null, Func<WorkstationRegistrationSnapshot?>? registrationProvider = null)
-            : this(new Uri(LocalServiceBaseUrl, UriKind.Absolute), client, registrationProvider)
         {
+            _client = client ?? WorkstationHttpClientFactory.Create(timeout: TimeSpan.FromSeconds(20));
+            _registrationProvider = registrationProvider ?? WorkstationStorageService.LoadRegistration;
         }
 
         internal RunBookWorkstationApiClient(
             Uri localServiceBaseUri,
             HttpClient? client = null,
             Func<WorkstationRegistrationSnapshot?>? registrationProvider = null)
+            : this(client, registrationProvider)
         {
             _localServiceBaseUrl = ValidateLocalServiceBaseUri(localServiceBaseUri);
-            _client = client ?? WorkstationHttpClientFactory.Create(timeout: TimeSpan.FromSeconds(20));
-            _registrationProvider = registrationProvider ?? WorkstationStorageService.LoadRegistration;
         }
 
         public async Task<WorkstationRegistrationSnapshot> RegisterAsync(WorkstationSettings settings, CancellationToken cancellationToken)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildServiceUrl("api/workstation-local/register"));
+            var endpoint = GetServiceEndpoint(settings);
+            var shopId = settings.ShopId;
+            var workstationId = settings.WorkstationId;
+            var workstationName = settings.WorkstationName;
+            using var request = new HttpRequestMessage(HttpMethod.Post, WorkstationServiceEndpoint.BuildUrl(endpoint, "api/workstation-local/register"));
             request.Content = new StringContent(JsonSerializer.Serialize(new
             {
-                shop_id = settings.ShopId,
-                workstation_id = settings.WorkstationId,
-                workstation_name = settings.WorkstationName,
+                shop_id = shopId,
+                workstation_id = workstationId,
+                workstation_name = workstationName,
                 pairing_code = settings.PairingCode,
             }), Encoding.UTF8, "application/json");
 
@@ -60,9 +62,10 @@ namespace RunBook.Workstation.Services
 
             return new WorkstationRegistrationSnapshot
             {
-                WorkstationId = payload?.Workstation?.Id ?? settings.WorkstationId,
-                ShopId = payload?.Workstation?.ShopId ?? settings.ShopId,
-                WorkstationName = payload?.Workstation?.Name ?? settings.WorkstationName,
+                ServiceEndpoint = WorkstationServiceEndpoint.Canonical(endpoint),
+                WorkstationId = payload?.Workstation?.Id ?? workstationId,
+                ShopId = payload?.Workstation?.ShopId ?? shopId,
+                WorkstationName = payload?.Workstation?.Name ?? workstationName,
                 Status = payload?.Workstation?.Status ?? "active",
                 DeviceToken = payload?.Workstation?.DeviceToken ?? "",
                 TokenIssuedUtc = payload?.Workstation?.TokenIssuedUtc ?? DateTime.UtcNow.ToString("O"),
@@ -109,7 +112,7 @@ namespace RunBook.Workstation.Services
         public async Task<LocalAuthPackageResponse> GetLocalAuthPackageAsync(WorkstationSettings settings, CancellationToken cancellationToken)
         {
             var context = GetLocalDesktopContext(settings);
-            var url = BuildServiceUrl($"api/workstation-local/auth-package?shop_id={Uri.EscapeDataString(context.ShopId)}&workstation_id={Uri.EscapeDataString(context.WorkstationId)}");
+            var url = BuildServiceUrl(settings, $"api/workstation-local/auth-package?shop_id={Uri.EscapeDataString(context.ShopId)}&workstation_id={Uri.EscapeDataString(context.WorkstationId)}");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             AddLocalDeviceAuthorization(request, settings);
             using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
@@ -128,7 +131,7 @@ namespace RunBook.Workstation.Services
             string? unlockTraceId = null)
         {
             var context = GetLocalDesktopContext(settings);
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildServiceUrl("api/workstation-local/login"));
+            using var request = new HttpRequestMessage(HttpMethod.Post, BuildServiceUrl(settings, "api/workstation-local/login"));
             AddLocalDeviceAuthorization(request, settings);
             if (!string.IsNullOrWhiteSpace(unlockTraceId))
                 request.Headers.TryAddWithoutValidation("X-RunBook-Unlock-Trace-Id", unlockTraceId);
@@ -158,7 +161,7 @@ namespace RunBook.Workstation.Services
 
         public async Task<LocalHealthResponse> GetLocalHealthAsync(WorkstationSettings settings, CancellationToken cancellationToken)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, BuildServiceUrl("api/workstation-local/health"));
+            using var request = new HttpRequestMessage(HttpMethod.Get, BuildServiceUrl(settings, "api/workstation-local/health"));
             using var response = await _client.SendAsync(request, cancellationToken).ConfigureAwait(false);
             var payload = await DeserializeAsync<LocalHealthResponse>(response, cancellationToken).ConfigureAwait(false);
             EnsureSuccess(response, payload?.Error, "Unable to reach local workstation authority.");
@@ -517,7 +520,7 @@ namespace RunBook.Workstation.Services
             var context = GetLocalDesktopContext(settings);
             var query = $"shop_id={Uri.EscapeDataString(context.ShopId)}&workstation_id={Uri.EscapeDataString(context.WorkstationId)}";
             var separator = relativeUrl.Contains('?') ? "&" : "?";
-            return BuildServiceUrl($"{relativeUrl}{separator}{query}");
+            return BuildServiceUrl(settings, $"{relativeUrl}{separator}{query}");
         }
 
         private string BuildServiceSessionUrl(WorkstationSettings settings, string relativeUrl)
@@ -525,7 +528,7 @@ namespace RunBook.Workstation.Services
             var context = GetLocalDesktopContext(settings);
             var query = $"shop_id={Uri.EscapeDataString(context.ShopId)}&workstation_id={Uri.EscapeDataString(context.WorkstationId)}";
             var separator = relativeUrl.Contains('?') ? "&" : "?";
-            return BuildServiceUrl($"{relativeUrl}{separator}{query}");
+            return BuildServiceUrl(settings, $"{relativeUrl}{separator}{query}");
         }
 
         private void AddLocalDeviceAuthorization(HttpRequestMessage request, WorkstationSettings settings)
@@ -533,6 +536,9 @@ namespace RunBook.Workstation.Services
             var registration = _registrationProvider();
             if (registration == null || string.IsNullOrWhiteSpace(registration.DeviceToken))
                 throw new InvalidOperationException("Workstation registration with RunBook Service is required.");
+
+            if (!IsRegistrationEndpointCurrent(settings, registration))
+                throw new InvalidOperationException("PAIRING_REQUIRED: The Service address changed. Pair this workstation with the selected Service before signing in.");
 
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", registration.DeviceToken);
             request.Headers.TryAddWithoutValidation("X-RunBook-Workstation-Id", registration.WorkstationId ?? settings.WorkstationId ?? "");
@@ -561,10 +567,19 @@ namespace RunBook.Workstation.Services
         private static string BuildUrl(string baseUrl, string relativeUrl)
             => $"{(baseUrl ?? string.Empty).TrimEnd('/')}/{relativeUrl.TrimStart('/')}";
 
-        private string BuildServiceUrl(string relativeUrl)
+        private Uri GetServiceEndpoint(WorkstationSettings settings)
+            => _localServiceBaseUrl != null ? new Uri(_localServiceBaseUrl) : WorkstationServiceEndpoint.Resolve(settings);
+
+        public bool IsRegistrationEndpointCurrent(WorkstationSettings settings, WorkstationRegistrationSnapshot? registration)
         {
-            return BuildUrl(_localServiceBaseUrl, relativeUrl);
+            if (registration == null)
+                return false;
+            try { return WorkstationServiceEndpoint.RegistrationMatches(registration, GetServiceEndpoint(settings)); }
+            catch (ArgumentException) { return false; }
         }
+
+        private string BuildServiceUrl(WorkstationSettings settings, string relativeUrl)
+            => WorkstationServiceEndpoint.BuildUrl(GetServiceEndpoint(settings), relativeUrl);
 
         private static string ValidateLocalServiceBaseUri(Uri localServiceBaseUri)
         {

@@ -18,3 +18,5 @@ jobs:
         run: dotnet build src/RunBook.Workstation/RunBook.Workstation.csproj --configuration Release
       - name: Verify isolated actor-bound outbox and durable publication
         run: dotnet run --project tests/OutboxRegressionTests/OutboxRegressionTests.csproj --configuration Release
+      - name: Verify configured Service routes and credential boundaries
+        run: dotnet run --project tests/EndpointRegressionTests/EndpointRegressionTests.csproj --configuration Release

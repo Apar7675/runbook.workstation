@@ -30,7 +30,7 @@ namespace RunBook.Workstation.Services
 
             var result = new VerificationResult { StartedAtUtc = DateTime.UtcNow };
 
-            await RunTestAsync(result, "production_default_is_exact_and_intercepted", VerifyProductionDefaultAsync).ConfigureAwait(false);
+            await RunTestAsync(result, "production_configuration_is_honored", VerifyProductionDefaultAsync).ConfigureAwait(false);
             await RunTestAsync(result, "unique_loopback_port_is_honored", VerifyInjectedHealthRouteAsync).ConfigureAwait(false);
             await RunTestAsync(result, "representative_non_health_route_is_injected", VerifyInjectedRegistrationRouteAsync).ConfigureAwait(false);
             await RunTestAsync(result, "two_clients_have_independent_endpoints", VerifyIndependentClientsAsync).ConfigureAwait(false);
@@ -90,8 +90,8 @@ namespace RunBook.Workstation.Services
 
             Assert(handler.Requests.Count == 1, "The production-default test did not capture exactly one request.");
             Assert(
-                string.Equals(handler.Requests.Single(), "http://localhost:30112/api/workstation-local/health", StringComparison.Ordinal),
-                "The production constructor did not use the exact localhost:30112 endpoint.");
+                string.Equals(handler.Requests.Single(), "http://127.0.0.1:49999/api/workstation-local/health", StringComparison.Ordinal),
+                "The production constructor did not honor the configured Service endpoint.");
         }
 
         private static async Task VerifyInjectedHealthRouteAsync()

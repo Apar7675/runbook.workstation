@@ -67,6 +67,7 @@ namespace RunBook.Workstation.ViewModels
         private DateTime _lastAuthRefreshAttemptUtc = DateTime.MinValue;
         private string _settingsBaseUrl = "";
         private string _settingsDesktopBaseUrl = "";
+        private bool _settingsAllowLanService;
         private string _settingsShopId = "";
         private string _settingsShopName = "";
         private string _settingsWorkstationName = "";
@@ -188,6 +189,7 @@ namespace RunBook.Workstation.ViewModels
             _settings = WorkstationStorageService.LoadSettings();
             _settingsBaseUrl = _settings.ControlBaseUrl;
             _settingsDesktopBaseUrl = _settings.DesktopBaseUrl;
+            _settingsAllowLanService = _settings.AllowLanService;
             _settingsShopId = _settings.ShopId;
             _settingsShopName = _settings.ShopName;
             _settingsWorkstationName = _settings.WorkstationName;
@@ -231,7 +233,11 @@ namespace RunBook.Workstation.ViewModels
             LoginCommand = new RelayCommand(async () => await SubmitPasscodeUnlockAsync(), () => CanConfirmPasscode);
             LogoutCommand = new RelayCommand(Logout, () => CurrentSession != null && !IsBusy);
             OpenSettingsCommand = new RelayCommand(() => StatusText = "Settings stay available from the left rail.", () => !IsBusy);
-            SaveSettingsCommand = new RelayCommand(SaveSettings, () => !IsBusy);
+            SaveSettingsCommand = new RelayCommand(() =>
+            {
+                try { SaveSettings(); }
+                catch (ArgumentException ex) { StatusText = ex.Message; }
+            }, () => !IsBusy);
             ConnectControlCommand = new RelayCommand(async () => await ConnectControlAsync(), () => !IsBusy);
             DisconnectControlCommand = new RelayCommand(DisconnectControl, () => !IsBusy);
             RefreshRegistrationCommand = new RelayCommand(async () => await RefreshRegistrationAsync(), () => !IsBusy);
@@ -993,6 +999,7 @@ namespace RunBook.Workstation.ViewModels
         public string AuthCacheStatus { get => _authCacheStatus; private set { _authCacheStatus = value ?? ""; OnPropertyChanged(); } }
         public string SettingsBaseUrl { get => _settingsBaseUrl; set { _settingsBaseUrl = value ?? ""; OnPropertyChanged(); } }
         public string SettingsDesktopBaseUrl { get => _settingsDesktopBaseUrl; set { _settingsDesktopBaseUrl = value ?? ""; OnPropertyChanged(); } }
+        public bool SettingsAllowLanService { get => _settingsAllowLanService; set { _settingsAllowLanService = value; OnPropertyChanged(); } }
         public string SettingsShopId { get => _settingsShopId; set { _settingsShopId = value ?? ""; OnPropertyChanged(); } }
         public string SettingsShopName { get => _settingsShopName; set { _settingsShopName = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(StationAreaLabel)); } }
         public string SettingsWorkstationName { get => _settingsWorkstationName; set { _settingsWorkstationName = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(StationSubtitle)); OnPropertyChanged(nameof(WorkstationIdentityLine)); } }
@@ -2477,17 +2484,28 @@ namespace RunBook.Workstation.ViewModels
 
         private void SaveSettings()
         {
+            var serviceUrl = (SettingsDesktopBaseUrl ?? "").Trim();
+            _ = WorkstationServiceEndpoint.Resolve(new WorkstationSettings
+            {
+                DesktopBaseUrl = serviceUrl, AllowLanService = SettingsAllowLanService
+            });
             Settings.ControlBaseUrl = (SettingsBaseUrl ?? "").Trim();
-            Settings.DesktopBaseUrl = (SettingsDesktopBaseUrl ?? "").Trim();
+            Settings.DesktopBaseUrl = serviceUrl;
+            Settings.AllowLanService = SettingsAllowLanService;
             Settings.ShopId = (SettingsShopId ?? "").Trim();
             Settings.ShopName = (SettingsShopName ?? "").Trim();
             Settings.WorkstationName = (SettingsWorkstationName ?? "").Trim();
             Settings.PairingCode = NormalizePairingCode(SettingsPairingCode);
             NormalizeDesktopBaseUrl();
             WorkstationStorageService.SaveSettings(Settings);
+            var pairingChanged = Registration != null && !_api.IsRegistrationEndpointCurrent(Settings, Registration);
+            if (pairingChanged && CurrentSession != null)
+                Logout();
             OnPropertyChanged(nameof(ConnectivityLine));
             OnPropertyChanged(nameof(WorkstationIdentityLine));
-            StatusText = "Workstation settings saved.";
+            StatusText = pairingChanged
+                ? "Service address saved. Pair this workstation with the selected Service before signing in."
+                : "Workstation settings saved.";
         }
 
         private async Task ConnectControlAsync()
@@ -3631,6 +3649,7 @@ namespace RunBook.Workstation.ViewModels
                 return;
             }
 
+            WorkstationStorageService.EnsureTimeclockQueueReadable();
             var now = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
             PendingSyncItems.Add(new WorkstationSyncQueueItem
             {
@@ -4731,6 +4750,11 @@ namespace RunBook.Workstation.ViewModels
             foreach (var item in WorkstationStorageService.LoadTimeclockQueue())
                 PendingSyncItems.Add(item);
             UpdatePendingSummary();
+            if (!string.IsNullOrWhiteSpace(WorkstationStorageService.TimeclockQueueReadError))
+            {
+                StatusText = WorkstationStorageService.TimeclockQueueReadError;
+                TimeClockStatus = "Saved events need administrator recovery; the original outbox is intact.";
+            }
         }
 
         private void SaveQueue()
@@ -4856,6 +4880,7 @@ namespace RunBook.Workstation.ViewModels
             if (syncSession == null || !HasTimeClockAccess)
                 return;
 
+            WorkstationStorageService.EnsureTimeclockQueueReadable();
             var pendingItems = PendingSyncItems
                 .Where(item => WorkstationQueuePolicy.BelongsToSession(item, syncSession))
                 .Where(item =>
@@ -4977,6 +5002,7 @@ namespace RunBook.Workstation.ViewModels
 
         private void EnqueuePunch(string eventType, string note)
         {
+            WorkstationStorageService.EnsureTimeclockQueueReadable();
             var now = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
             var item = new WorkstationSyncQueueItem
             {
@@ -5037,6 +5063,7 @@ namespace RunBook.Workstation.ViewModels
                 requestedHours = parsedHours;
             }
 
+            WorkstationStorageService.EnsureTimeclockQueueReadable();
             var now = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
             PendingSyncItems.Add(new WorkstationSyncQueueItem
             {
@@ -6417,6 +6444,7 @@ namespace RunBook.Workstation.ViewModels
         {
             return Registration != null &&
                    Registration.IsActive &&
+                   _api.IsRegistrationEndpointCurrent(Settings, Registration) &&
                    string.Equals(Registration.Status, "active", StringComparison.OrdinalIgnoreCase) &&
                    !string.IsNullOrWhiteSpace(Registration.DeviceToken) &&
                    !string.IsNullOrWhiteSpace(Registration.ShopId) &&
@@ -6544,31 +6572,15 @@ namespace RunBook.Workstation.ViewModels
         {
             if (WorkstationStorageService.ShouldForceLocalService())
             {
-                Settings.DesktopBaseUrl = "http://localhost:30112";
-                SettingsDesktopBaseUrl = Settings.DesktopBaseUrl;
-                return;
+                Settings.DesktopBaseUrl = WorkstationServiceEndpoint.DefaultUrl;
+                Settings.AllowLanService = false;
+                SettingsAllowLanService = false;
             }
-
-            var current = (Settings.DesktopBaseUrl ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(current))
-                return;
-
-            if (!Uri.TryCreate(current, UriKind.Absolute, out var uri))
-                return;
-
-            if (!IsLoopbackHost(uri.Host))
-                return;
-
-            var workstationHost = (Settings.WorkstationName ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(workstationHost) || IsLoopbackHost(workstationHost))
-                return;
-
-            var builder = new UriBuilder(uri)
+            else if (string.IsNullOrWhiteSpace(Settings.DesktopBaseUrl))
             {
-                Host = workstationHost
-            };
-
-            Settings.DesktopBaseUrl = builder.Uri.ToString().TrimEnd('/');
+                Settings.DesktopBaseUrl = WorkstationServiceEndpoint.DefaultUrl;
+            }
+            // Do not replace localhost with the kiosk's machine name.
             SettingsDesktopBaseUrl = Settings.DesktopBaseUrl;
         }
 
@@ -7630,7 +7642,7 @@ namespace RunBook.Workstation.ViewModels
                 {
                     status.Label = key == "local_host"
                         ? (status.Health == ConnectionHealth.Healthy ? "Service Connected" : "Service Offline")
-                        : (status.Health == ConnectionHealth.Healthy ? "Desktop Connected" : "Desktop Offline");
+                        : (status.Health == ConnectionHealth.Healthy ? "Service Endpoint Reachable" : "Service Endpoint Offline");
                     ConnectionStatuses.Add(status);
                 }
             }
@@ -7677,7 +7689,8 @@ namespace RunBook.Workstation.ViewModels
             var probeGeneration = ++_localHostProbeGeneration;
             var settings = new WorkstationSettings
             {
-                DesktopBaseUrl = Settings.DesktopBaseUrl
+                DesktopBaseUrl = Settings.DesktopBaseUrl,
+                AllowLanService = Settings.AllowLanService
             };
 
             _ = RunLocalHostProbeAsync(settings, probeGeneration);

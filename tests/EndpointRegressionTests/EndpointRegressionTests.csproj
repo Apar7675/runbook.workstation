@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/RunBook.Workstation/Models/WorkstationModels.cs" Link="WorkstationModels.cs" />
+    <Compile Include="../../src/RunBook.Workstation/Services/RunBookWorkstationApiClient.cs" Link="RunBookWorkstationApiClient.cs" />
+    <Compile Include="../../src/RunBook.Workstation/Services/WorkstationServiceEndpoint.cs" Link="WorkstationServiceEndpoint.cs" />
+    <Compile Include="../../src/RunBook.Workstation/Services/WorkstationHttpClientFactory.cs" Link="WorkstationHttpClientFactory.cs" />
+    <Compile Include="../../src/RunBook.Workstation/Services/WorkstationConnectionStatusService.cs" Link="WorkstationConnectionStatusService.cs" />
+  </ItemGroup>
+</Project>

@@ -1574,6 +1574,12 @@
                                                             <TextBox Text="{Binding SettingsDesktopBaseUrl, UpdateSourceTrigger=PropertyChanged}"
                                                                      Height="42"
                                                                      VerticalContentAlignment="Center"/>
+                                                            <CheckBox IsChecked="{Binding SettingsAllowLanService}"
+                                                                      Content="Use a private-network Service (private IP only)"
+                                                                      Margin="0,8,0,0"/>
+                                                            <TextBlock Text="Changing the Service address requires pairing again. Use only your trusted shop network."
+                                                                       TextWrapping="Wrap"
+                                                                       Margin="0,4,0,0"/>
                                                         </StackPanel>
                                                         <StackPanel Grid.Column="2">
                                                             <TextBlock Text="Workstation Name" Style="{StaticResource Label}"/>

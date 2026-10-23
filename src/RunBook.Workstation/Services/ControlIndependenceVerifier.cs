@@ -58,6 +58,7 @@ namespace RunBook.Workstation.Services
 
                 var registration = new WorkstationRegistrationSnapshot
                 {
+                    ServiceEndpoint = DesktopBaseUrl,
                     ShopId = ShopId,
                     WorkstationId = WorkstationId,
                     WorkstationName = WorkstationName,

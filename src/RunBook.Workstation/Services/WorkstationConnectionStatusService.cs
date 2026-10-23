@@ -13,8 +13,6 @@ namespace RunBook.Workstation.Services
 {
     public sealed class WorkstationConnectionStatusService
     {
-        private const int LocalServicePort = 30112;
-        private const string LocalServiceBaseUrl = "http://localhost:30112";
         private static readonly TimeSpan LocalHostHealthyWindow = TimeSpan.FromSeconds(6);
         private static readonly TimeSpan LocalHostRecentlyReachableWindow = TimeSpan.FromSeconds(30);
         private static readonly TimeSpan LocalHostFailureGraceWindow = TimeSpan.FromSeconds(8);
@@ -54,7 +52,7 @@ namespace RunBook.Workstation.Services
             var checkedUtc = DateTime.UtcNow;
             try
             {
-                var builder = new UriBuilder(LocalServiceBaseUrl)
+                var builder = new UriBuilder(WorkstationServiceEndpoint.Resolve(settings))
                 {
                     Path = "/api/workstation-local/health"
                 };
@@ -73,11 +71,11 @@ namespace RunBook.Workstation.Services
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                return LocalHostProbeResult.Failed($"RunBook.Service health check timed out after {(int)LocalHostProbeTimeout.TotalMilliseconds} ms. (localhost:{LocalServicePort})", checkedUtc);
+                return LocalHostProbeResult.Failed($"RunBook.Service health check timed out after {(int)LocalHostProbeTimeout.TotalMilliseconds} ms. at the configured Service endpoint.", checkedUtc);
             }
             catch (Exception ex)
             {
-                return LocalHostProbeResult.Failed($"{ex.Message} (localhost:{LocalServicePort})", checkedUtc);
+                return LocalHostProbeResult.Failed(ex.Message, checkedUtc);
             }
         }
 
@@ -85,18 +83,17 @@ namespace RunBook.Workstation.Services
         {
             if (string.IsNullOrWhiteSpace(settings.DesktopBaseUrl))
             {
-                return DesktopProbeResult.Skipped("Desktop URL is not configured.");
+                return DesktopProbeResult.Skipped("Shop Service URL is not configured.");
             }
 
             if (registration == null || !registration.IsActive || string.IsNullOrWhiteSpace(registration.DeviceToken))
             {
-                return DesktopProbeResult.Skipped("Workstation is not enrolled with Desktop.");
+                return DesktopProbeResult.Skipped("Workstation is not paired with the selected Service.");
             }
 
-            if (!Uri.TryCreate(settings.DesktopBaseUrl, UriKind.Absolute, out var desktopUri))
-            {
-                return DesktopProbeResult.Failed("Desktop URL is invalid.");
-            }
+            Uri desktopUri;
+            try { desktopUri = WorkstationServiceEndpoint.Resolve(settings); }
+            catch (ArgumentException ex) { return DesktopProbeResult.Failed(ex.Message); }
 
             var port = desktopUri.IsDefaultPort ? (string.Equals(desktopUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ? 443 : 80) : desktopUri.Port;
             var checkedUtc = DateTime.UtcNow;
@@ -109,7 +106,7 @@ namespace RunBook.Workstation.Services
 
                 if (addresses.Length == 0)
                 {
-                    return DesktopProbeResult.Failed($"Live Desktop probe could not resolve any addresses. ({desktopUri.Host}:{port})", checkedUtc);
+                    return DesktopProbeResult.Failed($"Service socket probe could not resolve any addresses. ({desktopUri.Host}:{port})", checkedUtc);
                 }
 
                 var timeoutAtUtc = checkedUtc + DesktopProbeTimeout;
@@ -129,7 +126,7 @@ namespace RunBook.Workstation.Services
                 }
 
                 var message = string.IsNullOrWhiteSpace(lastFailure)
-                    ? $"Live Desktop probe timed out after {(int)DesktopProbeTimeout.TotalMilliseconds} ms. ({desktopUri.Host}:{port})"
+                    ? $"Service socket probe timed out after {(int)DesktopProbeTimeout.TotalMilliseconds} ms. ({desktopUri.Host}:{port})"
                     : $"{lastFailure} ({desktopUri.Host}:{port})";
                 return DesktopProbeResult.Failed(message, checkedUtc);
             }
@@ -147,13 +144,13 @@ namespace RunBook.Workstation.Services
                 var connectTask = tcpClient.ConnectAsync(address, port);
                 if (!connectTask.Wait(timeout))
                 {
-                    failureReason = $"Live Desktop probe timed out after {(int)Math.Max(1, Math.Round(timeout.TotalMilliseconds))} ms for {address}:{port}";
+                    failureReason = $"Service socket probe timed out after {(int)Math.Max(1, Math.Round(timeout.TotalMilliseconds))} ms for {address}:{port}";
                     return false;
                 }
 
                 if (connectTask.IsFaulted)
                 {
-                    failureReason = connectTask.Exception?.GetBaseException().Message ?? $"Live Desktop probe failed for {address}:{port}";
+                    failureReason = connectTask.Exception?.GetBaseException().Message ?? $"Service socket probe failed for {address}:{port}";
                     return false;
                 }
 
@@ -225,21 +222,21 @@ namespace RunBook.Workstation.Services
             var item = new ConnectionStatusItem
             {
                 Key = "desktop_link",
-                Label = "Desktop (Legacy)",
+                Label = "Service endpoint",
                 LastCheckedUtc = ToLocalTimestamp(lastDesktopProbeCheckedUtc ?? lastDesktopProbeSuccessUtc ?? lastDesktopProbeFailureUtc)
             };
 
             if (string.IsNullOrWhiteSpace(settings.DesktopBaseUrl))
             {
                 item.Health = ConnectionHealth.Disconnected;
-                item.Reason = "Desktop URL is not configured. This only affects deferred legacy endpoints.";
+                item.Reason = "Shop Service URL is not configured. Check the Service endpoint configuration.";
                 return item;
             }
 
             if (registration == null || !registration.IsActive || string.IsNullOrWhiteSpace(registration.DeviceToken))
             {
                 item.Health = ConnectionHealth.Disconnected;
-                item.Reason = "Legacy Desktop link is not enrolled. Core local access now runs through RunBook.Service.";
+                item.Reason = "Pair this workstation with the selected Service before operator access.";
                 return item;
             }
 
@@ -249,7 +246,7 @@ namespace RunBook.Workstation.Services
                 if (age <= DesktopHealthyWindow)
                 {
                     item.Health = ConnectionHealth.Healthy;
-                    item.Reason = "Desktop is reachable. This only matters for deferred workstation endpoints that still remain on Desktop.";
+                    item.Reason = "The configured Service socket is reachable.";
                     return item;
                 }
             }
@@ -263,14 +260,14 @@ namespace RunBook.Workstation.Services
                     if (successAge <= DesktopRecentlyReachableWindow)
                     {
                         item.Health = ConnectionHealth.Degraded;
-                        item.Reason = $"Desktop was reachable {ToAge(successAge)} ago, but the latest legacy probe failed {ToAge(failureAge)} ago.";
+                        item.Reason = $"The configured Service socket was reachable {ToAge(successAge)} ago, but the latest Service socket probe failed {ToAge(failureAge)} ago.";
                         return item;
                     }
                 }
 
                 item.Health = ConnectionHealth.Disconnected;
                 item.Reason = string.IsNullOrWhiteSpace(lastDesktopProbeFailureReason)
-                    ? "Desktop is unreachable. Core local access flows now use RunBook.Service; deferred legacy endpoints may fail."
+                    ? "The configured Service socket is unreachable."
                     : lastDesktopProbeFailureReason!;
                 return item;
             }
@@ -281,17 +278,17 @@ namespace RunBook.Workstation.Services
                 if (age <= DesktopRecentlyReachableWindow)
                 {
                     item.Health = ConnectionHealth.Degraded;
-                    item.Reason = $"Desktop was reachable recently, but the last legacy probe was {ToAge(age)} ago.";
+                    item.Reason = $"The configured Service socket was reachable recently, but the last Service socket probe was {ToAge(age)} ago.";
                     return item;
                 }
 
                 item.Health = ConnectionHealth.Disconnected;
-                item.Reason = $"Desktop was reachable before, but no legacy probe has succeeded for {ToAge(age)}.";
+                item.Reason = $"The configured Service socket was reachable before, but no Service socket probe has succeeded for {ToAge(age)}.";
                 return item;
             }
 
             item.Health = ConnectionHealth.Degraded;
-            item.Reason = "Waiting for the first legacy Desktop probe. Core local access does not depend on Desktop.";
+            item.Reason = "Waiting for the first configured Service socket probe.";
             return item;
         }
 

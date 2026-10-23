@@ -9,5 +9,6 @@
     <Compile Include="../../src/RunBook.Workstation/Models/WorkstationModels.cs" Link="WorkstationModels.cs" />
     <Compile Include="../../src/RunBook.Workstation/Services/WorkstationQueuePolicy.cs" Link="WorkstationQueuePolicy.cs" />
     <Compile Include="../../src/RunBook.Workstation/Services/WorkstationAtomicFile.cs" Link="WorkstationAtomicFile.cs" />
+    <Compile Include="../../src/RunBook.Workstation/Services/WorkstationOutboxFile.cs" Link="WorkstationOutboxFile.cs" />
   </ItemGroup>
 </Project>

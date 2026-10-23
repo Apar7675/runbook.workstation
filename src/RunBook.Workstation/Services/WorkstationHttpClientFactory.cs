@@ -11,7 +11,12 @@ namespace RunBook.Workstation.Services
 
         public static HttpClient Create(HttpMessageHandler? innerHandler = null, TimeSpan? timeout = null)
         {
-            var handler = innerHandler ?? new HttpClientHandler();
+            var handler = innerHandler ?? new HttpClientHandler
+            {
+                AllowAutoRedirect = false,
+                UseCookies = false,
+                UseProxy = false,
+            };
             if (ControlCallDetectionService.IsEnabled)
                 handler = ControlCallDetectionService.CreateGuardHandler(handler);
 
@@ -28,6 +33,7 @@ namespace RunBook.Workstation.Services
         {
             HttpMessageHandler handler = new SocketsHttpHandler
             {
+                AllowAutoRedirect = false,
                 UseCookies = false,
                 UseProxy = false,
                 Proxy = null,

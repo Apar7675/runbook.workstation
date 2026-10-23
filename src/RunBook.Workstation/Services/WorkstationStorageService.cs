@@ -126,8 +126,38 @@ namespace RunBook.Workstation.Services
         public static void SaveTimeClockCache(WorkstationPunchRecord[] punches) => SaveJson(GetTimeClockCachePath(), punches ?? Array.Empty<WorkstationPunchRecord>());
         public static WorkstationTimeclockSnapshot? LoadTimeclockState() => LoadJson<WorkstationTimeclockSnapshot>(GetTimeclockStatePath());
         public static void SaveTimeclockState(WorkstationTimeclockSnapshot? snapshot) => SaveJson(GetTimeclockStatePath(), snapshot);
-        public static WorkstationSyncQueueItem[] LoadTimeclockQueue() => LoadJson<WorkstationSyncQueueItem[]>(GetTimeclockQueuePath()) ?? Array.Empty<WorkstationSyncQueueItem>();
-        public static void SaveTimeclockQueue(WorkstationSyncQueueItem[] items) => SaveJson(GetTimeclockQueuePath(), items ?? Array.Empty<WorkstationSyncQueueItem>());
+        public static string TimeclockQueueReadError { get; private set; } = "";
+
+        public static WorkstationSyncQueueItem[] LoadTimeclockQueue()
+        {
+            try
+            {
+                var items = WorkstationOutboxFile.Read(GetTimeclockQueuePath());
+                TimeclockQueueReadError = "";
+                return items;
+            }
+            catch (InvalidDataException ex)
+            {
+                TimeclockQueueReadError = ex.Message;
+                DebugLogService.Write(ex.Message);
+                return Array.Empty<WorkstationSyncQueueItem>();
+            }
+        }
+
+        public static void EnsureTimeclockQueueReadable()
+        {
+            _ = WorkstationOutboxFile.Read(GetTimeclockQueuePath());
+            TimeclockQueueReadError = "";
+        }
+
+        public static void SaveTimeclockQueue(WorkstationSyncQueueItem[] items)
+        {
+            lock (FileWriteGate)
+            {
+                WorkstationOutboxFile.Write(GetTimeclockQueuePath(), items ?? Array.Empty<WorkstationSyncQueueItem>());
+                TimeclockQueueReadError = "";
+            }
+        }
         public static WorkstationEmployeeAuthCache? LoadAuthCache() => LoadProtectedJson<WorkstationEmployeeAuthCache>(GetAuthCachePath(), AuthCacheEntropy);
         public static void SaveAuthCache(WorkstationEmployeeAuthCache? cache) => SaveProtectedJson(GetAuthCachePath(), cache, AuthCacheEntropy);
         public static WorkstationRuntimeAccessTokenRecord? LoadRuntimeAccessToken() => LoadProtectedJson<WorkstationRuntimeAccessTokenRecord>(GetRuntimeAccessTokenPath(), RuntimeAccessTokenEntropy);

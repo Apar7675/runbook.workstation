@@ -58,6 +58,18 @@ try
     Assert(!File.Exists(Path.Combine(folder, "workstation-session.dat")), "old session credentials cleared");
     Assert(File.Exists(Path.Combine(folder, "unknown-preserved.json")), "unknown evidence retained");
 
+    var unreadableRejected = false;
+    try { WorkstationOutboxFile.Read(queue); }
+    catch (InvalidDataException) { unreadableRejected = true; }
+    Assert(unreadableRejected, "unreadable historical events are not treated as an empty outbox");
+    var overwriteRejected = false;
+    try { WorkstationOutboxFile.Write(queue, new[] { Item("11") }); }
+    catch (InvalidDataException) { overwriteRejected = true; }
+    Assert(overwriteRejected && File.ReadAllBytes(queue).SequenceEqual(evidence), "unreadable original cannot be overwritten with new events");
+    WorkstationAtomicFile.Write(queue, Encoding.UTF8.GetBytes("[]")); // Explicit synthetic recovery.
+    WorkstationOutboxFile.Write(queue, new[] { aPunch, aPto });
+    Assert(WorkstationOutboxFile.Read(queue).Select(item => item.ClientEventId).SequenceEqual(new[] { aPunch.ClientEventId, aPto.ClientEventId }), "valid recovered outbox retains exact event identities");
+
     WorkstationAtomicFile.Write(queue, Encoding.UTF8.GetBytes("old complete queue"));
     WorkstationAtomicFile.Write(queue, Encoding.UTF8.GetBytes("new complete queue"));
     Assert(File.ReadAllText(queue) == "new complete queue", "atomic replacement publishes full queue");

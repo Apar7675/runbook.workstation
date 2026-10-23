@@ -48,6 +48,7 @@ namespace RunBook.Workstation.Models
     {
         private string _controlBaseUrl = "http://localhost:3000";
         private string _desktopBaseUrl = "http://localhost:30112";
+        private bool _allowLanService;
         private string _shopId = "";
         private string _workstationId = "";
         private string _workstationName = Environment.MachineName;
@@ -56,6 +57,7 @@ namespace RunBook.Workstation.Models
 
         public string ControlBaseUrl { get => _controlBaseUrl; set => SetField(ref _controlBaseUrl, value ?? ""); }
         public string DesktopBaseUrl { get => _desktopBaseUrl; set => SetField(ref _desktopBaseUrl, value ?? ""); }
+        public bool AllowLanService { get => _allowLanService; set => SetField(ref _allowLanService, value); }
         public string ShopId { get => _shopId; set => SetField(ref _shopId, value ?? ""); }
         public string WorkstationId { get => _workstationId; set => SetField(ref _workstationId, value ?? ""); }
         public string WorkstationName { get => _workstationName; set => SetField(ref _workstationName, value ?? ""); }
@@ -164,6 +166,7 @@ namespace RunBook.Workstation.Models
 
     public sealed class WorkstationRegistrationSnapshot
     {
+        public string ServiceEndpoint { get; set; } = "";
         public string WorkstationId { get; set; } = "";
         public string ShopId { get; set; } = "";
         public string WorkstationName { get; set; } = "";
