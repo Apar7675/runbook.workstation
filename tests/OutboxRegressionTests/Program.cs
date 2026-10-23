@@ -85,6 +85,7 @@ try
     if (OperatingSystem.IsWindows())
         Assert(File.ReadAllText(queue) == "new complete queue", "failed publication preserves previously durable queue");
     Assert(!Directory.EnumerateFiles(folder, "*.tmp").Any(), "failed publication cleans temporary file only");
+    WorkstationAtomicFile.Write(queue, Encoding.UTF8.GetBytes("[]")); // Reset only this synthetic fixture after raw-byte atomic tests.
     WorkstationOutboxFile.Write(queue, new[] { aPunch });
     var durableBytes = File.ReadAllBytes(queue);
     using (var locked = new FileStream(queue, FileMode.Open, FileAccess.Read, FileShare.Read))
